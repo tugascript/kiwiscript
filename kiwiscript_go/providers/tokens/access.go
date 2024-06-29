@@ -1,0 +1,53 @@
+package tokens
+
+import (
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
+	db "github.com/kiwiscript/kiwiscript_go/providers/database"
+)
+
+type AccessUserClaims struct {
+	ID      int32
+	Version int16
+	IsAdmin bool
+	IsStaff bool
+}
+
+type tokenClaims struct {
+	User AccessUserClaims
+	jwt.RegisteredClaims
+}
+
+func (t *Tokens) CreateAccessToken(user db.User) (string, error) {
+	now := time.Now()
+	iat := jwt.NewNumericDate(now)
+	exp := jwt.NewNumericDate(now.Add(time.Second * time.Duration(t.accessData.ttlSec)))
+	token := jwt.NewWithClaims(&jwt.SigningMethodEd25519{}, tokenClaims{
+		User: AccessUserClaims{
+			ID:      user.ID,
+			Version: user.Version,
+			IsAdmin: user.IsAdmin,
+			IsStaff: user.IsStaff,
+		},
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    t.iss,
+			Audience:  jwt.ClaimStrings{t.iss},
+			Subject:   user.Email,
+			IssuedAt:  iat,
+			NotBefore: iat,
+			ExpiresAt: exp,
+			ID:        uuid.NewString(),
+		},
+	})
+	return token.SignedString(t.accessData.privateKey)
+}
+
+func (t *Tokens) VerifyAccessToken(token string) (AccessUserClaims, error) {
+	claims := tokenClaims{}
+	_, err := jwt.ParseWithClaims(token, &claims, func(token *jwt.Token) (interface{}, error) {
+		return t.accessData.publicKey, nil
+	})
+	return claims.User, err
+}

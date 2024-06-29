@@ -1,0 +1,349 @@
+Table users as U {
+  id serial [pk]
+  first_name varchar(50) [not null]
+  last_name varchar(50) [not null]
+  location varchar(3) [not null]
+  email varchar(250) [not null]
+  birth_date date [not null]
+  version smallint [not null, default: 1]
+  is_admin boolean [not null, default: false]
+  is_staff boolean [not null, default: false]
+  is_confirmed boolean [not null]
+  password text [null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    email [unique, name: 'users_email_unique_idx']
+  }
+}
+
+Table auth_providers as AP {
+  id serial [pk]
+  email varchar(250) [not null]
+  provider varchar(8) [not null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`] 
+
+  indexes {
+    email [name: 'auth_providers_email_idx']
+    (email, provider) [unique, name: 'auth_providers_email_provider_unique_idx']
+  }
+}
+Ref: AP.email > U.email [delete: cascade, update: cascade]
+
+Table languages as L {
+  id serial [pk]
+  name varchar(50) [not null, unique]
+  icon text [not null]
+  author_id int [not null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    name [unique, name: 'languages_name_unique_idx']
+  }
+}
+Ref: L.author_id > U.id [delete: cascade, update: cascade]
+
+Table categories as C {
+  id serial [pk]
+  title varchar(100) [not null]
+  slug varchar(100) [not null]
+  description text [not null]
+  author_id int [not null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    title [unique, name: 'categories_title_unique_idx']
+    slug [unique, name: 'categories_slug_unique_idx']
+  }
+}
+Ref: C.author_id > U.id [delete: cascade, update: cascade]
+
+Table series as S {
+  id serial [pk]
+  title varchar(100) [not null]
+  slug varchar(100) [not null]
+  description text [not null]
+  parts_count smallint [not null, default: 0]
+  lectures_count smallint [not null, default: 0]
+  total_duration_seconds int [not null, default: 0]
+  review_avg smallint [not null, default: 0]
+  review_count int [not null, default: 0]
+  is_published boolean [not null, default: false]
+  author_id int [not null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    title [unique, name: 'series_title_unique_idx']
+    slug [unique, name: 'series_slug_unique_idx']
+    is_published [name: 'series_is_published_idx']
+  }
+}
+Ref: S.author_id > U.id [delete: cascade, update: cascade]
+
+Table language_categories as LC {
+  language_id int [not null]
+  category_id int [not null]
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (language_id, category_id) [pk, unique]
+  }
+}
+Ref: LC.language_id > L.id [delete: cascade, update: cascade]
+Ref: LC.category_id > C.id [delete: cascade, update: cascade]
+
+Table series_categories as SC {
+  series_id int [ref: > S.id, not null]
+  category_id int [ref: > C.id, not null]
+  created_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (series_id, category_id) [pk, unique]
+  }
+}
+
+Table series_parts as SP {
+  id serial [pk]
+  title text [not null]
+  series_id int [not null]
+  description text [not null]
+  position smallint [not null]
+  lectures_count smallint [not null, default: 0]
+  total_duration_seconds int [not null, default: 0]
+  is_published boolean [not null, default: false]
+  author_id int [not null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (title, series_id) [unique, name: 'series_parts_title_series_id_unique_idx']
+    (series_id, position) [unique, name: 'series_parts_series_id_position_unique_idx']
+    series_id [name: 'series_parts_series_id_idx']
+    author_id [name: 'series_parts_author_id_idx']
+    is_published [name: 'series_parts_is_published_idx']
+    position [name: 'series_parts_position_idx']
+  }
+}
+Ref: SP.series_id > S.id [delete: cascade, update: cascade]
+Ref: SP.author_id > U.id [delete: cascade, update: cascade]
+
+Table lectures as LEC {
+  id serial [pk]
+  title text [not null]
+  video varchar(250) [not null]
+  duration_seconds int [not null]
+  position smallint [not null]
+  description text [not null]
+  is_published boolean [not null, default: false]
+  comments_count int [not null, default: 0]
+  author_id int [not null]
+  series_id int [not null]
+  series_part_id int [not null]
+  language_id int [not null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (title, series_id, series_part_id) [unique, name: 'lectures_title_series_id_series_part_id_unique_idx']
+    (series_part_id, position) [unique, name: 'lectures_series_part_id_position_unique_idx']
+    series_id [name: 'lectures_series_id_idx']
+    language_id [name: 'lectures_language_id_idx']
+    series_part_id [name: 'lectures_series_part_id_idx']
+    author_id [name: 'lectures_author_id_idx']
+    is_published [name: 'lectures_is_listed_idx']
+    position [name: 'lectures_position_idx']
+  }
+}
+Ref: LEC.author_id > U.id [delete: cascade, update: cascade]
+Ref: LEC.series_id > S.id [delete: cascade, update: cascade]
+Ref: LEC.series_part_id > SP.id [delete: cascade, update: cascade]
+Ref: LEC.language_id > L.id [delete: cascade, update: cascade]
+
+Table series_progress as SPR  {
+  id serial [pk]
+  user_id int [not null]
+  series_id int [not null]
+  language_id int [not null]
+  lectures_count smallint [not null, default: 0]
+  parts_count smallint [not null, default: 0]
+  is_completed boolean [not null, default: false]
+  completed_at timestamp [null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (user_id, series_id, language_id) [unique, name: 'series_progress_user_id_series_id_language_id_unique_idx']
+    user_id [name: 'series_progress_user_id_idx']
+    series_id [name: 'series_progress_series_id_idx']
+    language_id [name: 'series_progress_language_id_idx']
+  }
+}
+Ref: SPR.user_id > U.id [delete: cascade, update: cascade]
+Ref: SPR.series_id > S.id [delete: cascade, update: cascade]
+Ref: SPR.language_id > L.id [delete: cascade, update: cascade]
+
+Table series_part_progress as SPP {
+  id serial [pk]
+  user_id int [not null]
+  series_part_id int [not null]
+  language_id int [not null]
+  series_progress_id int [not null]
+  lectures_count smallint [not null, default: 0]
+  is_completed boolean [not null, default: false]
+  completed_at timestamp [null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (user_id, series_part_id, language_id) [unique, name: 'series_part_progress_user_id_series_part_id_language_id_unique_idx']
+    (user_id, series_progress_id, language_id) [unique, name: 'series_part_progress_user_id_series_progress_id_language_id_unique_idx']
+    user_id [name: 'series_part_progress_user_id_idx']
+    series_part_id [name: 'series_part_progress_series_part_id_idx']
+    series_progress_id [name: 'series_part_progress_series_progress_id_idx']
+    language_id [name: 'series_part_progress_language_id_idx']
+  }
+}
+Ref: SPP.user_id > U.id [delete: cascade, update: cascade]
+Ref: SPP.series_part_id > SP.id [delete: cascade, update: cascade]
+Ref: SPP.language_id > L.id [delete: cascade, update: cascade]
+Ref: SPP.series_progress_id > SPR.id [delete: cascade, update: cascade]
+
+Table lecture_progress as LP {
+  id serial [pk]
+  user_id int [not null]
+  language_id int [not null]
+  lecture_id int [not null]
+  series_progress_id int [not null]
+  series_part_progress_id int [not null]
+  is_completed boolean [not null, default: false]
+  completed_at timestamp [null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (user_id, lecture_id, language_id) [unique, name: 'lecture_progress_user_id_lecture_id_language_id_unique_idx']
+    (user_id, series_part_progress_id, language_id) [unique, name: 'lecture_progress_user_id_series_part_progress_id_language_id_unique_idx']
+    user_id [name: 'lecture_progress_user_id_idx']
+    lecture_id [name: 'lecture_progress_lecture_id_idx']
+    series_progress_id [name: 'lecture_progress_series_progress_id_idx']
+    series_part_progress_id [name: 'lecture_progress_series_part_progress_id_idx']
+    language_id [name: 'lecture_progress_language_id_idx']
+  }
+}
+Ref: LP.user_id > U.id [delete: cascade, update: cascade]
+Ref: LP.language_id > L.id [delete: cascade, update: cascade]
+Ref: LP.lecture_id > LEC.id [delete: cascade, update: cascade]
+Ref: LP.series_progress_id > SPR.id [delete: cascade, update: cascade]
+Ref: LP.series_part_progress_id > SPP.id [delete: cascade, update: cascade]
+
+Table series_review as SR {
+  id serial [pk]
+  author_id int [not null]
+  series_id int [not null]
+  language_id int [not null]
+  rating smallint [not null]
+  review text [null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (author_id, series_id, language_id) [unique, name: 'series_review_user_id_series_id_language_id_unique_idx']
+    author_id [name: 'series_review_author_id_idx']
+    series_id [name: 'series_review_series_id_idx']
+    language_id [name: 'series_review_language_id_idx']
+  }
+}
+Ref: SR.author_id > U.id [delete: cascade, update: cascade]
+Ref: SR.series_id > S.id [delete: cascade, update: cascade]
+Ref: SR.language_id > L.id [delete: cascade, update: cascade]
+
+Table lecture_comments as LCO {
+  id serial [pk]
+  author_id int [not null]
+  lecture_id int [not null]
+  comment text [not null]
+  replies_count int [not null, default: 0]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    author_id [name: 'lecture_comments_author_id_idx']
+  }
+}
+Ref: LCO.author_id > U.id [delete: cascade, update: cascade]
+Ref: LCO.lecture_id > LEC.id [delete: cascade, update: cascade]
+
+Table comment_replies as CR {
+  id serial [pk]
+  author_id int [not null]
+  comment_id int [not null]
+  reply text [not null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    author_id [name: 'comment_replies_author_id_idx']
+    comment_id [name: 'comment_replies_comment_id_idx']
+  }
+}
+
+Table certificates as CERT {
+  id serial [pk]
+  reference uuid [not null]
+  user_id int [not null]
+  language_id int [not null]
+  series_id int [not null]
+  completed_at timestamp [not null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    (user_id, language_id, series_id) [unique, name: 'certificates_user_id_language_id_series_id_unique_idx']
+    reference [unique, name: 'certificates_reference_unique_idx']
+    user_id [name: 'certificates_user_id_idx']
+    language_id [name: 'certificates_language_id_idx']
+    series_id [name: 'certificates_series_id_idx']
+  }
+}
+Ref: CERT.user_id > U.id [delete: cascade, update: cascade]
+Ref: CERT.language_id > L.id [delete: cascade, update: cascade]
+Ref: CERT.series_id > S.id [delete: cascade, update: cascade]
+
+Table donations as D {
+  id serial [pk]
+  user_id int [not null]
+  amount bigint [not null]
+  currency varchar(3) [not null]
+  recurring boolean [not null, default: false]
+  recurring_ref varchar(250) [null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    user_id [name: 'donations_user_id_idx']
+  }
+}
+Ref: D.user_id > U.id [delete: cascade, update: cascade]
+
+Table payments as P {
+  id serial [pk]
+  payment_ref varchar(250) [not null]
+  user_id int [not null]
+  donation_id int [not null]
+  amount bigint [not null]
+  currency varchar(3) [not null]
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+
+  indexes {
+    user_id [name: 'payments_user_id_idx']
+    donation_id [name: 'payments_donation_id_idx']
+  }
+}
+Ref: P.user_id > U.id [delete: cascade, update: cascade]
+Ref: P.donation_id > D.id [delete: cascade, update: cascade]

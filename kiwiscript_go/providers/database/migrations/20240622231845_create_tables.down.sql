@@ -1,0 +1,15 @@
+DROP TABLE IF EXISTS "payments";
+DROP TABLE IF EXISTS "donations";
+DROP TABLE IF EXISTS "certificates";
+DROP TABLE IF EXISTS "lecture_progress";
+DROP TABLE IF EXISTS "series_part_progress";
+DROP TABLE IF EXISTS "series_progress";
+DROP TABLE IF EXISTS "lectures";
+DROP TABLE IF EXISTS "series_parts";
+DROP TABLE IF EXISTS "series_categories";
+DROP TABLE IF EXISTS "language_categories";
+DROP TABLE IF EXISTS "series";
+DROP TABLE IF EXISTS "categories";
+DROP TABLE IF EXISTS "languages";
+DROP TABLE IF EXISTS "auth_providers";
+DROP TABLE IF EXISTS "users";
