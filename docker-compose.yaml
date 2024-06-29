@@ -1,7 +1,7 @@
 services:
   redis:
     container_name: redis
-    image: "bitnami/valkey"
+    image: "redis:7.2-alpine"
     command: redis-server
     ports:
       - "6379:6379"
@@ -34,9 +34,16 @@ services:
       - AWS_SECRET_ACCESS_KEY=test
     volumes:
       - ./localstack_data/bootstrap:/opt/bootstrap/
-      - ./data:/tmp/localstack_data
+      - ./localstack_data:/tmp/localstack_data
     networks:
       - provider_net
+
+  mailhog:
+    image: mailhog/mailhog
+    platform: linux/amd64
+    ports:
+      - "1025:1025"
+      - "8025:8025"
 
 networks:
   provider_net:
