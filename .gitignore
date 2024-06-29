@@ -78,6 +78,9 @@ target/
 *.so
 *.dylib
 
+# Air output
+tmp/
+
 # Test binary, built with `go test -c`
 *.test
 
@@ -89,3 +92,10 @@ target/
 
 # Go workspace file
 go.work
+
+# Docker
+/localstack_data
+/postgres_data
+
+# Secrets
+/keys
