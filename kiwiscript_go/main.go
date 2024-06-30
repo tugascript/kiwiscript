@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"log/slog"
+	"runtime"
 
 	"github.com/gofiber/storage/redis/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -10,10 +10,20 @@ import (
 )
 
 func main() {
-	log := slog.Default()
+	log := app.DefaultLogger()
 	log.Info("Loading configuration...")
-	config := app.NewConfig(log)
+	config := app.NewConfig(log, "./.env")
 	log.Info("Finished loading configuration")
+
+	// Set maximum CPU cores
+	log.Info("Setting GOMAXPROCS...", "maxProcs", config.MaxProcs)
+	runtime.GOMAXPROCS(int(config.MaxProcs))
+	log.Info("Finished setting GOMAXPROCS")
+
+	// Update logger
+	log.Info("Updating logger with config...")
+	log = app.GetLogger(config.Logger.Env, config.Logger.Debug)
+	log.Info("Finished updating logger")
 
 	// Build storages/models
 	log.Info("Building redis connection...")

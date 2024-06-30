@@ -76,16 +76,20 @@ type SignUpOptions struct {
 }
 
 func (s *Services) SignUp(ctx context.Context, options SignUpOptions) *ServiceError {
-	s.log.InfoContext(ctx, "Sign up", "email", options.Email)
-	birthDate, err := time.Parse(time.DateOnly, options.BirthDate)
+	log := s.log.WithGroup("services.auth.SignUp").With("email", options.Email)
+	log.InfoContext(ctx, "Sign up")
 
+	birthDate, err := time.Parse(time.DateOnly, options.BirthDate)
 	if err != nil {
+		log.WarnContext(ctx, "Invalid date format", "error", err)
 		return NewValidationError("'birthdate' is invalid date format")
 	}
 
 	password, err := hashPassword(options.Password)
 	if err != nil {
-		return NewServerError("Failed to hash password")
+		errMsg := "Failed to hash password"
+		log.ErrorContext(ctx, errMsg, "error", err)
+		return NewServerError(errMsg)
 	}
 
 	user, serviceErr := s.CreateUser(ctx, CreateUserOptions{
@@ -97,45 +101,49 @@ func (s *Services) SignUp(ctx context.Context, options SignUpOptions) *ServiceEr
 		Password:  password,
 		Provider:  ProviderEmail,
 	})
-
 	if serviceErr != nil {
+		log.WarnContext(ctx, "Failed to create user", "error", serviceErr)
 		return serviceErr
 	}
 
 	confirmationToken, err := s.jwt.CreateEmailToken(tokens.EmailTokenConfirmation, user)
 	if err != nil {
-		return NewServerError("Failed to create confirmation token")
+		errMsg := "Failed to create confirmation token"
+		log.ErrorContext(ctx, errMsg, "error", err)
+		return NewServerError(errMsg)
 	}
 
 	go func() {
-		if err := s.mail.SendConfirmationEmail(email.ConfirmationEmailOptions{
+		opts := email.ConfirmationEmailOptions{
 			Email:             user.Email,
 			FirstName:         user.FirstName,
 			LastName:          user.LastName,
 			ConfirmationToken: confirmationToken,
-		}); err != nil {
-			s.log.WarnContext(ctx, "Failed to send confirmation email", "error", err)
 		}
-
+		if err := s.mail.SendConfirmationEmail(opts); err != nil {
+			log.WarnContext(ctx, "Failed to send confirmation email", "error", err)
+		}
 	}()
 
-	s.log.InfoContext(ctx, "Sign up successful", "email", options.Email)
+	log.InfoContext(ctx, "Sign up successfully")
 	return nil
 }
 
-func (s *Services) generateAuthResponse(ctx context.Context, log *slog.Logger, user db.User) (AuthResponse, *ServiceError) {
+func (s *Services) generateAuthResponse(ctx context.Context, log *slog.Logger, successMsg string, user db.User) (AuthResponse, *ServiceError) {
 	var authResponse AuthResponse
 
 	accessToken, err := s.jwt.CreateAccessToken(user)
 	if err != nil {
-		log.ErrorContext(ctx, "Failed to create access token", "error", err)
-		return authResponse, NewServerError("Failed to create access token")
+		errMsg := "Failed to create access token"
+		log.ErrorContext(ctx, errMsg, "error", err)
+		return authResponse, NewServerError(errMsg)
 	}
 
 	refreshToken, err := s.jwt.CreateRefreshToken(user)
 	if err != nil {
-		log.ErrorContext(ctx, "Failed to create refresh token", "error", err)
-		return authResponse, NewServerError("Failed to create refresh token")
+		errMsg := "Failed to create refresh token"
+		log.ErrorContext(ctx, errMsg, "error", err)
+		return authResponse, NewServerError(errMsg)
 	}
 
 	authResponse = AuthResponse{
@@ -143,7 +151,7 @@ func (s *Services) generateAuthResponse(ctx context.Context, log *slog.Logger, u
 		RefreshToken: refreshToken,
 		ExpiresIn:    s.jwt.GetAccessTtl(),
 	}
-	log.InfoContext(ctx, "Auth request successful", "email", user.Email)
+	log.InfoContext(ctx, successMsg)
 	return authResponse, nil
 }
 
@@ -154,7 +162,7 @@ type AuthResponse struct {
 }
 
 func (s *Services) ConfirmEmail(ctx context.Context, token string) (AuthResponse, *ServiceError) {
-	log := s.log.WithGroup("auth.CofirmEmail")
+	log := s.log.WithGroup("services.auth.CofirmEmail").With("token", token)
 	log.InfoContext(ctx, "Confirm email")
 	var authResponse AuthResponse
 
@@ -189,7 +197,7 @@ func (s *Services) ConfirmEmail(ctx context.Context, token string) (AuthResponse
 		return authResponse, serviceErr
 	}
 
-	return s.generateAuthResponse(ctx, log, user)
+	return s.generateAuthResponse(ctx, log, "Confirmed email successfully", user)
 }
 
 func generateCode() (string, error) {
@@ -208,7 +216,7 @@ func generateCode() (string, error) {
 	return string(code), nil
 }
 
-func (s *Services) saveTwoFactorCode(userID int32) (string, *ServiceError) {
+func (s *Services) SaveTwoFactorCode(userID int32) (string, *ServiceError) {
 	code, err := generateCode()
 	if err != nil {
 		return "", NewServerError("Failed to generate two factor code")
@@ -232,14 +240,14 @@ type SignInOptions struct {
 }
 
 func (s *Services) SignIn(ctx context.Context, options SignInOptions) *ServiceError {
-	log := s.log.WithGroup("auth.SignIn")
-	log.InfoContext(ctx, "Sign in", "email", options.Email)
+	log := s.log.WithGroup("services.auth.SignIn").With("email", options.Email)
+	log.InfoContext(ctx, "Sign in")
 
-	_, err := s.database.FindAuthProviderByEmailAndProvider(ctx, db.FindAuthProviderByEmailAndProviderParams{
+	prms := db.FindAuthProviderByEmailAndProviderParams{
 		Email:    options.Email,
 		Provider: ProviderEmail,
-	})
-	if err != nil {
+	}
+	if _, err := s.database.FindAuthProviderByEmailAndProvider(ctx, prms); err != nil {
 		log.WarnContext(ctx, "Failed to find auth provider", "error", err)
 		return NewUnauthorizedError()
 	}
@@ -251,31 +259,32 @@ func (s *Services) SignIn(ctx context.Context, options SignInOptions) *ServiceEr
 	}
 
 	if !user.IsConfirmed {
-		log.WarnContext(ctx, "User not confirmed")
-		return NewValidationError("User not confirmed")
+		errMsg := "User not confirmed"
+		log.WarnContext(ctx, errMsg)
+		return NewValidationError(errMsg)
 	}
-
 	if !verifyPassword(options.Password, user.Password.String) {
 		log.WarnContext(ctx, "Invalid password")
 		return NewUnauthorizedError()
 	}
 
-	code, serviceErr := s.saveTwoFactorCode(user.ID)
+	code, serviceErr := s.SaveTwoFactorCode(user.ID)
 	if serviceErr != nil {
 		log.ErrorContext(ctx, "Failed to save two factor code", "error", serviceErr)
 		return serviceErr
 	}
 
 	go func() {
-		if err := s.mail.SendCodeEmail(email.CodeEmailOptions{
+		opts := email.CodeEmailOptions{
 			Email: user.Email,
 			Code:  code,
-		}); err != nil {
+		}
+		if err := s.mail.SendCodeEmail(opts); err != nil {
 			log.ErrorContext(ctx, "Failed to send two factor email", "error", err)
 		}
 	}()
 
-	log.InfoContext(ctx, "Sign in successful", "email", options.Email)
+	log.InfoContext(ctx, "Sign in successful")
 	return nil
 }
 
@@ -285,8 +294,8 @@ type TwoFactorOptions struct {
 }
 
 func (s *Services) TwoFactor(ctx context.Context, options TwoFactorOptions) (AuthResponse, *ServiceError) {
-	log := s.log.WithGroup("auth.TwoFactor")
-	log.InfoContext(ctx, "Two factor", "email", options.Email)
+	log := s.log.WithGroup("services.auth.TwoFactor").With("email", options.Email)
+	log.InfoContext(ctx, "Two factor confirmation")
 	var authResponse AuthResponse
 
 	user, serviceErr := s.FindUserByEmail(ctx, options.Email)
@@ -304,34 +313,17 @@ func (s *Services) TwoFactor(ctx context.Context, options TwoFactorOptions) (Aut
 		log.WarnContext(ctx, "Invalid two factor code")
 		return authResponse, NewUnauthorizedError()
 	}
-	if err = s.cache.DeleteTwoFactorCode(user.ID); err != nil {
-		log.WarnContext(ctx, "Failed to delete two factor code", "error", err)
-		return authResponse, NewServerError("Failed to delete two factor code")
+	if err := s.cache.DeleteTwoFactorCode(user.ID); err != nil {
+		errMsg := "Failed to delete two factor code"
+		log.WarnContext(ctx, errMsg, "error", err)
+		return authResponse, NewServerError(errMsg)
 	}
 
-	accessToken, err := s.jwt.CreateAccessToken(user)
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to create access token", "error", err)
-		return authResponse, NewServerError("Failed to create access token")
-	}
-
-	refreshToken, err := s.jwt.CreateRefreshToken(user)
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to create refresh token", "error", err)
-		return authResponse, NewServerError("Failed to create refresh token")
-	}
-
-	authResponse = AuthResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		ExpiresIn:    s.jwt.GetAccessTtl(),
-	}
-	log.InfoContext(ctx, "Two factor successful", "email", options.Email)
-	return authResponse, nil
+	return s.generateAuthResponse(ctx, log, "Confirmed two factor successfully", user)
 }
 
 func (s *Services) Refresh(ctx context.Context, token string) (AuthResponse, *ServiceError) {
-	log := s.log.WithGroup("auth.RefreshToken")
+	log := s.log.WithGroup("services.auth.RefreshToken").With("token", token)
 	log.InfoContext(ctx, "Refresh token")
 	var authResponse AuthResponse
 
@@ -355,11 +347,11 @@ func (s *Services) Refresh(ctx context.Context, token string) (AuthResponse, *Se
 		return authResponse, NewUnauthorizedError()
 	}
 
-	return s.generateAuthResponse(ctx, log, user)
+	return s.generateAuthResponse(ctx, log, "Refreshed token successfully", user)
 }
 
 func (s *Services) SignOut(ctx context.Context, token string) *ServiceError {
-	log := s.log.WithGroup("auth.SignOut")
+	log := s.log.WithGroup("services.auth.SignOut")
 	log.InfoContext(ctx, "Sign out")
 
 	_, id, exp, err := s.jwt.VerifyRefreshToken(token)
@@ -378,7 +370,7 @@ func (s *Services) SignOut(ctx context.Context, token string) *ServiceError {
 		return NewServerError("Failed to add black list")
 	}
 
-	log.InfoContext(ctx, "Sign out successful")
+	log.InfoContext(ctx, "Signed out successfully")
 	return nil
 }
 
@@ -390,8 +382,8 @@ type UpdatePasswordOptions struct {
 }
 
 func (s *Services) UpdatePassword(ctx context.Context, options UpdatePasswordOptions) (AuthResponse, *ServiceError) {
-	log := s.log.WithGroup("auth.UpdatePassword")
-	log.InfoContext(ctx, "Update password", "userID", options.UserID)
+	log := s.log.WithGroup("services.auth.UpdatePassword").With("userID", options.UserID)
+	log.InfoContext(ctx, "Update password")
 	var authResponse AuthResponse
 
 	user, serviceErr := s.FindUserByID(ctx, options.UserID)
@@ -429,7 +421,7 @@ func (s *Services) UpdatePassword(ctx context.Context, options UpdatePasswordOpt
 			return authResponse, serviceErr
 		}
 
-		return s.generateAuthResponse(ctx, log, user)
+		return s.generateAuthResponse(ctx, log, "Updated password successfully", user)
 	}
 
 	serviceErr = FromDBError(err)
@@ -488,12 +480,12 @@ func (s *Services) UpdatePassword(ctx context.Context, options UpdatePasswordOpt
 		return authResponse, FromDBError(err)
 	}
 
-	return s.generateAuthResponse(ctx, log, user)
+	return s.generateAuthResponse(ctx, log, "Updated password successfully", user)
 }
 
 func (s *Services) ForgotPassword(ctx context.Context, userEmail string) *ServiceError {
-	log := s.log.WithGroup("auth.ResetPassword")
-	log.InfoContext(ctx, "Reset password", "email", userEmail)
+	log := s.log.WithGroup("services.auth.ResetPassword").With("email", userEmail)
+	log.InfoContext(ctx, "Reset password")
 
 	user, serviceErr := s.FindUserByEmail(ctx, userEmail)
 	if serviceErr != nil {
@@ -508,22 +500,24 @@ func (s *Services) ForgotPassword(ctx context.Context, userEmail string) *Servic
 
 	emailToken, err := s.jwt.CreateEmailToken(tokens.EmailTokenReset, user)
 	if err != nil {
-		log.ErrorContext(ctx, "Failed to create email token", "error", err)
-		return NewServerError("Failed to create email token")
+		errMsg := "Failed to create email token"
+		log.ErrorContext(ctx, errMsg, "error", err)
+		return NewServerError(errMsg)
 	}
 
 	go func() {
-		if err := s.mail.SendResetEmail(email.ResetEmailOptions{
+		opts := email.ResetEmailOptions{
 			Email:      user.Email,
 			FirstName:  user.FirstName,
 			LastName:   user.LastName,
 			ResetToken: emailToken,
-		}); err != nil {
+		}
+		if err := s.mail.SendResetEmail(opts); err != nil {
 			log.ErrorContext(ctx, "Failed to send two factor email", "error", err)
 		}
 	}()
 
-	log.InfoContext(ctx, "Reset password successful", "email", userEmail)
+	log.InfoContext(ctx, "Reset password successfully")
 	return nil
 }
 
@@ -533,7 +527,7 @@ type ResetPasswordOptions struct {
 }
 
 func (s *Services) ResetPassword(ctx context.Context, options ResetPasswordOptions) *ServiceError {
-	log := s.log.WithGroup("auth.ResetPassword")
+	log := s.log.WithGroup("services.auth.ResetPassword")
 	log.InfoContext(ctx, "Reset password")
 
 	tokenType, claims, err := s.jwt.VerifyEmailToken(options.ResetToken)
@@ -584,7 +578,7 @@ type UpdateEmailOptions struct {
 }
 
 func (s *Services) UpdateEmail(ctx context.Context, options UpdateEmailOptions) (AuthResponse, *ServiceError) {
-	log := s.log.WithGroup("auth.UpdateEmail")
+	log := s.log.WithGroup("services.auth.UpdateEmail")
 	log.InfoContext(ctx, "Update email", "userID", options.UserID)
 	var authResponse AuthResponse
 
@@ -661,8 +655,7 @@ func (s *Services) UpdateEmail(ctx context.Context, options UpdateEmailOptions) 
 		return authResponse, FromDBError(err)
 	}
 
-	log.InfoContext(ctx, "Update email successful")
-	return s.generateAuthResponse(ctx, log, user)
+	return s.generateAuthResponse(ctx, log, "Update email successfully", user)
 }
 
 func (s *Services) ProcessAuthHeader(authHeader string) (tokens.AccessUserClaims, *ServiceError) {
@@ -676,9 +669,9 @@ func (s *Services) ProcessAuthHeader(authHeader string) (tokens.AccessUserClaims
 		return userClaims, NewUnauthorizedError()
 	}
 
-	claims, err := s.jwt.VerifyAccessToken(authHeaderSlice[1])
+	userClaims, err := s.jwt.VerifyAccessToken(authHeaderSlice[1])
 	if err != nil {
-		return tokens.AccessUserClaims{}, NewUnauthorizedError()
+		return userClaims, NewUnauthorizedError()
 	}
-	return claims, nil
+	return userClaims, nil
 }

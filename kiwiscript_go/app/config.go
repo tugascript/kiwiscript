@@ -4,9 +4,15 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
+
+type LoggerConfig struct {
+	Env   string
+	Debug bool
+}
 
 type SingleJwtConfig struct {
 	PublicKey  string
@@ -29,6 +35,7 @@ type EmailConfig struct {
 }
 
 type AppConfig struct {
+	MaxProcs          int64
 	Port              string
 	RefreshCookieName string
 	CookieSecret      string
@@ -36,12 +43,16 @@ type AppConfig struct {
 	PostgresURL       string
 	FrontendDomain    string
 	BackendDomain     string
+	Logger            LoggerConfig
 	Email             EmailConfig
 	Tokens            TokensConfig
 }
 
-var variables = [21]string{
+var variables = [24]string{
 	"PORT",
+	"ENV",
+	"DEBUG",
+	"MAX_PROCS",
 	"DATABASE_URL",
 	"REDIS_URL",
 	"FRONTEND_DOMAIN",
@@ -64,14 +75,15 @@ var variables = [21]string{
 	"EMAIL_NAME",
 }
 
-var ttls = [3]string{
+var numerics = [4]string{
+	"MAX_PROCS",
 	"JWT_ACCESS_TTL_SEC",
 	"JWT_REFRESH_TTL_SEC",
 	"JWT_EMAIL_TTL_SEC",
 }
 
-func NewConfig(log *slog.Logger) *AppConfig {
-	err := godotenv.Load()
+func NewConfig(log *slog.Logger, envPath string) *AppConfig {
+	err := godotenv.Load(envPath)
 	if err != nil {
 		log.Error("Error loading .env file")
 	}
@@ -87,15 +99,16 @@ func NewConfig(log *slog.Logger) *AppConfig {
 	}
 
 	intMap := make(map[string]int64)
-	for _, ttl := range ttls {
-		value, err := strconv.ParseInt(variablesMap[ttl], 10, 0)
+	for _, numeric := range numerics {
+		value, err := strconv.ParseInt(variablesMap[numeric], 10, 0)
 		if err != nil {
-			log.Error(ttl + " is not an integer")
-			panic(ttl + " is not an integer")
+			log.Error(numeric + " is not an integer")
+			panic(numeric + " is not an integer")
 		}
-		intMap[ttl] = value
+		intMap[numeric] = value
 	}
 	return &AppConfig{
+		MaxProcs:          intMap["MAX_PROCS"],
 		Port:              variablesMap["PORT"],
 		PostgresURL:       variablesMap["DATABASE_URL"],
 		RedisURL:          variablesMap["REDIS_URL"],
@@ -103,6 +116,10 @@ func NewConfig(log *slog.Logger) *AppConfig {
 		BackendDomain:     variablesMap["BACKEND_DOMAIN"],
 		CookieSecret:      variablesMap["COOKIE_SECRET"],
 		RefreshCookieName: variablesMap["REFRESH_COOKIE_NAME"],
+		Logger: LoggerConfig{
+			Env:   strings.ToLower(variablesMap["ENV"]),
+			Debug: strings.ToLower(variablesMap["DEBUG"]) == "true",
+		},
 		Email: EmailConfig{
 			Host:     variablesMap["EMAIL_HOST"],
 			Port:     variablesMap["EMAIL_PORT"],

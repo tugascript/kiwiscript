@@ -1,6 +1,9 @@
 package controllers
 
-import "github.com/kiwiscript/kiwiscript_go/services"
+import (
+	"github.com/go-playground/validator/v10"
+	"github.com/kiwiscript/kiwiscript_go/services"
+)
 
 const (
 	StatusDuplicateKey string = "Conflict"
@@ -59,6 +62,68 @@ func NewRequestError(err *services.ServiceError) RequestError {
 			Code:    StatusUnknown,
 			Message: err.Message,
 		}
+	}
+}
+
+type FieldError struct {
+	Field string `json:"field"`
+	Error string `json:"error"`
+	Tag   string `json:"tag"`
+}
+
+type RequestValidationError struct {
+	Code     string       `json:"code"`
+	Message  string       `json:"message"`
+	Location string       `json:"location"`
+	Fields   []FieldError `json:"fields"`
+}
+
+const (
+	RequestValidationMessage       string = "Invalid request"
+	RequestValidationLocationBody  string = "body"
+	RequestValidationLocationQuery string = "query"
+	RequestValidationLocationParam string = "param"
+)
+
+func RequestValidationErrorFromErr(err *validator.ValidationErrors, location string) RequestValidationError {
+	fields := make([]FieldError, len(*err))
+
+	for i, field := range *err {
+		fields[i] = FieldError{
+			Field: field.Field(),
+			Error: field.Error(),
+			Tag:   field.Tag(),
+		}
+	}
+
+	return RequestValidationError{
+		Code:     StatusValidation,
+		Message:  RequestValidationMessage,
+		Fields:   fields,
+		Location: location,
+	}
+}
+
+func NewRequestValidationError(location string, fields []FieldError) RequestValidationError {
+	return RequestValidationError{
+		Code:     StatusValidation,
+		Message:  RequestValidationMessage,
+		Fields:   fields,
+		Location: location,
+	}
+}
+
+type EmptyRequestValidationError struct {
+	Code     string `json:"code"`
+	Message  string `json:"message"`
+	Location string `json:"location"`
+}
+
+func NewEmptyRequestValidationError(location string) EmptyRequestValidationError {
+	return EmptyRequestValidationError{
+		Code:     StatusValidation,
+		Message:  RequestValidationMessage,
+		Location: location,
 	}
 }
 

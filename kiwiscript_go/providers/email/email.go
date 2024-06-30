@@ -1,6 +1,8 @@
 package email
 
-import "net/smtp"
+import (
+	"net/smtp"
+)
 
 type Mail struct {
 	auth           smtp.Auth
@@ -21,7 +23,9 @@ func NewMail(username, password, port, host, name, frontendDomain string) *Mail 
 }
 
 func (m *Mail) sendMail(to string, subject, body string) error {
-	return smtp.SendMail(m.host+":"+m.port, m.auth, m.address, []string{to}, []byte("Subject: "+subject+"\r\n\r\n"+body))
+	addr := m.host + ":" + m.port
+	msg := []byte("To: " + to + "\r\n" + "Subject: " + subject + "\r\n" + body)
+	return smtp.SendMail(addr, m.auth, m.address, []string{to}, msg)
 }
 
 func (m *Mail) buildUrl(path, token string) string {

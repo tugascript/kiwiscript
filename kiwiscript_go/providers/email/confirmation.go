@@ -19,11 +19,11 @@ const confirmationTemplate = `
 <body>
 	<h1>Email Confirmation</h1>
 	<br/>
-	<p>Welcome {{.firstName}} {{.lastName}}</p>
+	<p>Welcome {{.FirstName}} {{.LastName}}</p>
 	<br/>
 	<p>Thank you for signing up to Kiwi Script. Please click the link below to confirm your email address.</p>
 	<a href="{{.ConfirmationURL}}">Confirm Email</a>
-	<p><small>Or copy this link: {{.confirmationURL}}</small></p>
+	<p><small>Or copy this link: {{.ConfirmationURL}}</small></p>
 	<br/>
 	<p>Thank you,</p>
 	<p>Kiwi Script Team</p>

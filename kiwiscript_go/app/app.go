@@ -68,11 +68,12 @@ func CreateApp(
 	// Build service
 	srvs := services.NewServices(database, cache, mailer, tokenProv, log)
 	// Build controllers
-	ctrls := controllers.NewControllers(srvs, vld, refreshCookieName)
+	ctrls := controllers.NewControllers(log, srvs, vld, refreshCookieName)
 	// Build router
 	rtr := routers.NewRouter(app, ctrls)
 
 	// Build routes
+	rtr.HealthRoutes()
 	rtr.AuthPrivateRoutes()
 	rtr.AuthPublicRoutes()
 

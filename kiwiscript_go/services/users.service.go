@@ -20,11 +20,14 @@ type CreateUserOptions struct {
 }
 
 func (s *Services) CreateUser(ctx context.Context, options CreateUserOptions) (db.User, *ServiceError) {
+	log := s.log.WithGroup("services.users.CreateUser")
 	var birthDate pgtype.Date
+	var user db.User
 
 	err := birthDate.Scan(options.BirthDate)
 	if err != nil {
-		return db.User{}, NewValidationError("'birthdate' is invalid date format")
+		log.InfoContext(ctx, "birthdate is invalid date format", "birthdate", options.BirthDate)
+		return user, NewValidationError("'birthdate' is invalid date format")
 	}
 
 	var provider string
@@ -35,12 +38,12 @@ func (s *Services) CreateUser(ctx context.Context, options CreateUserOptions) (d
 		provider = options.Provider
 		err := password.Scan(options.Password)
 		if err != nil {
-			return db.User{}, NewValidationError("'password' is invalid")
+			return user, NewValidationError("'password' is invalid")
 		}
 	case ProviderFacebook, ProviderGoogle:
 		provider = options.Provider
 	default:
-		return db.User{}, NewServerError("'provider' must be 'email', 'facebook' or 'google'")
+		return user, NewServerError("'provider' must be 'email', 'facebook' or 'google'")
 	}
 
 	location := strings.ToUpper(options.Location)
@@ -50,7 +53,7 @@ func (s *Services) CreateUser(ctx context.Context, options CreateUserOptions) (d
 
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
-		return db.User{}, FromDBError(err)
+		return user, FromDBError(err)
 	}
 
 	defer func() {
@@ -67,7 +70,6 @@ func (s *Services) CreateUser(ctx context.Context, options CreateUserOptions) (d
 		}
 	}()
 
-	var user db.User
 	if provider == ProviderEmail {
 		user, err = qrs.CreateUserWithPassword(ctx, db.CreateUserWithPasswordParams{
 			FirstName: options.FirstName,
@@ -90,13 +92,11 @@ func (s *Services) CreateUser(ctx context.Context, options CreateUserOptions) (d
 	if err != nil {
 		return user, FromDBError(err)
 	}
-
-	err = qrs.CreateAuthProvider(ctx, db.CreateAuthProviderParams{
+	if err = qrs.CreateAuthProvider(ctx, db.CreateAuthProviderParams{
 		Email:    user.Email,
 		Provider: provider,
-	})
-	if err != nil {
-		return user, FromDBError(err)
+	}); err != nil {
+		return db.User{}, FromDBError(err)
 	}
 
 	return user, nil

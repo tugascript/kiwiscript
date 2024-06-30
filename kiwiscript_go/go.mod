@@ -3,6 +3,7 @@ module github.com/kiwiscript/kiwiscript_go
 go 1.22.3
 
 require (
+	github.com/go-faker/faker/v4 v4.4.2
 	github.com/go-playground/validator/v10 v10.22.0
 	github.com/gofiber/fiber/v2 v2.52.4
 	github.com/gofiber/storage/redis/v3 v3.1.1
@@ -11,6 +12,7 @@ require (
 	github.com/jackc/pgx/v5 v5.6.0
 	github.com/joho/godotenv v1.5.1
 	golang.org/x/crypto v0.24.0
+	golang.org/x/text v0.16.0
 )
 
 require (
@@ -38,5 +40,4 @@ require (
 	golang.org/x/net v0.21.0 // indirect
 	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.21.0 // indirect
-	golang.org/x/text v0.16.0 // indirect
 )

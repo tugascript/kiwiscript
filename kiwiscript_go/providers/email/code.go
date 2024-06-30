@@ -17,9 +17,9 @@ const codeTemplate = `
 <body>
 	<h1>Access Code</h1>
 	<br/>
-	<p>Hello {{.firstName}} {{.lastName}}</p>
+	<p>Hello {{.FirstName}} {{.LastName}}</p>
 	<br/>
-	<p>Your access code is: <strong>{{.code}}</strong></p>
+	<p>Your access code is: <strong>{{.Code}}</strong></p>
 	<br/>
 	<p>Happy coding,</p>
 	<p>Kiwi Script Team</p>

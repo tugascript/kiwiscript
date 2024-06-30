@@ -1,8 +1,10 @@
 package controllers
 
 import (
+	"errors"
 	"unicode"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/kiwiscript/kiwiscript_go/services"
 )
@@ -52,43 +54,60 @@ func (c *Controllers) processAuthResponse(ctx *fiber.Ctx, authRes services.AuthR
 }
 
 func (c *Controllers) SignUp(ctx *fiber.Ctx) error {
+	log := c.log.WithGroup("controllers.auth.SignUp")
+	userCtx := ctx.UserContext()
 	var request SignUpRequest
-	serviceErr := services.NewValidationError("Invalid request")
 
 	if err := ctx.BodyParser(&request); err != nil {
+		log.WarnContext(userCtx, "Failed to parse request", "error", err)
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+			JSON(NewEmptyRequestValidationError(RequestValidationLocationBody))
 	}
-	if err := c.validate.Struct(request); err != nil {
+	if err := c.validate.StructCtx(userCtx, request); err != nil {
+		log.WarnContext(userCtx, "Failed to validate request", "error", err)
+		var vErrs *validator.ValidationErrors
+		if errors.As(err, &vErrs) {
+			return ctx.
+				Status(fiber.StatusBadRequest).
+				JSON(RequestValidationErrorFromErr(vErrs, RequestValidationLocationBody))
+		}
+
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+			JSON(NewEmptyRequestValidationError(RequestValidationLocationBody))
 	}
 	if err := passwordValidator(request.Password1); err != nil {
+		log.WarnContext(userCtx, "Failed to validate password", "error", err)
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(err))
+			JSON(NewRequestValidationError(RequestValidationLocationBody, []FieldError{
+				{Field: "password", Error: err.Message},
+			}))
 	}
 	if request.Password1 != request.Password2 {
-		serviceErr = services.NewValidationError("Password does not match")
+		errMsg := "Passwords do not match"
+		log.WarnContext(userCtx, errMsg)
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+			JSON(NewRequestValidationError(RequestValidationLocationBody, []FieldError{
+				{Field: "password", Error: errMsg},
+			}))
 	}
 
-	serviceErr = c.services.SignUp(ctx.UserContext(), services.SignUpOptions{
-		Email:     request.Email,
-		FirstName: request.FirstName,
-		LastName:  request.LastName,
-		Location:  request.Location,
+	opts := services.SignUpOptions{
+		Email:     Lowered(request.Email),
+		FirstName: Capitalized(request.FirstName),
+		LastName:  Capitalized(request.LastName),
+		Location:  Uppercased(request.Location),
 		BirthDate: request.BirthDate,
 		Password:  request.Password1,
-	})
-	if serviceErr != nil {
+	}
+	if err := c.services.SignUp(userCtx, opts); err != nil {
+		log.WarnContext(userCtx, "Failed to sign up", "error", err)
 		return ctx.
-			Status(NewRequestErrorStatus(serviceErr.Code)).
-			JSON(NewRequestError(serviceErr))
+			Status(NewRequestErrorStatus(err.Code)).
+			JSON(NewRequestError(err))
 	}
 
 	return ctx.
