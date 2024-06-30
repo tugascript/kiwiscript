@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/encryptcookie"
 	"github.com/kiwiscript/kiwiscript_go/controllers"
+	cc "github.com/kiwiscript/kiwiscript_go/providers/cache"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/providers/tokens"
 	"github.com/kiwiscript/kiwiscript_go/services"
@@ -451,6 +452,8 @@ func TestLoginConfirmUserNotConfirmed(t *testing.T) {
 // ----- Logout -----
 const logoutPath = "/api/auth/logout"
 
+// TODO: use table tests for logout body and cookie
+
 func TestBodyLogout(t *testing.T) {
 	// Arrange
 	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
@@ -555,6 +558,26 @@ func TestCookieLogoutValidationErr(t *testing.T) {
 // ----- Test Refresh -----
 const refreshPath = "/api/auth/refresh"
 
+// TODO: use table tests for refresh body and cookie
+
+func blackListRefreshToken(t *testing.T, refreshToken string) {
+	cacheProv := GetTestCache(t)
+	tokensProv := GetTestTokens(t)
+
+	_, id, exp, err := tokensProv.VerifyRefreshToken(refreshToken)
+	if err != nil {
+		t.Fatal("Failed to verify refresh token", err)
+	}
+
+	opts := cc.AddBlackListOptions{
+		ID:  id,
+		Exp: exp,
+	}
+	if err := cacheProv.AddBlackList(opts); err != nil {
+		t.Fatal("Failed to add token to black list", err)
+	}
+}
+
 func TestBodyRefresh(t *testing.T) {
 	// Arrange
 	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
@@ -604,4 +627,112 @@ func TestCookieRefreshVersionMissmatchErr(t *testing.T) {
 	AssertTestStatusCode(t, resp, fiber.StatusUnauthorized)
 	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 	AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+}
+
+func TestBodyRefreshVersionMissmatchErr(t *testing.T) {
+	// Arrange
+	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+	testUser.Version = math.MaxInt16
+	_, refreshToken := GenerateTestAuthTokens(t, testUser)
+	app := GetTestApp(t)
+	reqBody := controllers.RefreshRequest{RefreshToken: refreshToken}
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, refreshPath, "", jsonBody)
+	defer resp.Body.Close()
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusUnauthorized)
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+	AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+}
+
+func TestCookieRefreshBlacklistedErr(t *testing.T) {
+	// Arrange
+	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+	_, refreshToken := GenerateTestAuthTokens(t, testUser)
+	blackListRefreshToken(t, refreshToken)
+	app := GetTestApp(t)
+
+	// Act
+	resp := performCookieRequest(t, app, refreshPath, "", refreshToken)
+	defer resp.Body.Close()
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusUnauthorized)
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+	AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+}
+
+func TestBodyRefreshBlacklistedErr(t *testing.T) {
+	// Arrange
+	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+	_, refreshToken := GenerateTestAuthTokens(t, testUser)
+	blackListRefreshToken(t, refreshToken)
+	app := GetTestApp(t)
+	reqBody := controllers.RefreshRequest{RefreshToken: refreshToken}
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, refreshPath, "", jsonBody)
+	defer resp.Body.Close()
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusUnauthorized)
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+	AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+}
+
+func TestBodyRefreshDeletedUserErr(t *testing.T) {
+	// Arrange
+	testUser := CreateFakeTestUser(t)
+	_, refreshToken := GenerateTestAuthTokens(t, testUser)
+	app := GetTestApp(t)
+	reqBody := controllers.RefreshRequest{RefreshToken: refreshToken}
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, refreshPath, "", jsonBody)
+	defer resp.Body.Close()
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusUnauthorized)
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+	AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+}
+
+func TestCookieRefreshDeletedUserErr(t *testing.T) {
+	// Arrange
+	testUser := CreateFakeTestUser(t)
+	_, refreshToken := GenerateTestAuthTokens(t, testUser)
+	app := GetTestApp(t)
+
+	// Act
+	resp := performCookieRequest(t, app, refreshPath, "", refreshToken)
+	defer resp.Body.Close()
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusUnauthorized)
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+	AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+}
+
+func TestBodyRefreshValidationErr(t *testing.T) {
+	// Arrange
+	app := GetTestApp(t)
+	reqBody := controllers.RefreshRequest{RefreshToken: "not-jwt"}
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, refreshPath, "", jsonBody)
+	defer resp.Body.Close()
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusBadRequest)
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+	AssertEqual(t, 1, len(resBody.Fields))
+	AssertEqual(t, "refresh_token", resBody.Fields[0].Param)
+	AssertEqual(t, "Field validation for 'RefreshToken' failed on the 'jwt' tag", resBody.Fields[0].Error)
+	AssertEqual(t, reqBody.RefreshToken, resBody.Fields[0].Value)
 }
