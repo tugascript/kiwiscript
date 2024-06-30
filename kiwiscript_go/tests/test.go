@@ -17,17 +17,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/kiwiscript/kiwiscript_go/app"
-	"github.com/kiwiscript/kiwiscript_go/controllers"
 	cc "github.com/kiwiscript/kiwiscript_go/providers/cache"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/providers/email"
 	"github.com/kiwiscript/kiwiscript_go/providers/tokens"
 	"github.com/kiwiscript/kiwiscript_go/services"
+	"github.com/kiwiscript/kiwiscript_go/utils"
 )
 
+var testConfig *app.AppConfig
 var testServices *services.Services
 var testApp *fiber.App
 var testTokens *tokens.Tokens
+var testDatabase *db.Database
+var testCache *cc.Cache
 
 const (
 	MethodPost  string = "POST"
@@ -39,20 +42,20 @@ const (
 
 func initTestServicesAndApp(t *testing.T) {
 	log := app.DefaultLogger()
-	config := app.NewConfig(log, "../.env")
-	log = app.GetLogger(config.Logger.Env, config.Logger.Debug)
+	testConfig = app.NewConfig(log, "../.env")
+	log = app.GetLogger(testConfig.Logger.Env, testConfig.Logger.Debug)
 
 	// Build storages/models
 	log.Info("Building redis connection...")
 	storage := redis.New(redis.Config{
-		URL: config.RedisURL,
+		URL: testConfig.RedisURL,
 	})
 	log.Info("Finished building redis connection")
 
 	// Build database connection
 	log.Info("Building database connection...")
 	ctx := context.Background()
-	dbConnPool, err := pgxpool.New(ctx, config.PostgresURL)
+	dbConnPool, err := pgxpool.New(ctx, testConfig.PostgresURL)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to connect to database", "error", err)
 		t.Fatal("Failed to connect to database", err)
@@ -60,23 +63,24 @@ func initTestServicesAndApp(t *testing.T) {
 	log.Info("Finished building database connection")
 
 	testTokens = tokens.NewTokens(
-		tokens.NewTokenSecretData(config.Tokens.Access.PublicKey, config.Tokens.Access.PrivateKey, config.Tokens.Access.TtlSec),
-		tokens.NewTokenSecretData(config.Tokens.Refresh.PublicKey, config.Tokens.Refresh.PrivateKey, config.Tokens.Refresh.TtlSec),
-		tokens.NewTokenSecretData(config.Tokens.Email.PublicKey, config.Tokens.Email.PrivateKey, config.Tokens.Email.TtlSec),
-		"https://"+config.BackendDomain,
+		tokens.NewTokenSecretData(testConfig.Tokens.Access.PublicKey, testConfig.Tokens.Access.PrivateKey, testConfig.Tokens.Access.TtlSec),
+		tokens.NewTokenSecretData(testConfig.Tokens.Refresh.PublicKey, testConfig.Tokens.Refresh.PrivateKey, testConfig.Tokens.Refresh.TtlSec),
+		tokens.NewTokenSecretData(testConfig.Tokens.Email.PublicKey, testConfig.Tokens.Email.PrivateKey, testConfig.Tokens.Email.TtlSec),
+		"https://"+testConfig.BackendDomain,
 	)
 	mailer := email.NewMail(
-		config.Email.Username,
-		config.Email.Password,
-		config.Email.Port,
-		config.Email.Host,
-		config.Email.Name,
-		config.FrontendDomain,
+		testConfig.Email.Username,
+		testConfig.Email.Password,
+		testConfig.Email.Port,
+		testConfig.Email.Host,
+		testConfig.Email.Name,
+		testConfig.FrontendDomain,
 	)
-
+	testDatabase = db.NewDatabase(dbConnPool)
+	testCache = cc.NewCache(storage)
 	testServices = services.NewServices(
-		db.NewDatabase(dbConnPool),
-		cc.NewCache(storage),
+		testDatabase,
+		testCache,
 		mailer,
 		testTokens,
 		log,
@@ -85,12 +89,22 @@ func initTestServicesAndApp(t *testing.T) {
 		log,
 		storage,
 		dbConnPool,
-		&config.Email,
-		&config.Tokens,
-		config.BackendDomain,
-		config.FrontendDomain,
-		config.RefreshCookieName,
+		&testConfig.Email,
+		&testConfig.Tokens,
+		&testConfig.Limiter,
+		testConfig.BackendDomain,
+		testConfig.FrontendDomain,
+		testConfig.RefreshCookieName,
+		testConfig.CookieSecret,
 	)
+}
+
+func GetTestConfig(t *testing.T) *app.AppConfig {
+	if testConfig == nil {
+		initTestServicesAndApp(t)
+	}
+
+	return testConfig
 }
 
 func GetTestServices(t *testing.T) *services.Services {
@@ -117,6 +131,22 @@ func GetTestTokens(t *testing.T) *tokens.Tokens {
 	return testTokens
 }
 
+func GetTestDatabase(t *testing.T) *db.Database {
+	if testDatabase == nil {
+		initTestServicesAndApp(t)
+	}
+
+	return testDatabase
+}
+
+func GetTestCache(t *testing.T) *cc.Cache {
+	if testCache == nil {
+		initTestServicesAndApp(t)
+	}
+
+	return testCache
+}
+
 func CreateTestJSONRequestBody(t *testing.T, reqBody interface{}) *bytes.Reader {
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
@@ -126,12 +156,16 @@ func CreateTestJSONRequestBody(t *testing.T, reqBody interface{}) *bytes.Reader 
 	return bytes.NewReader(jsonBody)
 }
 
-func PerformTestRequest(t *testing.T, app *fiber.App, delayMs int, method, path string, body io.Reader) *http.Response {
+func PerformTestRequest(t *testing.T, app *fiber.App, delayMs int, method, path, accessToken string, body io.Reader) *http.Response {
 	req := httptest.NewRequest(method, path, body)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	resp, err := app.Test(req)
 
+	if accessToken != "" {
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+	}
+
+	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatal("Failed to perform request", err)
 	}
@@ -139,17 +173,18 @@ func PerformTestRequest(t *testing.T, app *fiber.App, delayMs int, method, path 
 	if delayMs > 0 {
 		time.Sleep(time.Duration(delayMs) * time.Millisecond)
 	}
+
 	return resp
 }
 
 func AssertTestStatusCode(t *testing.T, resp *http.Response, expectedStatusCode int) {
 	if resp.StatusCode != expectedStatusCode {
 		t.Logf("Status Code: %d", resp.StatusCode)
-		t.Fatal("Failed to register user")
+		t.Fatal("Failed to assert status code")
 	}
 }
 
-func AssertTestResponseBody(t *testing.T, resp *http.Response, expectedBody interface{}) {
+func AssertTestResponseBody[V interface{}](t *testing.T, resp *http.Response, expectedBody V) V {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatal("Failed to read response body", err)
@@ -158,6 +193,13 @@ func AssertTestResponseBody(t *testing.T, resp *http.Response, expectedBody inte
 	if err := json.Unmarshal(body, &expectedBody); err != nil {
 		t.Logf("Body: %s", body)
 		t.Fatal("Failed to register user")
+	}
+	return expectedBody
+}
+
+func AssertEqual(t *testing.T, expected, actual interface{}) {
+	if expected != actual {
+		t.Fatalf("Expected: %v, Actual: %v", expected, actual)
 	}
 }
 
@@ -182,23 +224,35 @@ func GenerateFakeUserData(t *testing.T) services.CreateUserOptions {
 	}
 
 	return services.CreateUserOptions{
-		FirstName: controllers.Capitalized(fakeData.FirstName),
-		LastName:  controllers.Capitalized(fakeData.LastName),
-		Location:  controllers.Uppercased(fakeData.Location),
-		Email:     controllers.Lowered(fakeData.Email),
+		FirstName: utils.Capitalized(fakeData.FirstName),
+		LastName:  utils.Capitalized(fakeData.LastName),
+		Location:  utils.Uppercased(fakeData.Location),
+		Email:     utils.Lowered(fakeData.Email),
 		BirthDate: birthDate,
 		Password:  fakeData.Password,
-		Provider:  services.ProviderEmail,
+		Provider:  utils.ProviderEmail,
 	}
 }
 
-func CreateTestUser(t *testing.T) db.User {
-	opts := GenerateFakeUserData(t)
+func CreateTestUser(t *testing.T, userData *services.CreateUserOptions) db.User {
+	var opts services.CreateUserOptions
+	if userData == nil {
+		opts = GenerateFakeUserData(t)
+	} else {
+		opts = *userData
+	}
+
 	ser := GetTestServices(t)
 
-	user, err := ser.CreateUser(context.Background(), opts)
+	passwordHash, err := utils.HashPassword(opts.Password)
 	if err != nil {
-		t.Fatal("Failed to create test user", err)
+		t.Fatal("Failed to hash password", err)
+	}
+
+	opts.Password = passwordHash
+	user, serErr := ser.CreateUser(context.Background(), opts)
+	if serErr != nil {
+		t.Fatal("Failed to create test user", serErr)
 	}
 
 	return user
@@ -216,4 +270,20 @@ func CreateFakeTestUser(t *testing.T) db.User {
 		Version:   1,
 		Password:  pgtype.Text{String: opts.Password, Valid: true},
 	}
+}
+
+func GenerateTestAuthTokens(t *testing.T, user db.User) (accessToken string, refreshToken string) {
+	tks := GetTestTokens(t)
+	accessToken, err := tks.CreateAccessToken(user)
+
+	if err != nil {
+		t.Fatal("Failed to create access token", err)
+	}
+
+	refreshToken, err = tks.CreateRefreshToken(user)
+	if err != nil {
+		t.Fatal("Failed to create refresh token", err)
+	}
+
+	return accessToken, refreshToken
 }

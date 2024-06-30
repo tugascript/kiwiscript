@@ -1,12 +1,11 @@
 package controllers
 
 import (
-	"errors"
 	"unicode"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/kiwiscript/kiwiscript_go/services"
+	"github.com/kiwiscript/kiwiscript_go/utils"
 )
 
 type passwordValidity struct {
@@ -59,30 +58,17 @@ func (c *Controllers) SignUp(ctx *fiber.Ctx) error {
 	var request SignUpRequest
 
 	if err := ctx.BodyParser(&request); err != nil {
-		log.WarnContext(userCtx, "Failed to parse request", "error", err)
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewEmptyRequestValidationError(RequestValidationLocationBody))
+		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 	}
 	if err := c.validate.StructCtx(userCtx, request); err != nil {
-		log.WarnContext(userCtx, "Failed to validate request", "error", err)
-		var vErrs *validator.ValidationErrors
-		if errors.As(err, &vErrs) {
-			return ctx.
-				Status(fiber.StatusBadRequest).
-				JSON(RequestValidationErrorFromErr(vErrs, RequestValidationLocationBody))
-		}
-
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewEmptyRequestValidationError(RequestValidationLocationBody))
+		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
 	if err := passwordValidator(request.Password1); err != nil {
 		log.WarnContext(userCtx, "Failed to validate password", "error", err)
 		return ctx.
 			Status(fiber.StatusBadRequest).
 			JSON(NewRequestValidationError(RequestValidationLocationBody, []FieldError{
-				{Field: "password", Error: err.Message},
+				{Param: "password", Error: err.Message},
 			}))
 	}
 	if request.Password1 != request.Password2 {
@@ -91,23 +77,20 @@ func (c *Controllers) SignUp(ctx *fiber.Ctx) error {
 		return ctx.
 			Status(fiber.StatusBadRequest).
 			JSON(NewRequestValidationError(RequestValidationLocationBody, []FieldError{
-				{Field: "password", Error: errMsg},
+				{Param: "password", Error: errMsg},
 			}))
 	}
 
 	opts := services.SignUpOptions{
-		Email:     Lowered(request.Email),
-		FirstName: Capitalized(request.FirstName),
-		LastName:  Capitalized(request.LastName),
-		Location:  Uppercased(request.Location),
+		Email:     utils.Lowered(request.Email),
+		FirstName: utils.Capitalized(request.FirstName),
+		LastName:  utils.Capitalized(request.LastName),
+		Location:  utils.Uppercased(request.Location),
 		BirthDate: request.BirthDate,
 		Password:  request.Password1,
 	}
-	if err := c.services.SignUp(userCtx, opts); err != nil {
-		log.WarnContext(userCtx, "Failed to sign up", "error", err)
-		return ctx.
-			Status(NewRequestErrorStatus(err.Code)).
-			JSON(NewRequestError(err))
+	if serviceErr := c.services.SignUp(userCtx, opts); serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
 	return ctx.
@@ -116,28 +99,23 @@ func (c *Controllers) SignUp(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) SignIn(ctx *fiber.Ctx) error {
+	log := c.log.WithGroup("controllers.auth.SignIn")
+	userCtx := ctx.UserContext()
 	var request SignInRequest
-	serviceErr := services.NewValidationError("Invalid request")
 
 	if err := ctx.BodyParser(&request); err != nil {
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 	}
-	if err := c.validate.Struct(request); err != nil {
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+	if err := c.validate.StructCtx(userCtx, request); err != nil {
+		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
 
-	serviceErr = c.services.SignIn(ctx.UserContext(), services.SignInOptions{
-		Email:    request.Email,
+	opts := services.SignInOptions{
+		Email:    utils.Lowered(request.Email),
 		Password: request.Password,
-	})
-	if serviceErr != nil {
-		return ctx.
-			Status(NewRequestErrorStatus(serviceErr.Code)).
-			JSON(NewRequestError(serviceErr))
+	}
+	if serviceErr := c.services.SignIn(userCtx, opts); serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
 	return ctx.
@@ -146,18 +124,15 @@ func (c *Controllers) SignIn(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) ConfirmSignIn(ctx *fiber.Ctx) error {
+	log := c.log.WithGroup("controllers.auth.ConfirmSignIn")
+	userCtx := ctx.UserContext()
 	var request ConfirmSignInRequest
-	serviceErr := services.NewValidationError("Invalid request")
 
 	if err := ctx.BodyParser(&request); err != nil {
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 	}
 	if err := c.validate.Struct(request); err != nil {
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
 
 	authRes, serviceErr := c.services.TwoFactor(ctx.UserContext(), services.TwoFactorOptions{
@@ -165,59 +140,50 @@ func (c *Controllers) ConfirmSignIn(ctx *fiber.Ctx) error {
 		Code:  request.Code,
 	})
 	if serviceErr != nil {
-		return ctx.
-			Status(NewRequestErrorStatus(serviceErr.Code)).
-			JSON(NewRequestError(serviceErr))
+		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
 	return c.processAuthResponse(ctx, authRes)
 }
 
 func (c *Controllers) SignOut(ctx *fiber.Ctx) error {
+	log := c.log.WithGroup("controllers.auth.SignOut")
+	userCtx := ctx.UserContext()
 	refreshToken := ctx.Cookies(c.refreshCookieName)
 
+	log.Info("SignOut", "refreshToken", refreshToken)
 	if refreshToken == "" {
 		var request SignOutRequest
-		serviceErr := services.NewValidationError("Invalid request")
 
 		if err := ctx.BodyParser(&request); err != nil {
-			return ctx.
-				Status(fiber.StatusBadRequest).
-				JSON(NewRequestError(serviceErr))
+			return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 		}
 		if err := c.validate.Struct(request); err != nil {
-			return ctx.
-				Status(fiber.StatusBadRequest).
-				JSON(NewRequestError(serviceErr))
+			return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 		}
 
 		refreshToken = request.RefreshToken
 	}
 	if serviceErr := c.services.SignOut(ctx.UserContext(), refreshToken); serviceErr != nil {
-		return ctx.
-			Status(NewRequestErrorStatus(serviceErr.Code)).
-			JSON(NewRequestError(serviceErr))
+		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
 	return ctx.SendStatus(fiber.StatusNoContent)
 }
 
 func (c *Controllers) Refresh(ctx *fiber.Ctx) error {
+	log := c.log.WithGroup("controllers.auth.Refresh")
+	userCtx := ctx.UserContext()
 	refreshToken := ctx.Cookies(c.refreshCookieName)
 
 	if refreshToken == "" {
 		var request RefreshRequest
-		serviceErr := services.NewValidationError("Invalid request")
 
 		if err := ctx.BodyParser(&request); err != nil {
-			return ctx.
-				Status(fiber.StatusBadRequest).
-				JSON(NewRequestError(serviceErr))
+			return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 		}
 		if err := c.validate.Struct(request); err != nil {
-			return ctx.
-				Status(fiber.StatusBadRequest).
-				JSON(NewRequestError(serviceErr))
+			return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 		}
 
 		refreshToken = request.RefreshToken
@@ -225,34 +191,27 @@ func (c *Controllers) Refresh(ctx *fiber.Ctx) error {
 
 	authRes, serviceErr := c.services.Refresh(ctx.UserContext(), refreshToken)
 	if serviceErr != nil {
-		return ctx.
-			Status(NewRequestErrorStatus(serviceErr.Code)).
-			JSON(NewRequestError(serviceErr))
+		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
 	return c.processAuthResponse(ctx, authRes)
 }
 
 func (c *Controllers) ConfirmEmail(ctx *fiber.Ctx) error {
+	log := c.log.WithGroup("controllers.auth.ConfirmEmail")
+	userCtx := ctx.UserContext()
 	var request ConfirmRequest
-	serviceErr := services.NewValidationError("Invalid request")
 
 	if err := ctx.BodyParser(&request); err != nil {
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 	}
 	if err := c.validate.Struct(request); err != nil {
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
 
 	authRes, serviceErr := c.services.ConfirmEmail(ctx.UserContext(), request.ConfirmationToken)
 	if serviceErr != nil {
-		return ctx.
-			Status(NewRequestErrorStatus(serviceErr.Code)).
-			JSON(NewRequestError(serviceErr))
+		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
 	return c.processAuthResponse(ctx, authRes)

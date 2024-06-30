@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/encryptcookie"
 	"github.com/gofiber/fiber/v2/middleware/helmet"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -27,9 +28,11 @@ func CreateApp(
 	dbConnPool *pgxpool.Pool,
 	mailConfig *EmailConfig,
 	tokensConfig *TokensConfig,
+	limiterConfig *LimiterConfig,
 	backendDomain,
 	frontendDomain,
-	refreshCookieName string,
+	refreshCookieName,
+	cookieSecret string,
 ) *fiber.App {
 	// Build the app
 	app := fiber.New()
@@ -40,10 +43,13 @@ func CreateApp(
 	app.Use(helmet.New())
 	app.Use(requestid.New())
 	app.Use(limiter.New(limiter.Config{
-		Max:               20,
-		Expiration:        30 * time.Second,
+		Max:               int(limiterConfig.Max),
+		Expiration:        time.Duration(limiterConfig.ExpSec) * time.Second,
 		LimiterMiddleware: limiter.SlidingWindow{},
 		Storage:           storage,
+	}))
+	app.Use(encryptcookie.New(encryptcookie.Config{
+		Key: cookieSecret,
 	}))
 	log.Info("Finished loading common middlewares")
 
@@ -72,10 +78,14 @@ func CreateApp(
 	// Build router
 	rtr := routers.NewRouter(app, ctrls)
 
-	// Build routes
+	// Build routes, public routes need to be defined before private ones
 	rtr.HealthRoutes()
-	rtr.AuthPrivateRoutes()
+
+	// ----- Auth routes -----
+	// Public routes
 	rtr.AuthPublicRoutes()
+	// Private routes
+	rtr.AuthPrivateRoutes()
 
 	return app
 }

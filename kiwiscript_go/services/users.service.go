@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
+	"github.com/kiwiscript/kiwiscript_go/utils"
 )
 
 type CreateUserOptions struct {
@@ -34,21 +35,21 @@ func (s *Services) CreateUser(ctx context.Context, options CreateUserOptions) (d
 	var password pgtype.Text
 
 	switch options.Provider {
-	case ProviderEmail:
+	case utils.ProviderEmail:
 		provider = options.Provider
 		err := password.Scan(options.Password)
 		if err != nil {
 			return user, NewValidationError("'password' is invalid")
 		}
-	case ProviderFacebook, ProviderGoogle:
+	case utils.ProviderFacebook, utils.ProviderGoogle:
 		provider = options.Provider
 	default:
 		return user, NewServerError("'provider' must be 'email', 'facebook' or 'google'")
 	}
 
 	location := strings.ToUpper(options.Location)
-	if _, ok := Location[location]; !ok {
-		location = LocationOTH
+	if _, ok := utils.Location[location]; !ok {
+		location = utils.LocationOTH
 	}
 
 	qrs, txn, err := s.database.BeginTx(ctx)
@@ -70,7 +71,7 @@ func (s *Services) CreateUser(ctx context.Context, options CreateUserOptions) (d
 		}
 	}()
 
-	if provider == ProviderEmail {
+	if provider == utils.ProviderEmail {
 		user, err = qrs.CreateUserWithPassword(ctx, db.CreateUserWithPasswordParams{
 			FirstName: options.FirstName,
 			LastName:  options.LastName,

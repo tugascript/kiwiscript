@@ -1,12 +1,8 @@
 package services
 
 import (
-	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"log/slog"
-	"math/big"
 	"strings"
 	"time"
 
@@ -15,56 +11,8 @@ import (
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/providers/email"
 	"github.com/kiwiscript/kiwiscript_go/providers/tokens"
-	"golang.org/x/crypto/argon2"
+	"github.com/kiwiscript/kiwiscript_go/utils"
 )
-
-const memory uint32 = 65_536
-const iterations uint32 = 3
-const parallelism uint8 = 4
-const saltSize uint32 = 16
-const keySize uint32 = 32
-
-func generateSalt() ([]byte, error) {
-	salt := make([]byte, saltSize)
-	_, err := rand.Read(salt)
-	if err != nil {
-		return nil, err
-	}
-	return salt, nil
-}
-
-func hashPassword(password string) (string, error) {
-	salt, err := generateSalt()
-	if err != nil {
-		return "", err
-	}
-
-	hash := argon2.IDKey([]byte(password), salt, iterations, memory, parallelism, keySize)
-	b64Hash := base64.RawStdEncoding.EncodeToString(hash)
-	b64Salt := base64.RawStdEncoding.EncodeToString(salt)
-	return b64Salt + "." + b64Hash, nil
-}
-
-func verifyPassword(password, hash string) bool {
-	parts := strings.Split(hash, ".")
-
-	if len(parts) != 2 {
-		return false
-	}
-
-	salt, err := base64.RawStdEncoding.DecodeString(parts[0])
-	if err != nil {
-		return false
-	}
-
-	decodedHash, err := base64.RawStdEncoding.DecodeString(parts[1])
-	if err != nil {
-		return false
-	}
-
-	comparisonHash := argon2.IDKey([]byte(password), salt, iterations, memory, parallelism, keySize)
-	return bytes.Equal(decodedHash, comparisonHash)
-}
 
 type SignUpOptions struct {
 	Email     string
@@ -85,11 +33,21 @@ func (s *Services) SignUp(ctx context.Context, options SignUpOptions) *ServiceEr
 		return NewValidationError("'birthdate' is invalid date format")
 	}
 
-	password, err := hashPassword(options.Password)
+	password, err := utils.HashPassword(options.Password)
 	if err != nil {
 		errMsg := "Failed to hash password"
 		log.ErrorContext(ctx, errMsg, "error", err)
 		return NewServerError(errMsg)
+	}
+
+	prms := db.FindAuthProviderByEmailAndProviderParams{
+		Email:    options.Email,
+		Provider: utils.ProviderEmail,
+	}
+	if _, err := s.database.FindAuthProviderByEmailAndProvider(ctx, prms); err == nil {
+		errMsg := "Email already exists"
+		log.WarnContext(ctx, errMsg)
+		return NewDuplicateKeyError(errMsg)
 	}
 
 	user, serviceErr := s.CreateUser(ctx, CreateUserOptions{
@@ -99,7 +57,7 @@ func (s *Services) SignUp(ctx context.Context, options SignUpOptions) *ServiceEr
 		Location:  options.Location,
 		BirthDate: birthDate,
 		Password:  password,
-		Provider:  ProviderEmail,
+		Provider:  utils.ProviderEmail,
 	})
 	if serviceErr != nil {
 		log.WarnContext(ctx, "Failed to create user", "error", serviceErr)
@@ -200,40 +158,6 @@ func (s *Services) ConfirmEmail(ctx context.Context, token string) (AuthResponse
 	return s.generateAuthResponse(ctx, log, "Confirmed email successfully", user)
 }
 
-func generateCode() (string, error) {
-	const codeLength = 6
-	const digits = "0123456789"
-	code := make([]byte, codeLength)
-
-	for i := 0; i < codeLength; i++ {
-		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(digits))))
-		if err != nil {
-			return "", err
-		}
-		code[i] = digits[num.Int64()]
-	}
-
-	return string(code), nil
-}
-
-func (s *Services) SaveTwoFactorCode(userID int32) (string, *ServiceError) {
-	code, err := generateCode()
-	if err != nil {
-		return "", NewServerError("Failed to generate two factor code")
-	}
-
-	hashedCode, err := hashPassword(code)
-	if err != nil {
-		return "", NewServerError("Failed to hash two factor code")
-	}
-
-	if err := s.cache.AddTwoFactorCode(cc.AddTwoFactorCodeOptions{UserID: userID, Code: hashedCode}); err != nil {
-		return "", NewServerError("Failed to save two factor code")
-	}
-
-	return code, nil
-}
-
 type SignInOptions struct {
 	Email    string
 	Password string
@@ -245,7 +169,7 @@ func (s *Services) SignIn(ctx context.Context, options SignInOptions) *ServiceEr
 
 	prms := db.FindAuthProviderByEmailAndProviderParams{
 		Email:    options.Email,
-		Provider: ProviderEmail,
+		Provider: utils.ProviderEmail,
 	}
 	if _, err := s.database.FindAuthProviderByEmailAndProvider(ctx, prms); err != nil {
 		log.WarnContext(ctx, "Failed to find auth provider", "error", err)
@@ -258,20 +182,21 @@ func (s *Services) SignIn(ctx context.Context, options SignInOptions) *ServiceEr
 		return NewUnauthorizedError()
 	}
 
+	if !utils.VerifyPassword(options.Password, user.Password.String) {
+		log.WarnContext(ctx, "Invalid password")
+		return NewUnauthorizedError()
+	}
 	if !user.IsConfirmed {
 		errMsg := "User not confirmed"
 		log.WarnContext(ctx, errMsg)
 		return NewValidationError(errMsg)
 	}
-	if !verifyPassword(options.Password, user.Password.String) {
-		log.WarnContext(ctx, "Invalid password")
-		return NewUnauthorizedError()
-	}
 
-	code, serviceErr := s.SaveTwoFactorCode(user.ID)
-	if serviceErr != nil {
-		log.ErrorContext(ctx, "Failed to save two factor code", "error", serviceErr)
-		return serviceErr
+	code, err := s.cache.AddTwoFactorCode(user.ID)
+	if err != nil {
+		errMsg := "Failed to generate two factor code"
+		log.ErrorContext(ctx, errMsg, "error", serviceErr)
+		return NewServerError(errMsg)
 	}
 
 	go func() {
@@ -304,19 +229,20 @@ func (s *Services) TwoFactor(ctx context.Context, options TwoFactorOptions) (Aut
 		return authResponse, NewUnauthorizedError()
 	}
 
-	hashedCode, err := s.cache.GetTwoFactorCode(user.ID)
+	verified, err := s.cache.VerifyTwoFactorCode(user.ID, options.Code)
 	if err != nil {
-		log.WarnContext(ctx, "Failed to get two factor code", "error", err)
-		return authResponse, NewUnauthorizedError()
+		errMsg := "Failed to verify two factor code"
+		log.ErrorContext(ctx, errMsg, "error", err)
+		return authResponse, NewServerError(errMsg)
 	}
-	if !verifyPassword(options.Code, hashedCode) {
+	if !verified {
 		log.WarnContext(ctx, "Invalid two factor code")
 		return authResponse, NewUnauthorizedError()
 	}
-	if err := s.cache.DeleteTwoFactorCode(user.ID); err != nil {
-		errMsg := "Failed to delete two factor code"
-		log.WarnContext(ctx, errMsg, "error", err)
-		return authResponse, NewServerError(errMsg)
+	if !user.IsConfirmed {
+		errMsg := "User not confirmed"
+		log.WarnContext(ctx, errMsg)
+		return authResponse, NewValidationError(errMsg)
 	}
 
 	return s.generateAuthResponse(ctx, log, "Confirmed two factor successfully", user)
@@ -398,15 +324,15 @@ func (s *Services) UpdatePassword(ctx context.Context, options UpdatePasswordOpt
 
 	_, err := s.database.FindAuthProviderByEmailAndProvider(ctx, db.FindAuthProviderByEmailAndProviderParams{
 		Email:    user.Email,
-		Provider: ProviderEmail,
+		Provider: utils.ProviderEmail,
 	})
 	if err == nil {
-		if !verifyPassword(options.OldPassword, user.Password.String) {
+		if !utils.VerifyPassword(options.OldPassword, user.Password.String) {
 			log.WarnContext(ctx, "Invalid old password")
 			return authResponse, NewUnauthorizedError()
 		}
 
-		password, err := hashPassword(options.NewPassword)
+		password, err := utils.HashPassword(options.NewPassword)
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to hash new password", "error", err)
 			return authResponse, NewServerError("Failed to hash new password")
@@ -452,14 +378,14 @@ func (s *Services) UpdatePassword(ctx context.Context, options UpdatePasswordOpt
 
 	err = qrs.CreateAuthProvider(ctx, db.CreateAuthProviderParams{
 		Email:    user.Email,
-		Provider: ProviderEmail,
+		Provider: utils.ProviderEmail,
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to create auth provider", "error", err)
 		return authResponse, FromDBError(err)
 	}
 
-	passwordHash, err := hashPassword(options.NewPassword)
+	passwordHash, err := utils.HashPassword(options.NewPassword)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to hash new password", "error", err)
 		return authResponse, NewServerError("Failed to hash new password")
@@ -551,7 +477,7 @@ func (s *Services) ResetPassword(ctx context.Context, options ResetPasswordOptio
 		return NewUnauthorizedError()
 	}
 
-	passwordHash, err := hashPassword(options.NewPassword)
+	passwordHash, err := utils.HashPassword(options.NewPassword)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to hash new password", "error", err)
 		return NewServerError("Failed to hash new password")
@@ -594,7 +520,7 @@ func (s *Services) UpdateEmail(ctx context.Context, options UpdateEmailOptions) 
 
 	if _, err := s.database.FindAuthProviderByEmailAndProvider(ctx, db.FindAuthProviderByEmailAndProviderParams{
 		Email:    user.Email,
-		Provider: ProviderEmail,
+		Provider: utils.ProviderEmail,
 	}); err != nil {
 		serviceErr = FromDBError(err)
 
@@ -606,14 +532,14 @@ func (s *Services) UpdateEmail(ctx context.Context, options UpdateEmailOptions) 
 		log.ErrorContext(ctx, "Failed to find auth provider", "error", err)
 		return authResponse, serviceErr
 	}
-	if !verifyPassword(options.Password, user.Password.String) {
+	if !utils.VerifyPassword(options.Password, user.Password.String) {
 		log.WarnContext(ctx, "Invalid password")
 		return authResponse, NewUnauthorizedError()
 	}
 
 	if _, err := s.database.FindAuthProviderByEmailAndProvider(ctx, db.FindAuthProviderByEmailAndProviderParams{
 		Email:    options.NewEmail,
-		Provider: ProviderEmail,
+		Provider: utils.ProviderEmail,
 	}); err == nil {
 		log.WarnContext(ctx, "Email already exists")
 		return authResponse, NewValidationError("Email already in use")
@@ -649,7 +575,7 @@ func (s *Services) UpdateEmail(ctx context.Context, options UpdateEmailOptions) 
 	}
 	if err = qrs.DeleteProviderByEmailAndNotProvider(ctx, db.DeleteProviderByEmailAndNotProviderParams{
 		Email:    user.Email,
-		Provider: ProviderEmail,
+		Provider: utils.ProviderEmail,
 	}); err != nil {
 		log.ErrorContext(ctx, "Failed to delete auth provider", "error", err)
 		return authResponse, FromDBError(err)

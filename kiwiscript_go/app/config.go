@@ -34,6 +34,11 @@ type EmailConfig struct {
 	Name     string
 }
 
+type LimiterConfig struct {
+	Max    int64
+	ExpSec int64
+}
+
 type AppConfig struct {
 	MaxProcs          int64
 	Port              string
@@ -46,9 +51,10 @@ type AppConfig struct {
 	Logger            LoggerConfig
 	Email             EmailConfig
 	Tokens            TokensConfig
+	Limiter           LimiterConfig
 }
 
-var variables = [24]string{
+var variables = [26]string{
 	"PORT",
 	"ENV",
 	"DEBUG",
@@ -73,13 +79,17 @@ var variables = [24]string{
 	"EMAIL_USERNAME",
 	"EMAIL_PASSWORD",
 	"EMAIL_NAME",
+	"LIMITER_MAX",
+	"LIMITER_EXP_SEC",
 }
 
-var numerics = [4]string{
+var numerics = [6]string{
 	"MAX_PROCS",
 	"JWT_ACCESS_TTL_SEC",
 	"JWT_REFRESH_TTL_SEC",
 	"JWT_EMAIL_TTL_SEC",
+	"LIMITER_MAX",
+	"LIMITER_EXP_SEC",
 }
 
 func NewConfig(log *slog.Logger, envPath string) *AppConfig {
@@ -143,6 +153,10 @@ func NewConfig(log *slog.Logger, envPath string) *AppConfig {
 				PrivateKey: variablesMap["JWT_EMAIL_PRIVATE_KEY"],
 				TtlSec:     intMap["JWT_EMAIL_TTL_SEC"],
 			},
+		},
+		Limiter: LimiterConfig{
+			Max:    intMap["LIMITER_MAX"],
+			ExpSec: intMap["LIMITER_EXP_SEC"],
 		},
 	}
 }

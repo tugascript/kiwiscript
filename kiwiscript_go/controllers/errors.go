@@ -1,6 +1,9 @@
 package controllers
 
 import (
+	"strings"
+	"unicode"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/kiwiscript/kiwiscript_go/services"
 )
@@ -66,9 +69,9 @@ func NewRequestError(err *services.ServiceError) RequestError {
 }
 
 type FieldError struct {
-	Field string `json:"field"`
-	Error string `json:"error"`
-	Tag   string `json:"tag"`
+	Param string      `json:"param"`
+	Error string      `json:"error"`
+	Value interface{} `json:"value"`
 }
 
 type RequestValidationError struct {
@@ -85,14 +88,41 @@ const (
 	RequestValidationLocationParam string = "param"
 )
 
+func toSnakeCase(camel string) string {
+	var result strings.Builder
+	for i, char := range camel {
+		if unicode.IsUpper(char) {
+			// Add an underscore before uppercase letters (except the first letter)
+			if i > 0 {
+				result.WriteRune('_')
+			}
+			result.WriteRune(unicode.ToLower(char))
+		} else {
+			result.WriteRune(char)
+		}
+	}
+	return result.String()
+}
+
+const errPrefix = "Error:"
+
+func extractError(errorStr string) string {
+	index := strings.Index(errorStr, errPrefix)
+	if index == -1 {
+		return ""
+	}
+
+	return strings.TrimSpace(errorStr[index+len(errPrefix):])
+}
+
 func RequestValidationErrorFromErr(err *validator.ValidationErrors, location string) RequestValidationError {
 	fields := make([]FieldError, len(*err))
 
 	for i, field := range *err {
 		fields[i] = FieldError{
-			Field: field.Field(),
-			Error: field.Error(),
-			Tag:   field.Tag(),
+			Param: toSnakeCase(field.Field()),
+			Error: extractError(field.Error()),
+			Value: field.Value(),
 		}
 	}
 

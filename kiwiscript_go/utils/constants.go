@@ -1,4 +1,4 @@
-package services
+package utils
 
 const (
 	ProviderGoogle   string = "google"

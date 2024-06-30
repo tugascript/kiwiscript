@@ -46,6 +46,10 @@ func NewServerError(message string) *ServiceError {
 	return NewError(CodeServerError, message)
 }
 
+func NewDuplicateKeyError(message string) *ServiceError {
+	return NewError(CodeDuplicateKey, message)
+}
+
 func NewUnauthorizedError() *ServiceError {
 	return NewError(CodeUnauthorized, MessageUnauthorized)
 }

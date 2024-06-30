@@ -50,9 +50,11 @@ func main() {
 		dbConnPool,
 		&config.Email,
 		&config.Tokens,
+		&config.Limiter,
 		config.BackendDomain,
 		config.FrontendDomain,
 		config.RefreshCookieName,
+		config.CookieSecret,
 	)
 	log.Info("Finished building the app")
 
