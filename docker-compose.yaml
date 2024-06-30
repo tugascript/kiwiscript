@@ -41,6 +41,11 @@ services:
   mailhog:
     image: mailhog/mailhog
     platform: linux/amd64
+    restart: always
+    command: MailHog -auth-file=/etc/mailhog-auth.txt
+    volumes:
+      - ./mailhog-auth.txt:/etc/mailhog-auth.txt
+
     ports:
       - "1025:1025"
       - "8025:8025"
