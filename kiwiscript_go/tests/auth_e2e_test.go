@@ -16,7 +16,7 @@ import (
 	"github.com/kiwiscript/kiwiscript_go/services"
 )
 
-// TODO: Parse response bodies
+// TODO: Add string type matches (e.g. UUID, jwt, etc.)
 
 type fakeRegisterData struct {
 	Email     string `faker:"email"`
@@ -63,6 +63,36 @@ func confirmTestUser(t *testing.T, userID int32) db.User {
 	}
 
 	return user
+}
+
+func performCookieRequest(t *testing.T, app *fiber.App, path, accessToken, refreshToken string) *http.Response {
+	config := GetTestConfig(t)
+	req := httptest.NewRequest(MethodPost, path, nil)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	if refreshToken != "" {
+		encryptedRefreshToken, err := encryptcookie.EncryptCookie(refreshToken, config.CookieSecret)
+		if err != nil {
+			t.Fatal("Failed to encrypt cookie", err)
+		}
+
+		req.AddCookie(&http.Cookie{
+			Name:  config.RefreshCookieName,
+			Value: encryptedRefreshToken,
+			Path:  "/api/auth",
+		})
+	}
+	if accessToken != "" {
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+	}
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatal("Failed to perform request", err)
+	}
+
+	return resp
 }
 
 // ----- Test Register -----
@@ -343,6 +373,24 @@ func TestLoginConfirm(t *testing.T) {
 	AssertEqual(t, "Bearer", resBody.TokenType)
 }
 
+func TestLoginConfirmUnauthorizedErr(t *testing.T) {
+	// Arrange
+	testUser := CreateFakeTestUser(t)
+	app := GetTestApp(t)
+	code := "123456"
+	reqBody := controllers.ConfirmSignInRequest{Email: testUser.Email, Code: code}
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, loginConfirmPath, "", jsonBody)
+	defer resp.Body.Close()
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusUnauthorized)
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+	AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+}
+
 func TestLoginConfirmValidationErr(t *testing.T) {
 	// Arrange
 	reqBody := controllers.ConfirmSignInRequest{Email: "notAnEmail", Code: ""}
@@ -401,37 +449,7 @@ func TestLoginConfirmUserNotConfirmed(t *testing.T) {
 }
 
 // ----- Logout -----
-const logoutConfirmPath = "/api/auth/logout"
-
-func performCookieLogoutRequest(t *testing.T, app *fiber.App, accessToken, refreshToken string) *http.Response {
-	config := GetTestConfig(t)
-	req := httptest.NewRequest(MethodPost, logoutConfirmPath, nil)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	if refreshToken != "" {
-		encryptedRefreshToken, err := encryptcookie.EncryptCookie(refreshToken, config.CookieSecret)
-		if err != nil {
-			t.Fatal("Failed to encrypt cookie", err)
-		}
-
-		req.AddCookie(&http.Cookie{
-			Name:  config.RefreshCookieName,
-			Value: encryptedRefreshToken,
-			Path:  "/api/auth",
-		})
-	}
-	if accessToken != "" {
-		req.Header.Set("Authorization", "Bearer "+accessToken)
-	}
-
-	resp, err := app.Test(req)
-	if err != nil {
-		t.Fatal("Failed to perform request", err)
-	}
-
-	return resp
-}
+const logoutPath = "/api/auth/logout"
 
 func TestBodyLogout(t *testing.T) {
 	// Arrange
@@ -442,7 +460,7 @@ func TestBodyLogout(t *testing.T) {
 	jsonBody := CreateTestJSONRequestBody(t, reqBody)
 
 	// Act
-	resp := PerformTestRequest(t, app, 0, MethodPost, logoutConfirmPath, accessToken, jsonBody)
+	resp := PerformTestRequest(t, app, 0, MethodPost, logoutPath, accessToken, jsonBody)
 	defer resp.Body.Close()
 
 	// Assert
@@ -456,7 +474,7 @@ func TestCookieLogout(t *testing.T) {
 	app := GetTestApp(t)
 
 	// Act
-	resp := performCookieLogoutRequest(t, app, accessToken, refreshToken)
+	resp := performCookieRequest(t, app, logoutPath, accessToken, refreshToken)
 	defer resp.Body.Close()
 
 	// Assert
@@ -472,7 +490,7 @@ func TestBodyLogoutUnauthorizedErr(t *testing.T) {
 	jsonBody := CreateTestJSONRequestBody(t, reqBody)
 
 	// Act
-	resp := PerformTestRequest(t, app, 0, MethodPost, logoutConfirmPath, "invalid", jsonBody)
+	resp := PerformTestRequest(t, app, 0, MethodPost, logoutPath, "invalid", jsonBody)
 	defer resp.Body.Close()
 
 	// Assert
@@ -488,7 +506,7 @@ func TestCookieLogoutUnauthorizedErr(t *testing.T) {
 	app := GetTestApp(t)
 
 	// Act
-	resp := performCookieLogoutRequest(t, app, "invalid", refreshToken)
+	resp := performCookieRequest(t, app, logoutPath, "invalid", refreshToken)
 	defer resp.Body.Close()
 
 	// Assert
@@ -506,7 +524,7 @@ func TestBodyLogoutValidationErr(t *testing.T) {
 	jsonBody := CreateTestJSONRequestBody(t, reqBody)
 
 	// Act
-	resp := PerformTestRequest(t, app, 0, MethodPost, logoutConfirmPath, accessToken, jsonBody)
+	resp := PerformTestRequest(t, app, 0, MethodPost, logoutPath, accessToken, jsonBody)
 	defer resp.Body.Close()
 
 	// Assert
@@ -525,11 +543,65 @@ func TestCookieLogoutValidationErr(t *testing.T) {
 	app := GetTestApp(t)
 
 	// Act
-	resp := performCookieLogoutRequest(t, app, accessToken, "")
+	resp := performCookieRequest(t, app, logoutPath, accessToken, "")
 	defer resp.Body.Close()
 
 	// Assert
 	AssertTestStatusCode(t, resp, fiber.StatusBadRequest)
 	resBody := AssertTestResponseBody(t, resp, controllers.EmptyRequestValidationError{})
 	AssertEqual(t, controllers.RequestValidationMessage, resBody.Message)
+}
+
+// ----- Test Refresh -----
+const refreshPath = "/api/auth/refresh"
+
+func TestBodyRefresh(t *testing.T) {
+	// Arrange
+	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+	_, refreshToken := GenerateTestAuthTokens(t, testUser)
+	app := GetTestApp(t)
+	reqBody := controllers.RefreshRequest{RefreshToken: refreshToken}
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, refreshPath, "", jsonBody)
+	defer resp.Body.Close()
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusOK)
+	resBody := AssertTestResponseBody(t, resp, controllers.AuthResponse{})
+	AssertEqual(t, "Bearer", resBody.TokenType)
+}
+
+func TestCookieRefresh(t *testing.T) {
+	// Arrange
+	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+	_, refreshToken := GenerateTestAuthTokens(t, testUser)
+	app := GetTestApp(t)
+
+	// Act
+	resp := performCookieRequest(t, app, refreshPath, "", refreshToken)
+	defer resp.Body.Close()
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusOK)
+	resBody := AssertTestResponseBody(t, resp, controllers.AuthResponse{})
+	AssertEqual(t, "Bearer", resBody.TokenType)
+}
+
+func TestCookieRefreshVersionMissmatchErr(t *testing.T) {
+	// Arrange
+	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+	testUser.Version = math.MaxInt16
+	_, refreshToken := GenerateTestAuthTokens(t, testUser)
+	app := GetTestApp(t)
+
+	// Act
+	resp := performCookieRequest(t, app, refreshPath, "", refreshToken)
+	defer resp.Body.Close()
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusUnauthorized)
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+	AssertEqual(t, services.MessageUnauthorized, resBody.Message)
 }

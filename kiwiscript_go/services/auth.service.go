@@ -258,7 +258,13 @@ func (s *Services) Refresh(ctx context.Context, token string) (AuthResponse, *Se
 		log.WarnContext(ctx, "Invalid token", "error", err)
 		return authResponse, NewUnauthorizedError()
 	}
-	if s.cache.IsBlackListed(ctx, id) {
+
+	isBl, err := s.cache.IsBlackListed(ctx, id)
+	if err != nil {
+		log.ErrorContext(ctx, "Failed to check black list", "error", err)
+		return authResponse, NewServerError("Failed to check black list")
+	}
+	if isBl {
 		log.WarnContext(ctx, "Token black listed")
 		return authResponse, NewUnauthorizedError()
 	}
@@ -287,9 +293,8 @@ func (s *Services) SignOut(ctx context.Context, token string) *ServiceError {
 	}
 
 	err = s.cache.AddBlackList(cc.AddBlackListOptions{
-		ID:    id,
-		Token: token,
-		Exp:   exp,
+		ID:  id,
+		Exp: exp,
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to add black list", "error", err)
