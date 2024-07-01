@@ -736,3 +736,346 @@ func TestBodyRefreshValidationErr(t *testing.T) {
 	AssertEqual(t, "Field validation for 'RefreshToken' failed on the 'jwt' tag", resBody.Fields[0].Error)
 	AssertEqual(t, reqBody.RefreshToken, resBody.Fields[0].Value)
 }
+
+// ----- Test Forgot Password -----
+const forgotPasswordPath = "/api/auth/forgot-password"
+
+func TestForgotPasswordWithExistingUser(t *testing.T) {
+	// Arrange
+	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+	reqBody := controllers.ForgotPasswordRequest{Email: testUser.Email}
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+	app := GetTestApp(t)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, forgotPasswordPath, "", jsonBody)
+	defer resp.Body.Close()
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusOK)
+	resBody := AssertTestResponseBody(t, resp, controllers.MessageResponse{})
+	AssertEqual(t, "If the email exists, a password reset email has been sent", resBody.Message)
+}
+
+func TestForgotPasswordWithNonExistingUser(t *testing.T) {
+	// Arrange
+	fakeEmail := faker.Email()
+	reqBody := controllers.ForgotPasswordRequest{Email: fakeEmail}
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+	app := GetTestApp(t)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, forgotPasswordPath, "", jsonBody)
+	defer resp.Body.Close()
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusOK)
+	resBody := AssertTestResponseBody(t, resp, controllers.MessageResponse{})
+	AssertEqual(t, "If the email exists, a password reset email has been sent", resBody.Message)
+}
+
+func TestForgotPasswordValidationErr(t *testing.T) {
+	// Arrange
+	reqBody := controllers.ForgotPasswordRequest{Email: "notAnEmail"}
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+	app := GetTestApp(t)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, forgotPasswordPath, "", jsonBody)
+	defer resp.Body.Close()
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusBadRequest)
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+	AssertEqual(t, 1, len(resBody.Fields))
+	AssertEqual(t, "email", resBody.Fields[0].Param)
+	AssertEqual(t, "Field validation for 'Email' failed on the 'email' tag", resBody.Fields[0].Error)
+	AssertEqual(t, reqBody.Email, resBody.Fields[0].Value)
+}
+
+// ----- Test Reset Password -----
+const resetPasswordPath = "/api/auth/reset-password"
+
+func generateTestResetPasswordData(t *testing.T, user db.User) controllers.ResetPasswordRequest {
+	emailToken := generateEmailToken(t, tokens.EmailTokenReset, user)
+	password := faker.Name() + "123!"
+
+	return controllers.ResetPasswordRequest{
+		ResetToken: emailToken,
+		Password1:  password,
+		Password2:  password,
+	}
+}
+
+func TestResetPassword(t *testing.T) {
+	// Arrange
+	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+	reqBody := generateTestResetPasswordData(t, testUser)
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+	app := GetTestApp(t)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, resetPasswordPath, "", jsonBody)
+	defer resp.Body.Close()
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusOK)
+	resBody := AssertTestResponseBody(t, resp, controllers.MessageResponse{})
+	AssertEqual(t, "Password reseted successfully", resBody.Message)
+}
+
+func TestResetPasswordValidationErr(t *testing.T) {
+	// Arrange
+	reqBody := controllers.ResetPasswordRequest{ResetToken: "invalid", Password1: "", Password2: ""}
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+	app := GetTestApp(t)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, resetPasswordPath, "", jsonBody)
+	defer resp.Body.Close()
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusBadRequest)
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+	AssertEqual(t, 3, len(resBody.Fields))
+	AssertEqual(t, "reset_token", resBody.Fields[0].Param)
+	AssertEqual(t, "Field validation for 'ResetToken' failed on the 'jwt' tag", resBody.Fields[0].Error)
+	AssertEqual(t, reqBody.ResetToken, resBody.Fields[0].Value)
+	AssertEqual(t, "password1", resBody.Fields[1].Param)
+	AssertEqual(t, "Field validation for 'Password1' failed on the 'required' tag", resBody.Fields[1].Error)
+	AssertEqual(t, reqBody.Password1, resBody.Fields[1].Value)
+	AssertEqual(t, "password2", resBody.Fields[2].Param)
+	AssertEqual(t, "Field validation for 'Password2' failed on the 'required' tag", resBody.Fields[2].Error)
+	AssertEqual(t, reqBody.Password2, resBody.Fields[2].Value)
+}
+
+func TestResetPasswordInvalidVersionErr(t *testing.T) {
+	// Arrange
+	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+	testUser.Version = math.MaxInt16
+	reqBody := generateTestResetPasswordData(t, testUser)
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+	app := GetTestApp(t)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, resetPasswordPath, "", jsonBody)
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusUnauthorized)
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+	AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+}
+
+func TestResetPasswordInvalidDeletedUserErr(t *testing.T) {
+	// Arrange
+	testUser := CreateFakeTestUser(t)
+	reqBody := generateTestResetPasswordData(t, testUser)
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+	app := GetTestApp(t)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, resetPasswordPath, "", jsonBody)
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusUnauthorized)
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+	AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+}
+
+// ----- Test Update Password -----
+const updatePasswordPath = "/api/auth/update-password"
+
+func generateTestUpdatePasswordData(_ *testing.T, oldPassword string) controllers.UpdatePasswordRequest {
+	newPassword := faker.Name() + "123!"
+
+	return controllers.UpdatePasswordRequest{
+		OldPassword: oldPassword,
+		Password1:   newPassword,
+		Password2:   newPassword,
+	}
+}
+
+func TestUpdatePassword(t *testing.T) {
+	// Arrange
+	fakeUserData := GenerateFakeUserData(t)
+	testUser := confirmTestUser(t, CreateTestUser(t, &fakeUserData).ID)
+	accessToken, _ := GenerateTestAuthTokens(t, testUser)
+	reqBody := generateTestUpdatePasswordData(t, fakeUserData.Password)
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+	app := GetTestApp(t)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, updatePasswordPath, accessToken, jsonBody)
+	defer resp.Body.Close()
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusOK)
+	resBody := AssertTestResponseBody(t, resp, controllers.AuthResponse{})
+	AssertEqual(t, "Bearer", resBody.TokenType)
+}
+
+func TestUpdatePasswordValidationErr(t *testing.T) {
+	// Arrange
+	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+	accessToken, _ := GenerateTestAuthTokens(t, testUser)
+	app := GetTestApp(t)
+	reqBody := controllers.UpdatePasswordRequest{OldPassword: "", Password1: "", Password2: ""}
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, updatePasswordPath, accessToken, jsonBody)
+	defer resp.Body.Close()
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusBadRequest)
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+	AssertEqual(t, 3, len(resBody.Fields))
+	AssertEqual(t, "old_password", resBody.Fields[0].Param)
+	AssertEqual(t, "Field validation for 'OldPassword' failed on the 'required' tag", resBody.Fields[0].Error)
+	AssertEqual(t, reqBody.OldPassword, resBody.Fields[0].Value)
+	AssertEqual(t, "password1", resBody.Fields[1].Param)
+	AssertEqual(t, "Field validation for 'Password1' failed on the 'required' tag", resBody.Fields[1].Error)
+	AssertEqual(t, reqBody.Password1, resBody.Fields[1].Value)
+	AssertEqual(t, "password2", resBody.Fields[2].Param)
+	AssertEqual(t, "Field validation for 'Password2' failed on the 'required' tag", resBody.Fields[2].Error)
+}
+
+func TestUpdatePasswordInvalidVersionErr(t *testing.T) {
+	// Arrange
+	fakeUserData := GenerateFakeUserData(t)
+	testUser := confirmTestUser(t, CreateTestUser(t, &fakeUserData).ID)
+	testUser.Version = math.MaxInt16
+	accessToken, _ := GenerateTestAuthTokens(t, testUser)
+	reqBody := generateTestUpdatePasswordData(t, fakeUserData.Password)
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+	app := GetTestApp(t)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, updatePasswordPath, accessToken, jsonBody)
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusUnauthorized)
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+	AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+}
+
+func TestUpdatePasswordInvalidDeletedUserErr(t *testing.T) {
+	// Arrange
+	fakeUserData := GenerateFakeUserData(t)
+	testUser := CreateFakeTestUser(t)
+	accessToken, _ := GenerateTestAuthTokens(t, testUser)
+	reqBody := generateTestUpdatePasswordData(t, fakeUserData.Password)
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+	app := GetTestApp(t)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, updatePasswordPath, accessToken, jsonBody)
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusUnauthorized)
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+	AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+}
+
+func TestUpdatePasswordUnauthorizedErr(t *testing.T) {
+	// Arrange
+	app := GetTestApp(t)
+	reqBody := generateTestUpdatePasswordData(t, faker.Password())
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, updatePasswordPath, "", jsonBody)
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusUnauthorized)
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+	AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+}
+
+// ----- Test Update Email -----
+const updateEmailPath = "/api/auth/update-email"
+
+func generateTestUpdateEmailData(_ *testing.T, password string) controllers.UpdateEmailRequest {
+
+	return controllers.UpdateEmailRequest{
+		Email:    faker.Email(),
+		Password: password,
+	}
+}
+
+func TestUpdateEmail(t *testing.T) {
+	// Arrange
+	fakeUserData := GenerateFakeUserData(t)
+	testUser := confirmTestUser(t, CreateTestUser(t, &fakeUserData).ID)
+	accessToken, _ := GenerateTestAuthTokens(t, testUser)
+	reqBody := generateTestUpdateEmailData(t, fakeUserData.Password)
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+	app := GetTestApp(t)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, updateEmailPath, accessToken, jsonBody)
+	defer resp.Body.Close()
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusOK)
+	resBody := AssertTestResponseBody(t, resp, controllers.AuthResponse{})
+	AssertEqual(t, "Bearer", resBody.TokenType)
+}
+
+func TestUpdateEmailValidationErr(t *testing.T) {
+	// Arrange
+	fakeUserData := GenerateFakeUserData(t)
+	testUser := confirmTestUser(t, CreateTestUser(t, &fakeUserData).ID)
+	accessToken, _ := GenerateTestAuthTokens(t, testUser)
+	app := GetTestApp(t)
+	reqBody := controllers.UpdateEmailRequest{Email: "", Password: fakeUserData.Password}
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, updateEmailPath, accessToken, jsonBody)
+	defer resp.Body.Close()
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusBadRequest)
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+	AssertEqual(t, 1, len(resBody.Fields))
+	AssertEqual(t, "email", resBody.Fields[0].Param)
+	AssertEqual(t, "Field validation for 'Email' failed on the 'required' tag", resBody.Fields[0].Error)
+}
+
+func TestUpdateEmailInvalidVersionErr(t *testing.T) {
+	// Arrange
+	fakeUserData := GenerateFakeUserData(t)
+	testUser := confirmTestUser(t, CreateTestUser(t, &fakeUserData).ID)
+	testUser.Version = math.MaxInt16
+	accessToken, _ := GenerateTestAuthTokens(t, testUser)
+	reqBody := generateTestUpdateEmailData(t, fakeUserData.Password)
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+	app := GetTestApp(t)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, updateEmailPath, accessToken, jsonBody)
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusUnauthorized)
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+	AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+}
+
+func TestUpdateEmailInvalidDeletedUserErr(t *testing.T) {
+	// Arrange
+	fakeUserData := GenerateFakeUserData(t)
+	testUser := CreateFakeTestUser(t)
+	accessToken, _ := GenerateTestAuthTokens(t, testUser)
+	reqBody := generateTestUpdateEmailData(t, fakeUserData.Password)
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+	app := GetTestApp(t)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, updateEmailPath, accessToken, jsonBody)
+
+	// Assert
+	AssertTestStatusCode(t, resp, fiber.StatusUnauthorized)
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+	AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+}

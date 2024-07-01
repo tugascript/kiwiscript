@@ -218,23 +218,18 @@ func (c *Controllers) ConfirmEmail(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) ForgotPassword(ctx *fiber.Ctx) error {
+	log := c.log.WithGroup("controllers.auth.ForgotPassword")
+	userCtx := ctx.UserContext()
 	var request ForgotPasswordRequest
-	serviceErr := services.NewValidationError("Invalid request")
 
 	if err := ctx.BodyParser(&request); err != nil {
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 	}
 	if err := c.validate.Struct(request); err != nil {
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
-	if serviceErr = c.services.ForgotPassword(ctx.UserContext(), request.Email); serviceErr != nil {
-		return ctx.
-			Status(NewRequestErrorStatus(serviceErr.Code)).
-			JSON(NewRequestError(serviceErr))
+	if serviceErr := c.services.ForgotPassword(ctx.UserContext(), request.Email); serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
 	return ctx.
@@ -243,111 +238,94 @@ func (c *Controllers) ForgotPassword(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) ResetPassword(ctx *fiber.Ctx) error {
+	log := c.log.WithGroup("controllers.auth.ForgotPassword")
+	userCtx := ctx.UserContext()
 	var request ResetPasswordRequest
-	serviceErr := services.NewValidationError("Invalid request")
 
 	if err := ctx.BodyParser(&request); err != nil {
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 	}
 	if err := c.validate.Struct(request); err != nil {
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
-	if serviceErr = passwordValidator(request.Password1); serviceErr != nil {
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+	if serviceErr := passwordValidator(request.Password1); serviceErr != nil {
+		log.WarnContext(userCtx, "Failed to validate password", "error", serviceErr)
+		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 	if request.Password1 != request.Password2 {
-		serviceErr = services.NewValidationError("Password does not match")
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+		errMsg := "Passwords do not match"
+		log.WarnContext(userCtx, errMsg)
+		return c.serviceErrorResponse(services.NewValidationError(errMsg), ctx)
 	}
-	if serviceErr = c.services.ResetPassword(ctx.UserContext(), services.ResetPasswordOptions{
+
+	opts := services.ResetPasswordOptions{
 		ResetToken:  request.ResetToken,
 		NewPassword: request.Password1,
-	}); serviceErr != nil {
-		return ctx.
-			Status(NewRequestErrorStatus(serviceErr.Code)).
-			JSON(NewRequestError(serviceErr))
+	}
+	if serviceErr := c.services.ResetPassword(userCtx, opts); serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
 	return ctx.
 		Status(fiber.StatusOK).
-		JSON(NewMessageResponse("Password reset successful"))
+		JSON(NewMessageResponse("Password reseted successfully"))
 }
 
 func (c *Controllers) UpdatePassword(ctx *fiber.Ctx) error {
+	log := c.log.WithGroup("controllers.auth.UpdatePassword")
+	userCtx := ctx.UserContext()
+
 	userClaims, err := c.GetUserClaims(ctx)
 	if err != nil {
-		return ctx.
-			Status(NewRequestErrorStatus(err.Code)).
-			JSON(NewRequestError(err))
+		log.ErrorContext(userCtx, "This should be a protected route", "error", err)
+		return c.serviceErrorResponse(err, ctx)
 	}
 
 	var request UpdatePasswordRequest
-	serviceErr := services.NewValidationError("Invalid request")
-
 	if err := ctx.BodyParser(&request); err != nil {
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 	}
 	if err := c.validate.Struct(request); err != nil {
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
-	if serviceErr = passwordValidator(request.Password1); serviceErr != nil {
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+	if err := passwordValidator(request.Password1); err != nil {
+		return c.serviceErrorResponse(err, ctx)
 	}
 	if request.Password1 != request.Password2 {
-		serviceErr = services.NewValidationError("Password does not match")
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+		errMsg := "Passwords do not match"
+		log.WarnContext(userCtx, errMsg)
+		return c.serviceErrorResponse(services.NewValidationError(errMsg), ctx)
 	}
 
 	authRes, serviceErr := c.services.UpdatePassword(ctx.UserContext(), services.UpdatePasswordOptions{
 		UserID:      userClaims.ID,
+		UserVersion: userClaims.Version,
 		OldPassword: request.OldPassword,
 		NewPassword: request.Password1,
 	})
 	if serviceErr != nil {
-		return ctx.
-			Status(NewRequestErrorStatus(serviceErr.Code)).
-			JSON(NewRequestError(serviceErr))
+		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
 	return c.processAuthResponse(ctx, authRes)
 }
 
 func (c *Controllers) UpdateEmail(ctx *fiber.Ctx) error {
+	log := c.log.WithGroup("controllers.auth.UpdatePassword")
+	userCtx := ctx.UserContext()
+
 	userClaims, err := c.GetUserClaims(ctx)
 	if err != nil {
-		return ctx.
-			Status(NewRequestErrorStatus(err.Code)).
-			JSON(NewRequestError(err))
+		log.ErrorContext(userCtx, "This should be a protected route", "error", err)
+		return c.serviceErrorResponse(err, ctx)
 	}
 
 	var request UpdateEmailRequest
-	serviceErr := services.NewValidationError("Invalid request")
-
 	if err := ctx.BodyParser(&request); err != nil {
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 	}
 	if err := c.validate.Struct(request); err != nil {
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewRequestError(serviceErr))
+		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
 
 	authRes, serviceErr := c.services.UpdateEmail(ctx.UserContext(), services.UpdateEmailOptions{
@@ -357,9 +335,7 @@ func (c *Controllers) UpdateEmail(ctx *fiber.Ctx) error {
 		Password:    request.Password,
 	})
 	if serviceErr != nil {
-		return ctx.
-			Status(NewRequestErrorStatus(serviceErr.Code)).
-			JSON(NewRequestError(serviceErr))
+		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
 	return c.processAuthResponse(ctx, authRes)
