@@ -73,3 +73,6 @@ UPDATE "users" SET
   "version" = "version" + 1
 WHERE "id" = $1
 RETURNING *;
+
+-- name: DeleteAllUsers :exec
+DELETE FROM "users";

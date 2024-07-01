@@ -66,6 +66,14 @@ func confirmTestUser(t *testing.T, userID int32) db.User {
 	return user
 }
 
+func assertOAuthResponse(t *testing.T, resp *http.Response) {
+	resBody := AssertTestResponseBody(t, resp, controllers.AuthResponse{})
+	AssertEqual(t, "Bearer", resBody.TokenType)
+	AssertNotEmpty(t, resBody.AccessToken)
+	AssertNotEmpty(t, resBody.RefreshToken)
+	AssertGreaterThan(t, resBody.ExpiresIn, 0)
+}
+
 func performCookieRequest(t *testing.T, app *fiber.App, path, accessToken, refreshToken string) *http.Response {
 	config := GetTestConfig(t)
 	req := httptest.NewRequest(MethodPost, path, nil)
@@ -96,69 +104,74 @@ func performCookieRequest(t *testing.T, app *fiber.App, path, accessToken, refre
 	return resp
 }
 
-// ----- Test Register -----
-const registerPath = "/api/auth/register"
-
-// Happy Path
 func TestRegister(t *testing.T) {
-	// Arrange
-	reqBody := generateFakeRegisterData(t)
-	jsonBody := CreateTestJSONRequestBody(t, reqBody)
-	app := GetTestApp(t)
-	delayMs := 50
-	method := MethodPost
+	const registerPath = "/api/auth/register"
 
-	// Act
-	resp := PerformTestRequest(t, app, delayMs, method, registerPath, "", jsonBody)
-	defer resp.Body.Close()
+	t.Run("Should register a user", func(t *testing.T) {
+		// Arrange
+		reqBody := generateFakeRegisterData(t)
+		jsonBody := CreateTestJSONRequestBody(t, reqBody)
+		app := GetTestApp(t)
+		delayMs := 50
+		method := MethodPost
 
-	// Assert
-	AssertTestStatusCode(t, resp, fiber.StatusCreated)
-	resBody := AssertTestResponseBody(t, resp, controllers.MessageResponse{})
-	AssertEqual(t, "Confirmation email has been sent", resBody.Message)
-}
+		// Act
+		resp := PerformTestRequest(t, app, delayMs, method, registerPath, "", jsonBody)
+		defer resp.Body.Close()
 
-// Sad Path
-func TestRegisterValidatorErr(t *testing.T) {
-	// Arrange
-	reqBody := generateFakeRegisterData(t)
-	reqBody.Email = "notAnEmail"
-	jsonBody := CreateTestJSONRequestBody(t, reqBody)
-	app := GetTestApp(t)
-	delayMs := 0
-	method := MethodPost
+		// Assert
+		AssertTestStatusCode(t, resp, fiber.StatusCreated)
+		resBody := AssertTestResponseBody(t, resp, controllers.MessageResponse{})
+		AssertEqual(t, "Confirmation email has been sent", resBody.Message)
+	})
 
-	// Act
-	resp := PerformTestRequest(t, app, delayMs, method, registerPath, "", jsonBody)
-	defer resp.Body.Close()
+	t.Run("Should return 400 BAD REQUEST if request validation fails", func(t *testing.T) {
+		// Arrange
+		reqBody := generateFakeRegisterData(t)
+		reqBody.Email = "notAnEmail"
+		jsonBody := CreateTestJSONRequestBody(t, reqBody)
+		app := GetTestApp(t)
+		delayMs := 0
+		method := MethodPost
 
-	// Assert
-	AssertTestStatusCode(t, resp, fiber.StatusBadRequest)
-	resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
-	AssertEqual(t, 1, len(resBody.Fields))
-	AssertEqual(t, "email", resBody.Fields[0].Param)
-	AssertEqual(t, "Field validation for 'Email' failed on the 'email' tag", resBody.Fields[0].Error)
-	AssertEqual(t, reqBody.Email, resBody.Fields[0].Value)
-}
+		// Act
+		resp := PerformTestRequest(t, app, delayMs, method, registerPath, "", jsonBody)
+		defer resp.Body.Close()
 
-func TestRegisterDuplicateEmail(t *testing.T) {
-	// Arrange
-	testUser := CreateTestUser(t, nil)
-	reqBody := generateFakeRegisterData(t)
-	reqBody.Email = testUser.Email
-	jsonBody := CreateTestJSONRequestBody(t, reqBody)
-	app := GetTestApp(t)
-	delayMs := 0
-	method := MethodPost
+		// Assert
+		AssertTestStatusCode(t, resp, fiber.StatusBadRequest)
+		resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+		AssertEqual(t, 1, len(resBody.Fields))
+		AssertEqual(t, "email", resBody.Fields[0].Param)
+		AssertEqual(t, "Field validation for 'Email' failed on the 'email' tag", resBody.Fields[0].Error)
+		AssertEqual(t, reqBody.Email, resBody.Fields[0].Value.(string))
+	})
 
-	// Act
-	resp := PerformTestRequest(t, app, delayMs, method, registerPath, "", jsonBody)
-	defer resp.Body.Close()
+	t.Run("Should return 409 CONFLICT if email already exists", func(t *testing.T) {
+		// Arrange
+		testUser := CreateTestUser(t, nil)
+		reqBody := generateFakeRegisterData(t)
+		reqBody.Email = testUser.Email
+		jsonBody := CreateTestJSONRequestBody(t, reqBody)
+		app := GetTestApp(t)
+		delayMs := 0
+		method := MethodPost
 
-	// Assert
-	AssertTestStatusCode(t, resp, fiber.StatusConflict)
-	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-	AssertEqual(t, "Email already exists", resBody.Message)
+		// Act
+		resp := PerformTestRequest(t, app, delayMs, method, registerPath, "", jsonBody)
+		defer resp.Body.Close()
+
+		// Assert
+		AssertTestStatusCode(t, resp, fiber.StatusConflict)
+		resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+		AssertEqual(t, "Email already exists", resBody.Message)
+	})
+
+	t.Cleanup(func() {
+		// Clean up test data
+		dbProv := GetTestDatabase(t)
+		dbProv.DeleteAllUsers(context.Background())
+	})
 }
 
 // ----- Test Confirm Email -----
@@ -174,92 +187,78 @@ func generateTestConfirmEmailData(t *testing.T, user db.User) controllers.Confir
 
 // Happy Path
 func TestConfirmEmail(t *testing.T) {
-	// Arrange
-	testUser := CreateTestUser(t, nil)
-	reqBody := generateTestConfirmEmailData(t, testUser)
-	jsonBody := CreateTestJSONRequestBody(t, reqBody)
-	app := GetTestApp(t)
+	unauthorizedFunc := func(t *testing.T, _ controllers.ConfirmRequest, resp *http.Response) {
+		resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+		AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+	}
 
-	// Act
-	resp := PerformTestRequest(t, app, 0, MethodPost, confirmEmailPath, "", jsonBody)
-	defer resp.Body.Close()
+	testCases := []TestRequestCase[controllers.ConfirmRequest]{
+		{
+			Name: "Should return 200 OK with OAuth response",
+			ReqFn: func(t *testing.T) (controllers.ConfirmRequest, string) {
+				testUser := CreateTestUser(t, nil)
+				return generateTestConfirmEmailData(t, testUser), ""
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, _ controllers.ConfirmRequest, resp *http.Response) {
+				assertOAuthResponse(t, resp)
+			},
+		},
+		{
+			Name: "Should return 400 BAD REQUEST if request validation fails",
+			ReqFn: func(t *testing.T) (controllers.ConfirmRequest, string) {
+				return controllers.ConfirmRequest{ConfirmationToken: "invalidToken"}, ""
+			},
+			ExpStatus: fiber.StatusBadRequest,
+			AssertFn: func(t *testing.T, req controllers.ConfirmRequest, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+				AssertEqual(t, 1, len(resBody.Fields))
+				AssertEqual(t, "confirmation_token", resBody.Fields[0].Param)
+				AssertEqual(t, "Field validation for 'ConfirmationToken' failed on the 'jwt' tag", resBody.Fields[0].Error)
+				AssertEqual(t, req.ConfirmationToken, resBody.Fields[0].Value.(string))
+			},
+		},
+		{
+			Name: "Should return 401 UNAUTHORIZED if user not found",
+			ReqFn: func(t *testing.T) (controllers.ConfirmRequest, string) {
+				fakeUser := CreateFakeTestUser(t)
+				return generateTestConfirmEmailData(t, fakeUser), ""
+			},
+			ExpStatus: fiber.StatusUnauthorized,
+			AssertFn:  unauthorizedFunc,
+		},
+		{
+			Name: "Should return 401 UNAUTHORIZED if user already confirmed",
+			ReqFn: func(t *testing.T) (controllers.ConfirmRequest, string) {
+				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+				return generateTestConfirmEmailData(t, testUser), ""
+			},
+			ExpStatus: fiber.StatusUnauthorized,
+			AssertFn:  unauthorizedFunc,
+		},
+		{
+			Name: "Should return 401 UNAUTHORIZED for version missmatch",
+			ReqFn: func(t *testing.T) (controllers.ConfirmRequest, string) {
+				testUser := CreateTestUser(t, nil)
+				testUser.Version = math.MaxInt16
+				return generateTestConfirmEmailData(t, testUser), ""
+			},
+			ExpStatus: fiber.StatusUnauthorized,
+			AssertFn:  unauthorizedFunc,
+		},
+	}
 
-	// Assert
-	AssertTestStatusCode(t, resp, fiber.StatusOK)
-	resBody := AssertTestResponseBody(t, resp, controllers.AuthResponse{})
-	AssertEqual(t, "Bearer", resBody.TokenType)
-}
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			PerformTestRequestCase(t, confirmEmailPath, tc)
+		})
+	}
 
-// Sad Path
-func TestConfirmEmailValidationErr(t *testing.T) {
-	// Arrange
-	reqBody := controllers.ConfirmRequest{ConfirmationToken: "invalidToken"}
-	jsonBody := CreateTestJSONRequestBody(t, reqBody)
-	app := GetTestApp(t)
-
-	// Act
-	resp := PerformTestRequest(t, app, 0, MethodPost, confirmEmailPath, "", jsonBody)
-	defer resp.Body.Close()
-
-	// Assert
-	AssertTestStatusCode(t, resp, fiber.StatusBadRequest)
-	resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
-	AssertEqual(t, 1, len(resBody.Fields))
-	AssertEqual(t, "confirmation_token", resBody.Fields[0].Param)
-	AssertEqual(t, "Field validation for 'ConfirmationToken' failed on the 'jwt' tag", resBody.Fields[0].Error)
-	AssertEqual(t, reqBody.ConfirmationToken, resBody.Fields[0].Value)
-}
-
-func TestConfirmEmailNotFound(t *testing.T) {
-	// Arrange
-	fakeUser := CreateFakeTestUser(t)
-	reqBody := generateTestConfirmEmailData(t, fakeUser)
-	jsonBody := CreateTestJSONRequestBody(t, reqBody)
-	app := GetTestApp(t)
-
-	// Act
-	resp := PerformTestRequest(t, app, 0, MethodPost, confirmEmailPath, "", jsonBody)
-	defer resp.Body.Close()
-
-	// Assert
-	AssertTestStatusCode(t, resp, fiber.StatusUnauthorized)
-	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-	AssertEqual(t, services.MessageUnauthorized, resBody.Message)
-}
-
-func TestUserAlreadyConfirmed(t *testing.T) {
-	// Arrange
-	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
-	reqBody := generateTestConfirmEmailData(t, testUser)
-	jsonBody := CreateTestJSONRequestBody(t, reqBody)
-	app := GetTestApp(t)
-
-	// Act
-	resp := PerformTestRequest(t, app, 0, MethodPost, confirmEmailPath, "", jsonBody)
-	defer resp.Body.Close()
-
-	// Assert
-	AssertTestStatusCode(t, resp, fiber.StatusUnauthorized)
-	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-	AssertEqual(t, services.MessageUnauthorized, resBody.Message)
-}
-
-func TestUserVersionMissmatch(t *testing.T) {
-	// Arrange
-	testUser := CreateTestUser(t, nil)
-	testUser.Version = math.MaxInt16
-	reqBody := generateTestConfirmEmailData(t, testUser)
-	jsonBody := CreateTestJSONRequestBody(t, reqBody)
-	app := GetTestApp(t)
-
-	// Act
-	resp := PerformTestRequest(t, app, 0, MethodPost, confirmEmailPath, "", jsonBody)
-	defer resp.Body.Close()
-
-	// Assert
-	AssertTestStatusCode(t, resp, fiber.StatusUnauthorized)
-	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-	AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+	t.Cleanup(func() {
+		// Clean up test data
+		dbProv := GetTestDatabase(t)
+		dbProv.DeleteAllUsers(context.Background())
+	})
 }
 
 // ----- Test Login -----
@@ -300,10 +299,10 @@ func TestLoginValidationErr(t *testing.T) {
 	AssertEqual(t, 2, len(resBody.Fields))
 	AssertEqual(t, "email", resBody.Fields[0].Param)
 	AssertEqual(t, "Field validation for 'Email' failed on the 'email' tag", resBody.Fields[0].Error)
-	AssertEqual(t, reqBody.Email, resBody.Fields[0].Value)
+	AssertEqual(t, reqBody.Email, resBody.Fields[0].Value.(string))
 	AssertEqual(t, "password", resBody.Fields[1].Param)
 	AssertEqual(t, "Field validation for 'Password' failed on the 'required' tag", resBody.Fields[1].Error)
-	AssertEqual(t, reqBody.Password, resBody.Fields[1].Value)
+	AssertEqual(t, reqBody.Password, resBody.Fields[1].Value.(string))
 }
 
 func TestLoginNotFound(t *testing.T) {
@@ -408,10 +407,10 @@ func TestLoginConfirmValidationErr(t *testing.T) {
 	AssertEqual(t, 2, len(resBody.Fields))
 	AssertEqual(t, "email", resBody.Fields[0].Param)
 	AssertEqual(t, "Field validation for 'Email' failed on the 'email' tag", resBody.Fields[0].Error)
-	AssertEqual(t, reqBody.Email, resBody.Fields[0].Value)
+	AssertEqual(t, reqBody.Email, resBody.Fields[0].Value.(string))
 	AssertEqual(t, "code", resBody.Fields[1].Param)
 	AssertEqual(t, "Field validation for 'Code' failed on the 'required' tag", resBody.Fields[1].Error)
-	AssertEqual(t, reqBody.Code, resBody.Fields[1].Value)
+	AssertEqual(t, reqBody.Code, resBody.Fields[1].Value.(string))
 }
 
 func TestLoginConfirmNotFound(t *testing.T) {
@@ -536,7 +535,7 @@ func TestBodyLogoutValidationErr(t *testing.T) {
 	AssertEqual(t, 1, len(resBody.Fields))
 	AssertEqual(t, "refresh_token", resBody.Fields[0].Param)
 	AssertEqual(t, "Field validation for 'RefreshToken' failed on the 'required' tag", resBody.Fields[0].Error)
-	AssertEqual(t, reqBody.RefreshToken, resBody.Fields[0].Value)
+	AssertEqual(t, reqBody.RefreshToken, resBody.Fields[0].Value.(string))
 }
 
 func TestCookieLogoutValidationErr(t *testing.T) {
@@ -734,7 +733,7 @@ func TestBodyRefreshValidationErr(t *testing.T) {
 	AssertEqual(t, 1, len(resBody.Fields))
 	AssertEqual(t, "refresh_token", resBody.Fields[0].Param)
 	AssertEqual(t, "Field validation for 'RefreshToken' failed on the 'jwt' tag", resBody.Fields[0].Error)
-	AssertEqual(t, reqBody.RefreshToken, resBody.Fields[0].Value)
+	AssertEqual(t, reqBody.RefreshToken, resBody.Fields[0].Value.(string))
 }
 
 // ----- Test Forgot Password -----
@@ -790,7 +789,7 @@ func TestForgotPasswordValidationErr(t *testing.T) {
 	AssertEqual(t, 1, len(resBody.Fields))
 	AssertEqual(t, "email", resBody.Fields[0].Param)
 	AssertEqual(t, "Field validation for 'Email' failed on the 'email' tag", resBody.Fields[0].Error)
-	AssertEqual(t, reqBody.Email, resBody.Fields[0].Value)
+	AssertEqual(t, reqBody.Email, resBody.Fields[0].Value.(string))
 }
 
 // ----- Test Reset Password -----
@@ -840,13 +839,13 @@ func TestResetPasswordValidationErr(t *testing.T) {
 	AssertEqual(t, 3, len(resBody.Fields))
 	AssertEqual(t, "reset_token", resBody.Fields[0].Param)
 	AssertEqual(t, "Field validation for 'ResetToken' failed on the 'jwt' tag", resBody.Fields[0].Error)
-	AssertEqual(t, reqBody.ResetToken, resBody.Fields[0].Value)
+	AssertEqual(t, reqBody.ResetToken, resBody.Fields[0].Value.(string))
 	AssertEqual(t, "password1", resBody.Fields[1].Param)
 	AssertEqual(t, "Field validation for 'Password1' failed on the 'required' tag", resBody.Fields[1].Error)
-	AssertEqual(t, reqBody.Password1, resBody.Fields[1].Value)
+	AssertEqual(t, reqBody.Password1, resBody.Fields[1].Value.(string))
 	AssertEqual(t, "password2", resBody.Fields[2].Param)
 	AssertEqual(t, "Field validation for 'Password2' failed on the 'required' tag", resBody.Fields[2].Error)
-	AssertEqual(t, reqBody.Password2, resBody.Fields[2].Value)
+	AssertEqual(t, reqBody.Password2, resBody.Fields[2].Value.(string))
 }
 
 func TestResetPasswordInvalidVersionErr(t *testing.T) {
@@ -932,10 +931,10 @@ func TestUpdatePasswordValidationErr(t *testing.T) {
 	AssertEqual(t, 3, len(resBody.Fields))
 	AssertEqual(t, "old_password", resBody.Fields[0].Param)
 	AssertEqual(t, "Field validation for 'OldPassword' failed on the 'required' tag", resBody.Fields[0].Error)
-	AssertEqual(t, reqBody.OldPassword, resBody.Fields[0].Value)
+	AssertEqual(t, reqBody.OldPassword, resBody.Fields[0].Value.(string))
 	AssertEqual(t, "password1", resBody.Fields[1].Param)
 	AssertEqual(t, "Field validation for 'Password1' failed on the 'required' tag", resBody.Fields[1].Error)
-	AssertEqual(t, reqBody.Password1, resBody.Fields[1].Value)
+	AssertEqual(t, reqBody.Password1, resBody.Fields[1].Value.(string))
 	AssertEqual(t, "password2", resBody.Fields[2].Param)
 	AssertEqual(t, "Field validation for 'Password2' failed on the 'required' tag", resBody.Fields[2].Error)
 }

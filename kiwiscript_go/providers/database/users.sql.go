@@ -150,6 +150,15 @@ func (q *Queries) CreateUserWithoutPassword(ctx context.Context, arg CreateUserW
 	return i, err
 }
 
+const deleteAllUsers = `-- name: DeleteAllUsers :exec
+DELETE FROM "users"
+`
+
+func (q *Queries) DeleteAllUsers(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteAllUsers)
+	return err
+}
+
 const deleteUserById = `-- name: DeleteUserById :exec
 DELETE FROM "users"
 WHERE "id" = $1

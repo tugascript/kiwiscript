@@ -197,9 +197,29 @@ func AssertTestResponseBody[V interface{}](t *testing.T, resp *http.Response, ex
 	return expectedBody
 }
 
-func AssertEqual(t *testing.T, expected, actual interface{}) {
+func AssertEqual[V comparable](t *testing.T, expected, actual V) {
 	if expected != actual {
 		t.Fatalf("Expected: %v, Actual: %v", expected, actual)
+	}
+}
+
+type ordered interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64 |
+		~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr |
+		~float32 | ~float64 |
+		~string
+}
+
+func AssertGreaterThan[V ordered](t *testing.T, expected, actual V) {
+	if expected < actual {
+		t.Fatalf("Expected: %v, Actual: %v", expected, actual)
+	}
+}
+
+func AssertNotEmpty[V comparable](t *testing.T, actual V) {
+	var empty V
+	if actual == empty {
+		t.Fatal("Value is empty")
 	}
 }
 
@@ -286,4 +306,26 @@ func GenerateTestAuthTokens(t *testing.T, user db.User) (accessToken string, ref
 	}
 
 	return accessToken, refreshToken
+}
+
+type TestRequestCase[R interface{}] struct {
+	Name      string
+	ReqFn     func(t *testing.T) (R, string)
+	ExpStatus int
+	AssertFn  func(t *testing.T, req R, resp *http.Response)
+}
+
+func PerformTestRequestCase[R interface{}](t *testing.T, path string, tc TestRequestCase[R]) {
+	// Arrange
+	reqBody, accessToken := tc.ReqFn(t)
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+	app := GetTestApp(t)
+
+	// Act
+	resp := PerformTestRequest(t, app, 0, MethodPost, path, accessToken, jsonBody)
+	defer resp.Body.Close()
+
+	// Assert
+	AssertTestStatusCode(t, resp, tc.ExpStatus)
+	tc.AssertFn(t, reqBody, resp)
 }
