@@ -71,15 +71,6 @@ func (c *Controllers) SignUp(ctx *fiber.Ctx) error {
 				{Param: "password", Error: err.Message},
 			}))
 	}
-	if request.Password1 != request.Password2 {
-		errMsg := "Passwords do not match"
-		log.WarnContext(userCtx, errMsg)
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationBody, []FieldError{
-				{Param: "password", Error: errMsg},
-			}))
-	}
 
 	opts := services.SignUpOptions{
 		Email:     utils.Lowered(request.Email),
@@ -94,7 +85,7 @@ func (c *Controllers) SignUp(ctx *fiber.Ctx) error {
 	}
 
 	return ctx.
-		Status(fiber.StatusCreated).
+		Status(fiber.StatusOK).
 		JSON(NewMessageResponse("Confirmation email has been sent"))
 }
 
@@ -120,7 +111,7 @@ func (c *Controllers) SignIn(ctx *fiber.Ctx) error {
 
 	return ctx.
 		Status(fiber.StatusOK).
-		JSON(NewMessageResponse("Sign in successful"))
+		JSON(NewMessageResponse("Confirmation code has been sent to your email"))
 }
 
 func (c *Controllers) ConfirmSignIn(ctx *fiber.Ctx) error {
@@ -252,11 +243,6 @@ func (c *Controllers) ResetPassword(ctx *fiber.Ctx) error {
 		log.WarnContext(userCtx, "Failed to validate password", "error", serviceErr)
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
-	if request.Password1 != request.Password2 {
-		errMsg := "Passwords do not match"
-		log.WarnContext(userCtx, errMsg)
-		return c.serviceErrorResponse(services.NewValidationError(errMsg), ctx)
-	}
 
 	opts := services.ResetPasswordOptions{
 		ResetToken:  request.ResetToken,
@@ -290,11 +276,6 @@ func (c *Controllers) UpdatePassword(ctx *fiber.Ctx) error {
 	}
 	if err := passwordValidator(request.Password1); err != nil {
 		return c.serviceErrorResponse(err, ctx)
-	}
-	if request.Password1 != request.Password2 {
-		errMsg := "Passwords do not match"
-		log.WarnContext(userCtx, errMsg)
-		return c.serviceErrorResponse(services.NewValidationError(errMsg), ctx)
 	}
 
 	authRes, serviceErr := c.services.UpdatePassword(ctx.UserContext(), services.UpdatePasswordOptions{

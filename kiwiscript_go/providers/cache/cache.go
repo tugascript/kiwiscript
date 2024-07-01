@@ -13,3 +13,7 @@ func NewCache(storage *redis.Storage) *Cache {
 		storage: storage,
 	}
 }
+
+func (c *Cache) ResetCache() error {
+	return c.storage.Reset()
+}

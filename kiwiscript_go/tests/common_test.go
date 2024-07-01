@@ -313,6 +313,7 @@ type TestRequestCase[R interface{}] struct {
 	ReqFn     func(t *testing.T) (R, string)
 	ExpStatus int
 	AssertFn  func(t *testing.T, req R, resp *http.Response)
+	DelayMs   int
 }
 
 func PerformTestRequestCase[R interface{}](t *testing.T, path string, tc TestRequestCase[R]) {
@@ -322,7 +323,7 @@ func PerformTestRequestCase[R interface{}](t *testing.T, path string, tc TestReq
 	app := GetTestApp(t)
 
 	// Act
-	resp := PerformTestRequest(t, app, 0, MethodPost, path, accessToken, jsonBody)
+	resp := PerformTestRequest(t, app, tc.DelayMs, MethodPost, path, accessToken, jsonBody)
 	defer resp.Body.Close()
 
 	// Assert

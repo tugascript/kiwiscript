@@ -23,6 +23,30 @@ type SignUpOptions struct {
 	Password  string
 }
 
+func (s *Services) sendConfirmationEmail(ctx context.Context, log *slog.Logger, user db.User) *ServiceError {
+	log.InfoContext(ctx, "Sending confirmation email")
+	confirmationToken, err := s.jwt.CreateEmailToken(tokens.EmailTokenConfirmation, user)
+	if err != nil {
+		errMsg := "Failed to create confirmation token"
+		log.ErrorContext(ctx, errMsg, "error", err)
+		return NewServerError(errMsg)
+	}
+
+	go func() {
+		opts := email.ConfirmationEmailOptions{
+			Email:             user.Email,
+			FirstName:         user.FirstName,
+			LastName:          user.LastName,
+			ConfirmationToken: confirmationToken,
+		}
+		if err := s.mail.SendConfirmationEmail(opts); err != nil {
+			log.WarnContext(ctx, "Failed to send confirmation email", "error", err)
+		}
+	}()
+
+	return nil
+}
+
 func (s *Services) SignUp(ctx context.Context, options SignUpOptions) *ServiceError {
 	log := s.log.WithGroup("services.auth.SignUp").With("email", options.Email)
 	log.InfoContext(ctx, "Sign up")
@@ -64,25 +88,9 @@ func (s *Services) SignUp(ctx context.Context, options SignUpOptions) *ServiceEr
 		return serviceErr
 	}
 
-	confirmationToken, err := s.jwt.CreateEmailToken(tokens.EmailTokenConfirmation, user)
-	if err != nil {
-		errMsg := "Failed to create confirmation token"
-		log.ErrorContext(ctx, errMsg, "error", err)
-		return NewServerError(errMsg)
+	if err := s.sendConfirmationEmail(ctx, log, user); err != nil {
+		return err
 	}
-
-	go func() {
-		opts := email.ConfirmationEmailOptions{
-			Email:             user.Email,
-			FirstName:         user.FirstName,
-			LastName:          user.LastName,
-			ConfirmationToken: confirmationToken,
-		}
-		if err := s.mail.SendConfirmationEmail(opts); err != nil {
-			log.WarnContext(ctx, "Failed to send confirmation email", "error", err)
-		}
-	}()
-
 	log.InfoContext(ctx, "Sign up successfully")
 	return nil
 }
@@ -189,6 +197,11 @@ func (s *Services) SignIn(ctx context.Context, options SignInOptions) *ServiceEr
 	if !user.IsConfirmed {
 		errMsg := "User not confirmed"
 		log.WarnContext(ctx, errMsg)
+
+		if err := s.sendConfirmationEmail(ctx, log, user); err != nil {
+			return err
+		}
+
 		return NewValidationError(errMsg)
 	}
 
