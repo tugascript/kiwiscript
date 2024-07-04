@@ -69,9 +69,9 @@ func NewRequestError(err *services.ServiceError) RequestError {
 }
 
 type FieldError struct {
-	Param string      `json:"param"`
-	Error string      `json:"error"`
-	Value interface{} `json:"value"`
+	Param   string      `json:"param"`
+	Message string      `json:"message"`
+	Value   interface{} `json:"value"`
 }
 
 type RequestValidationError struct {
@@ -104,25 +104,84 @@ func toSnakeCase(camel string) string {
 	return result.String()
 }
 
-const errPrefix = "Error:"
+const (
+	fieldErrTagMin      string = "min"
+	fieldErrTagMax      string = "max"
+	fieldErrTagEqField  string = "eqfield"
+	fieldErrTagRequired string = "required"
 
-func extractError(errorStr string) string {
-	index := strings.Index(errorStr, errPrefix)
-	if index == -1 {
-		return ""
+	strFieldErrTagEmail string = "email"
+	strFieldErrTagJWT   string = "jwt"
+	strFieldErrTagUrl   string = "url"
+
+	FieldErrMessageInvalid  string = "must be valid"
+	FieldErrMessageRequired string = "must be provided"
+	FieldErrMessageEqField  string = "does not match equivalent field"
+
+	StrFieldErrMessageEmail string = "must be a valid email"
+	StrFieldErrMessageMin   string = "must be longer"
+	StrFieldErrMessageMax   string = "must be shorter"
+	StrFieldErrMessageJWT   string = "must be a valid JWT token"
+	StrFieldErrMessageUrl   string = "must be a valid URL"
+
+	IntFieldErrMessageMin string = "must be greater"
+	IntFieldErrMessageMax string = "must be less"
+)
+
+func selectStrErrMessage(tag string) string {
+	switch tag {
+	case fieldErrTagRequired:
+		return FieldErrMessageRequired
+	case strFieldErrTagEmail:
+		return StrFieldErrMessageEmail
+	case fieldErrTagMin:
+		return StrFieldErrMessageMin
+	case fieldErrTagMax:
+		return StrFieldErrMessageMax
+	case fieldErrTagEqField:
+		return FieldErrMessageEqField
+	case strFieldErrTagJWT:
+		return StrFieldErrMessageJWT
+	case strFieldErrTagUrl:
+		return StrFieldErrMessageUrl
+	default:
+		return FieldErrMessageInvalid
+	}
+}
+
+func selectIntErrMessage(tag string) string {
+	switch tag {
+	case fieldErrTagRequired:
+		return FieldErrMessageRequired
+	case fieldErrTagMin:
+		return IntFieldErrMessageMin
+	case fieldErrTagMax:
+		return IntFieldErrMessageMax
+	default:
+		return FieldErrMessageInvalid
+	}
+}
+
+func buildFieldErrorMessage(tag string, val interface{}) string {
+	if _, ok := val.(string); ok {
+		return selectStrErrMessage(tag)
+	}
+	if _, ok := val.(int); ok {
+		return selectIntErrMessage(tag)
 	}
 
-	return strings.TrimSpace(errorStr[index+len(errPrefix):])
+	return FieldErrMessageInvalid
 }
 
 func RequestValidationErrorFromErr(err *validator.ValidationErrors, location string) RequestValidationError {
 	fields := make([]FieldError, len(*err))
 
 	for i, field := range *err {
+		value := field.Value()
 		fields[i] = FieldError{
-			Param: toSnakeCase(field.Field()),
-			Error: extractError(field.Error()),
-			Value: field.Value(),
+			Value:   value,
+			Param:   toSnakeCase(field.Field()),
+			Message: buildFieldErrorMessage(field.Tag(), value),
 		}
 	}
 

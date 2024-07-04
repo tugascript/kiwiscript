@@ -346,8 +346,9 @@ func (s *Services) UpdatePassword(ctx context.Context, options UpdatePasswordOpt
 	})
 	if err == nil {
 		if !utils.VerifyPassword(options.OldPassword, user.Password.String) {
-			log.WarnContext(ctx, "Invalid old password")
-			return authResponse, NewUnauthorizedError()
+			errMsg := "Old password is incorrect"
+			log.WarnContext(ctx, errMsg)
+			return authResponse, NewValidationError(errMsg)
 		}
 
 		password, err := utils.HashPassword(options.NewPassword)
@@ -551,8 +552,9 @@ func (s *Services) UpdateEmail(ctx context.Context, options UpdateEmailOptions) 
 		return authResponse, serviceErr
 	}
 	if !utils.VerifyPassword(options.Password, user.Password.String) {
-		log.WarnContext(ctx, "Invalid password")
-		return authResponse, NewUnauthorizedError()
+		errMsg := "Invalid password"
+		log.WarnContext(ctx, errMsg)
+		return authResponse, NewValidationError(errMsg)
 	}
 
 	if _, err := s.database.FindAuthProviderByEmailAndProvider(ctx, db.FindAuthProviderByEmailAndProviderParams{

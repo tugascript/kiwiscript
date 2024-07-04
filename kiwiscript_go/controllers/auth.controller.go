@@ -68,7 +68,7 @@ func (c *Controllers) SignUp(ctx *fiber.Ctx) error {
 		return ctx.
 			Status(fiber.StatusBadRequest).
 			JSON(NewRequestValidationError(RequestValidationLocationBody, []FieldError{
-				{Param: "password", Error: err.Message},
+				{Param: "password", Message: err.Message},
 			}))
 	}
 
