@@ -2,7 +2,9 @@ package main
 
 import (
 	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
@@ -94,6 +96,28 @@ func main() {
 	pem.Encode(privFile, &privBlock)
 	logger.Debug("Private key written to ../keys/private.key")
 
+	// Generate random 32 base64 encoded bytes
+	cookieSecret := make([]byte, 32)
+	_, err = rand.Read(cookieSecret)
+	if err != nil {
+		logger.Error("Failed to generate random 32 base64 encoded bytes", "error", err)
+		return
+	}
+	logger.Debug("Random 32 base64 encoded bytes generated")
+	// base64 encode the key
+	encodedSecret := make([]byte, 44)
+	base64.StdEncoding.Encode(encodedSecret, cookieSecret)
+	logger.Debug("Key base64 encoded")
+	// right key to txt file
+	logger.Debug("Writing key to ../keys/cookie_secret.txt ...")
+	keyFile, err := os.Create("../keys/cookie_secret.txt")
+	if err != nil {
+		logger.Error("Failed to create key file", "error", err)
+		return
+	}
+	defer keyFile.Close()
+	keyFile.Write(encodedSecret)
+
 	logger.Info("Key pair generated successfully")
 	pubPEM := pem.EncodeToMemory(&pubBlock)
 	publicKey, _ := json.Marshal(string(pubPEM))
@@ -102,4 +126,7 @@ func main() {
 	privPEM := pem.EncodeToMemory(&privBlock)
 	privateKey, _ := json.Marshal(string(privPEM))
 	fmt.Println("\nPrivate key value:\n", string(privateKey))
+
+	fmt.Println("\nCookie secret value:\n", string(encodedSecret))
+	fmt.Println("")
 }
