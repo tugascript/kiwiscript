@@ -52,3 +52,8 @@ type UpdateEmailRequest struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required,min=1"`
 }
+
+type CreateLanguageRequest struct {
+	Name string `json:"name" validate:"required,min=2,max=50"`
+	Icon string `json:"icon" validate:"required"`
+}

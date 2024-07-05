@@ -40,3 +40,13 @@ func Uppercased(s string) string {
 
 	return upperCaser.String(s)
 }
+
+func DbSearch(s string) string {
+	return "%" + Lowered(s) + "%"
+}
+
+func Slugify(s string) string {
+	s = Lowered(s)
+	s = strings.Join(strings.Fields(s), "-")
+	return s
+}

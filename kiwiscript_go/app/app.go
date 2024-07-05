@@ -74,7 +74,7 @@ func CreateApp(
 	// Build service
 	srvs := services.NewServices(database, cache, mailer, tokenProv, log)
 	// Build controllers
-	ctrls := controllers.NewControllers(log, srvs, vld, refreshCookieName)
+	ctrls := controllers.NewControllers(log, srvs, vld, frontendDomain, refreshCookieName)
 	// Build router
 	rtr := routers.NewRouter(app, ctrls)
 

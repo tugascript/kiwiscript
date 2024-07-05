@@ -34,3 +34,20 @@ func (c *Controllers) GetUserClaims(ctx *fiber.Ctx) (tokens.AccessUserClaims, *s
 
 	return user, nil
 }
+
+func (c *Controllers) AdminUserMiddleware(ctx *fiber.Ctx) error {
+	user, err := c.GetUserClaims(ctx)
+	if err != nil {
+		return ctx.
+			Status(fiber.StatusUnauthorized).
+			JSON(NewRequestError(err))
+	}
+
+	if !user.IsAdmin {
+		return ctx.
+			Status(fiber.StatusForbidden).
+			JSON(NewRequestError(services.NewForbiddenError()))
+	}
+
+	return ctx.Next()
+}

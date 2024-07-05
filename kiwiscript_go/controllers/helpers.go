@@ -17,19 +17,37 @@ func (c *Controllers) parseRequestErrorResponse(log *slog.Logger, userCtx contex
 		JSON(NewEmptyRequestValidationError(RequestValidationLocationBody))
 }
 
-func (c *Controllers) validateRequestErrorResponse(log *slog.Logger, userCtx context.Context, err error, ctx *fiber.Ctx) error {
+func (c *Controllers) validateErrorResponse(
+	log *slog.Logger,
+	userCtx context.Context,
+	err error,
+	ctx *fiber.Ctx,
+	location string,
+) error {
 	log.WarnContext(userCtx, "Failed to validate request", "error", err, "errorType", fmt.Sprintf("%T", err))
 
 	errors, ok := err.(validator.ValidationErrors)
 	if ok {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(RequestValidationErrorFromErr(&errors, RequestValidationLocationBody))
+			JSON(RequestValidationErrorFromErr(&errors, location))
 	}
 
 	return ctx.
 		Status(fiber.StatusBadRequest).
-		JSON(NewEmptyRequestValidationError(RequestValidationLocationBody))
+		JSON(NewEmptyRequestValidationError(location))
+}
+
+func (c *Controllers) validateRequestErrorResponse(log *slog.Logger, userCtx context.Context, err error, ctx *fiber.Ctx) error {
+	return c.validateErrorResponse(log, userCtx, err, ctx, RequestValidationLocationBody)
+}
+
+func (c *Controllers) validateParamsErrorResponse(log *slog.Logger, userCtx context.Context, err error, ctx *fiber.Ctx) error {
+	return c.validateErrorResponse(log, userCtx, err, ctx, RequestValidationLocationParams)
+}
+
+func (c *Controllers) validateQueryErrorResponse(log *slog.Logger, userCtx context.Context, err error, ctx *fiber.Ctx) error {
+	return c.validateErrorResponse(log, userCtx, err, ctx, RequestValidationLocationQuery)
 }
 
 func (c *Controllers) serviceErrorResponse(serviceErr *services.ServiceError, ctx *fiber.Ctx) error {

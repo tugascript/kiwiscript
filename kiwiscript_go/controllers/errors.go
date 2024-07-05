@@ -82,10 +82,10 @@ type RequestValidationError struct {
 }
 
 const (
-	RequestValidationMessage       string = "Invalid request"
-	RequestValidationLocationBody  string = "body"
-	RequestValidationLocationQuery string = "query"
-	RequestValidationLocationParam string = "param"
+	RequestValidationMessage        string = "Invalid request"
+	RequestValidationLocationBody   string = "body"
+	RequestValidationLocationQuery  string = "query"
+	RequestValidationLocationParams string = "params"
 )
 
 func toSnakeCase(camel string) string {

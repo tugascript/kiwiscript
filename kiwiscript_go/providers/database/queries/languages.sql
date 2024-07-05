@@ -33,6 +33,19 @@ SELECT * FROM "languages"
 ORDER BY "name" ASC
 LIMIT $1 OFFSET $2;
 
+-- name: CountLanguages :one
+SELECT COUNT("id") FROM "languages";
+
+-- name: FindFilteredPaginatedLanguages :many
+SELECT * FROM "languages"
+WHERE "name" ILIKE $1
+ORDER BY "name" ASC
+LIMIT $2 OFFSET $3;
+
+-- name: CountFilteredLanguages :one
+SELECT COUNT("id") FROM "languages"
+WHERE "name" ILIKE $1;
+
 -- name: DeleteLanguageById :exec
 DELETE FROM "languages"
 WHERE "id" = $1;

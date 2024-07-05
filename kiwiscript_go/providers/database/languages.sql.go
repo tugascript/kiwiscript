@@ -9,6 +9,29 @@ import (
 	"context"
 )
 
+const countFilteredLanguages = `-- name: CountFilteredLanguages :one
+SELECT COUNT("id") FROM "languages"
+WHERE "name" ILIKE $1
+`
+
+func (q *Queries) CountFilteredLanguages(ctx context.Context, name string) (int64, error) {
+	row := q.db.QueryRow(ctx, countFilteredLanguages, name)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countLanguages = `-- name: CountLanguages :one
+SELECT COUNT("id") FROM "languages"
+`
+
+func (q *Queries) CountLanguages(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countLanguages)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createLanguage = `-- name: CreateLanguage :one
 INSERT INTO "languages" (
   "name",
@@ -58,6 +81,46 @@ ORDER BY "name" ASC
 
 func (q *Queries) FindAllLanguages(ctx context.Context) ([]Language, error) {
 	rows, err := q.db.Query(ctx, findAllLanguages)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Language{}
+	for rows.Next() {
+		var i Language
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Icon,
+			&i.AuthorID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const findFilteredPaginatedLanguages = `-- name: FindFilteredPaginatedLanguages :many
+SELECT id, name, icon, author_id, created_at, updated_at FROM "languages"
+WHERE "name" ILIKE $1
+ORDER BY "name" ASC
+LIMIT $2 OFFSET $3
+`
+
+type FindFilteredPaginatedLanguagesParams struct {
+	Name   string
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) FindFilteredPaginatedLanguages(ctx context.Context, arg FindFilteredPaginatedLanguagesParams) ([]Language, error) {
+	rows, err := q.db.Query(ctx, findFilteredPaginatedLanguages, arg.Name, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
