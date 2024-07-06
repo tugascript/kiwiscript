@@ -1,3 +1,20 @@
+// Copyright (C) 2024 Afonso Barracha
+//
+// This file is part of KiwiScript.
+//
+// KiwiScript is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// KiwiScript is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
+
 package tests
 
 import (
@@ -33,11 +50,11 @@ var testDatabase *db.Database
 var testCache *cc.Cache
 
 const (
-	MethodPost  string = "POST"
-	MethodGet   string = "GET"
-	MethodPut   string = "PUT"
-	MethodPatch string = "PATCH"
-	MethodDel   string = "DELETE"
+	MethodPost   string = "POST"
+	MethodGet    string = "GET"
+	MethodPut    string = "PUT"
+	MethodPatch  string = "PATCH"
+	MethodDelete string = "DELETE"
 )
 
 func initTestServicesAndApp(t *testing.T) {
@@ -308,22 +325,24 @@ func GenerateTestAuthTokens(t *testing.T, user db.User) (accessToken string, ref
 	return accessToken, refreshToken
 }
 
-type TestRequestCase[R interface{}] struct {
+type TestRequestCase[R any] struct {
 	Name      string
 	ReqFn     func(t *testing.T) (R, string)
 	ExpStatus int
 	AssertFn  func(t *testing.T, req R, resp *http.Response)
 	DelayMs   int
+	Path      string
+	Method    string
 }
 
-func PerformTestRequestCase[R interface{}](t *testing.T, path string, tc TestRequestCase[R]) {
+func PerformTestRequestCase[R any](t *testing.T, method, path string, tc TestRequestCase[R]) {
 	// Arrange
 	reqBody, accessToken := tc.ReqFn(t)
 	jsonBody := CreateTestJSONRequestBody(t, reqBody)
 	app := GetTestApp(t)
 
 	// Act
-	resp := PerformTestRequest(t, app, tc.DelayMs, MethodPost, path, accessToken, jsonBody)
+	resp := PerformTestRequest(t, app, tc.DelayMs, method, path, accessToken, jsonBody)
 	defer resp.Body.Close()
 
 	// Assert

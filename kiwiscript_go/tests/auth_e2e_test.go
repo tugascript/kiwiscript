@@ -1,3 +1,20 @@
+// Copyright (C) 2024 Afonso Barracha
+//
+// This file is part of KiwiScript.
+//
+// KiwiScript is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// KiwiScript is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
+
 package tests
 
 import (
@@ -190,7 +207,7 @@ func TestRegister(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, registerPath, tc)
+			PerformTestRequestCase(t, MethodPost, registerPath, tc)
 		})
 	}
 
@@ -269,7 +286,7 @@ func TestConfirmEmail(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, confirmEmailPath, tc)
+			PerformTestRequestCase(t, MethodPost, confirmEmailPath, tc)
 		})
 	}
 
@@ -348,7 +365,7 @@ func TestLogin(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, loginPath, tc)
+			PerformTestRequestCase(t, MethodPost, loginPath, tc)
 		})
 	}
 
@@ -438,7 +455,7 @@ func TestLoginConfirm(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, loginConfirmPath, tc)
+			PerformTestRequestCase(t, MethodPost, loginConfirmPath, tc)
 		})
 	}
 
@@ -498,7 +515,7 @@ func TestLogout(t *testing.T) {
 
 	for _, tc := range bodyTestCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, logoutPath, tc)
+			PerformTestRequestCase(t, MethodPost, logoutPath, tc)
 		})
 	}
 
@@ -648,7 +665,7 @@ func TestRefresh(t *testing.T) {
 
 	for _, tc := range bodyTestCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, refreshPath, tc)
+			PerformTestRequestCase(t, MethodPost, refreshPath, tc)
 		})
 	}
 
@@ -769,7 +786,7 @@ func TestForgotPassword(t *testing.T) {
 
 	for _, tc := range bodyTestCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, forgotPasswordPath, tc)
+			PerformTestRequestCase(t, MethodPost, forgotPasswordPath, tc)
 		})
 	}
 
@@ -854,7 +871,7 @@ func TestResetPassword(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, resetPasswordPath, tc)
+			PerformTestRequestCase(t, MethodPost, resetPasswordPath, tc)
 		})
 	}
 
@@ -971,7 +988,7 @@ func TestUpdatePassword(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, updatePasswordPath, tc)
+			PerformTestRequestCase(t, MethodPost, updatePasswordPath, tc)
 		})
 	}
 
@@ -1071,7 +1088,7 @@ func TestUpdateEmail(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, updateEmailPath, tc)
+			PerformTestRequestCase(t, MethodPost, updateEmailPath, tc)
 		})
 	}
 

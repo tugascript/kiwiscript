@@ -1,3 +1,20 @@
+// Copyright (C) 2024 Afonso Barracha
+//
+// This file is part of KiwiScript.
+//
+// KiwiScript is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// KiwiScript is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
+
 package controllers
 
 import (
@@ -7,10 +24,6 @@ import (
 	"github.com/kiwiscript/kiwiscript_go/services"
 	"github.com/kiwiscript/kiwiscript_go/utils"
 )
-
-func isValidSVG(svg string) bool {
-	return strings.HasPrefix(svg, "<svg") && strings.HasSuffix(svg, "</svg>")
-}
 
 func (c *Controllers) CreateLanguage(ctx *fiber.Ctx) error {
 	log := c.log.WithGroup("controllers.languages.CreateLanguage")
@@ -28,19 +41,10 @@ func (c *Controllers) CreateLanguage(ctx *fiber.Ctx) error {
 		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
 
-	icon := strings.TrimSpace(request.Icon)
-	if !isValidSVG(icon) {
-		return ctx.Status(fiber.StatusBadRequest).JSON(NewRequestValidationError(RequestValidationLocationBody, []FieldError{{
-			Param:   "icon",
-			Message: "icon must be a valid SVG",
-			Value:   icon,
-		}}))
-	}
-
 	language, serviceErr := c.services.CreateLanguage(userCtx, services.CreateLanguageOptions{
 		UserID: user.ID,
 		Name:   utils.Slugify(request.Name),
-		Icon:   icon,
+		Icon:   strings.TrimSpace(request.Icon),
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
@@ -52,9 +56,9 @@ func (c *Controllers) CreateLanguage(ctx *fiber.Ctx) error {
 func (c *Controllers) GetLanguage(ctx *fiber.Ctx) error {
 	log := c.log.WithGroup("controllers.languages.GetLanguage")
 	userCtx := ctx.UserContext()
-	name := ctx.Params("name")
+	name := ctx.Params("languageName")
 	log.InfoContext(userCtx, "get language", "name", name)
-	params := GetLanguageParams{name}
+	params := LanguageParams{name}
 
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
@@ -99,4 +103,64 @@ func (c *Controllers) GetLanguages(ctx *fiber.Ctx) error {
 		languages,
 		NewLanguageResponse,
 	))
+}
+
+func (c *Controllers) UpdateLanguage(ctx *fiber.Ctx) error {
+	log := c.log.WithGroup("controllers.languages.UpdateLanguage")
+	userCtx := ctx.UserContext()
+	name := ctx.Params("languageName")
+	log.InfoContext(userCtx, "updat language", "name", name)
+
+	user, err := c.GetUserClaims(ctx)
+	if err != nil || !user.IsAdmin {
+		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+	}
+
+	params := LanguageParams{name}
+	if err := c.validate.StructCtx(userCtx, params); err != nil {
+		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
+	}
+
+	var request UpdateLanguageRequest
+	if err := ctx.BodyParser(&request); err != nil {
+		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
+	}
+	if err := c.validate.StructCtx(userCtx, request); err != nil {
+		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
+	}
+
+	language, serviceErr := c.services.UpdateLanguage(userCtx, services.UpdateLanguageOptions{
+		OriginalName: name,
+		Name:         utils.Slugify(request.Name),
+		Icon:         strings.TrimSpace(request.Icon),
+	})
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	return ctx.JSON(NewLanguageResponse(language))
+}
+
+func (c *Controllers) DeleteLanguage(ctx *fiber.Ctx) error {
+	log := c.log.WithGroup("controllers.languages.DeleteLanguage")
+	userCtx := ctx.UserContext()
+	name := ctx.Params("languageName")
+	log.InfoContext(userCtx, "delete language", "name", name)
+
+	user, err := c.GetUserClaims(ctx)
+	if err != nil || !user.IsAdmin {
+		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+	}
+
+	params := LanguageParams{name}
+	if err := c.validate.StructCtx(userCtx, params); err != nil {
+		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
+	}
+
+	serviceErr := c.services.DeleteLanguage(userCtx, name)
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	return ctx.SendStatus(fiber.StatusNoContent)
 }

@@ -1,3 +1,20 @@
+// Copyright (C) 2024 Afonso Barracha
+//
+// This file is part of KiwiScript.
+//
+// KiwiScript is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// KiwiScript is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
+
 package controllers
 
 import (
@@ -105,27 +122,36 @@ func toSnakeCase(camel string) string {
 }
 
 const (
-	fieldErrTagMin      string = "min"
-	fieldErrTagMax      string = "max"
 	fieldErrTagEqField  string = "eqfield"
 	fieldErrTagRequired string = "required"
 
-	strFieldErrTagEmail string = "email"
-	strFieldErrTagJWT   string = "jwt"
-	strFieldErrTagUrl   string = "url"
+	strFieldErrTagMin      string = "min"
+	strFieldErrTagMax      string = "max"
+	strFieldErrTagEmail    string = "email"
+	strFieldErrTagJWT      string = "jwt"
+	strFieldErrTagUrl      string = "url"
+	strFieldErrTagSvg      string = "svg"
+	strFieldErrExtAlphaNum string = "extalphanum"
+	strFieldErrSlug        string = "slug"
+
+	intFieldErrTagGte string = "gte"
+	intFieldErrTagLte string = "lte"
 
 	FieldErrMessageInvalid  string = "must be valid"
 	FieldErrMessageRequired string = "must be provided"
 	FieldErrMessageEqField  string = "does not match equivalent field"
 
-	StrFieldErrMessageEmail string = "must be a valid email"
-	StrFieldErrMessageMin   string = "must be longer"
-	StrFieldErrMessageMax   string = "must be shorter"
-	StrFieldErrMessageJWT   string = "must be a valid JWT token"
-	StrFieldErrMessageUrl   string = "must be a valid URL"
+	StrFieldErrMessageEmail       string = "must be a valid email"
+	StrFieldErrMessageMin         string = "must be longer"
+	StrFieldErrMessageMax         string = "must be shorter"
+	StrFieldErrMessageJWT         string = "must be a valid JWT token"
+	StrFieldErrMessageUrl         string = "must be a valid URL"
+	StrFieldErrMessageSvg         string = "must be a valid SVG"
+	StrFieldErrMessageExtAlphaNum string = "must only contain letters, numbers and spaces"
+	StrFieldErrMessageSlug        string = "must be a valid slug"
 
-	IntFieldErrMessageMin string = "must be greater"
-	IntFieldErrMessageMax string = "must be less"
+	IntFieldErrMessageLte string = "must be less"
+	IntFieldErrMessageGte string = "must be greater"
 )
 
 func selectStrErrMessage(tag string) string {
@@ -134,9 +160,9 @@ func selectStrErrMessage(tag string) string {
 		return FieldErrMessageRequired
 	case strFieldErrTagEmail:
 		return StrFieldErrMessageEmail
-	case fieldErrTagMin:
+	case strFieldErrTagMin:
 		return StrFieldErrMessageMin
-	case fieldErrTagMax:
+	case strFieldErrTagMax:
 		return StrFieldErrMessageMax
 	case fieldErrTagEqField:
 		return FieldErrMessageEqField
@@ -144,6 +170,12 @@ func selectStrErrMessage(tag string) string {
 		return StrFieldErrMessageJWT
 	case strFieldErrTagUrl:
 		return StrFieldErrMessageUrl
+	case strFieldErrTagSvg:
+		return StrFieldErrMessageSvg
+	case strFieldErrExtAlphaNum:
+		return StrFieldErrMessageExtAlphaNum
+	case strFieldErrSlug:
+		return StrFieldErrMessageSlug
 	default:
 		return FieldErrMessageInvalid
 	}
@@ -153,24 +185,24 @@ func selectIntErrMessage(tag string) string {
 	switch tag {
 	case fieldErrTagRequired:
 		return FieldErrMessageRequired
-	case fieldErrTagMin:
-		return IntFieldErrMessageMin
-	case fieldErrTagMax:
-		return IntFieldErrMessageMax
+	case intFieldErrTagLte:
+		return IntFieldErrMessageLte
+	case intFieldErrTagGte:
+		return IntFieldErrMessageGte
 	default:
 		return FieldErrMessageInvalid
 	}
 }
 
 func buildFieldErrorMessage(tag string, val interface{}) string {
-	if _, ok := val.(string); ok {
+	switch val.(type) {
+	case string:
 		return selectStrErrMessage(tag)
-	}
-	if _, ok := val.(int); ok {
+	case int, int32, int64:
 		return selectIntErrMessage(tag)
+	default:
+		return FieldErrMessageInvalid
 	}
-
-	return FieldErrMessageInvalid
 }
 
 func RequestValidationErrorFromErr(err *validator.ValidationErrors, location string) RequestValidationError {

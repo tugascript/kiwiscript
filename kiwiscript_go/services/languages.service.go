@@ -1,3 +1,20 @@
+// Copyright (C) 2024 Afonso Barracha
+// 
+// This file is part of KiwiScript.
+// 
+// KiwiScript is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+// 
+// KiwiScript is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
+
 package services
 
 import (
@@ -56,18 +73,18 @@ func (s *Services) CreateLanguage(ctx context.Context, options CreateLanguageOpt
 }
 
 type UpdateLanguageOptions struct {
-	ID   int32
-	Name string
-	Icon string
+	OriginalName string
+	Name         string
+	Icon         string
 }
 
 func (s *Services) UpdateLanguage(ctx context.Context, options UpdateLanguageOptions) (db.Language, *ServiceError) {
 	log := s.log.WithGroup("service.languages.UpdateLanguage")
-	log.InfoContext(ctx, "update language", "id", options.ID)
-	var language db.Language
+	log.InfoContext(ctx, "update language", "originalName", options.OriginalName, "name", options.Name)
+	language, serviceErr := s.FindLanguageByName(ctx, options.OriginalName)
 
-	if _, serviceErr := s.FindLanguageByID(ctx, options.ID); serviceErr != nil {
-		log.InfoContext(ctx, "language not found", "id", options.ID)
+	if serviceErr != nil {
+		log.InfoContext(ctx, "language not found", "name", options.OriginalName)
 		return language, serviceErr
 	}
 	if _, serviceErr := s.FindLanguageByName(ctx, options.Name); serviceErr == nil {
@@ -76,7 +93,7 @@ func (s *Services) UpdateLanguage(ctx context.Context, options UpdateLanguageOpt
 	}
 
 	language, err := s.database.UpdateLanguage(ctx, db.UpdateLanguageParams{
-		ID:   options.ID,
+		ID:   language.ID,
 		Name: options.Name,
 		Icon: options.Icon,
 	})
@@ -87,18 +104,21 @@ func (s *Services) UpdateLanguage(ctx context.Context, options UpdateLanguageOpt
 	return language, nil
 }
 
-func (s *Services) DeleteLanguage(ctx context.Context, id int32) *ServiceError {
+func (s *Services) DeleteLanguage(ctx context.Context, name string) *ServiceError {
 	log := s.log.WithGroup("service.languages.DeleteLanguage")
-	log.InfoContext(ctx, "delete language", "id", id)
+	log.InfoContext(ctx, "delete language", "name", name)
+
+	language, serviceErr := s.FindLanguageByName(ctx, name)
 
 	// TODO add restrictions to see if the language is used in any course
-	if _, serviceErr := s.FindLanguageByID(ctx, id); serviceErr != nil {
-		log.InfoContext(ctx, "language not found", "id", id)
+	if serviceErr != nil {
+		log.InfoContext(ctx, "language not found", "name", name)
 		return serviceErr
 	}
 
-	err := s.database.DeleteLanguageById(ctx, id)
+	err := s.database.DeleteLanguageById(ctx, language.ID)
 	if err != nil {
+		log.ErrorContext(ctx, "failed to delete language", "error", err)
 		return FromDBError(err)
 	}
 

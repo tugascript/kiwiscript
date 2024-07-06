@@ -15,37 +15,25 @@
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
-package db
+package routers
 
-import (
-	"context"
+const languagesPath = "/v1/languages"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-)
+func (r *Router) LanguagePublicRoutes() {
+	languages := r.router.Group(languagesPath)
 
-type Database struct {
-	connPool *pgxpool.Pool
-	*Queries
+	languages.Get("/", r.controllers.GetLanguages)
+	languages.Get("/:languageName", r.controllers.GetLanguage)
 }
 
-func NewDatabase(connPool *pgxpool.Pool) *Database {
-	return &Database{
-		connPool: connPool,
-		Queries:  New(connPool),
-	}
-}
+func (r *Router) LanguagePrivateRoutes() {
+	languages := r.router.Group(
+		languagesPath,
+		r.controllers.AccessClaimsMiddleware,
+		r.controllers.AdminUserMiddleware,
+	)
 
-func (database *Database) BeginTx(ctx context.Context) (*Queries, pgx.Tx, error) {
-	txn, err := database.connPool.BeginTx(ctx, pgx.TxOptions{
-		DeferrableMode: pgx.Deferrable,
-		IsoLevel:       pgx.ReadCommitted,
-		AccessMode:     pgx.ReadWrite,
-	})
-
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return database.WithTx(txn), txn, nil
+	languages.Post("/", r.controllers.CreateLanguage)
+	languages.Put("/:languageName", r.controllers.UpdateLanguage)
+	languages.Delete("/:languageName", r.controllers.DeleteLanguage)
 }
