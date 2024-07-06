@@ -1,6 +1,6 @@
 # Kiwiscript
 
-A video sharing platform in multiple programming languages:
+An online teaching platform in multiple programming languages:
 
 - [Go](kiwiscript_go/README.md)
 - [TypeScript](kiwiscript_node/README.md)
