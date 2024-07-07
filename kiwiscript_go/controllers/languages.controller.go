@@ -43,7 +43,7 @@ func (c *Controllers) CreateLanguage(ctx *fiber.Ctx) error {
 
 	language, serviceErr := c.services.CreateLanguage(userCtx, services.CreateLanguageOptions{
 		UserID: user.ID,
-		Name:   utils.Slugify(request.Name),
+		Name:   utils.CapitalizedFirst(request.Name),
 		Icon:   strings.TrimSpace(request.Icon),
 	})
 	if serviceErr != nil {
@@ -56,15 +56,15 @@ func (c *Controllers) CreateLanguage(ctx *fiber.Ctx) error {
 func (c *Controllers) GetLanguage(ctx *fiber.Ctx) error {
 	log := c.log.WithGroup("controllers.languages.GetLanguage")
 	userCtx := ctx.UserContext()
-	name := ctx.Params("languageName")
-	log.InfoContext(userCtx, "get language", "name", name)
-	params := LanguageParams{name}
+	slug := ctx.Params("languageSlug")
+	log.InfoContext(userCtx, "get language", "slug", slug)
+	params := LanguageParams{slug}
 
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}
 
-	language, serviceErr := c.services.FindLanguageByName(userCtx, name)
+	language, serviceErr := c.services.FindLanguageBySlug(userCtx, slug)
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
@@ -108,15 +108,15 @@ func (c *Controllers) GetLanguages(ctx *fiber.Ctx) error {
 func (c *Controllers) UpdateLanguage(ctx *fiber.Ctx) error {
 	log := c.log.WithGroup("controllers.languages.UpdateLanguage")
 	userCtx := ctx.UserContext()
-	name := ctx.Params("languageName")
-	log.InfoContext(userCtx, "updat language", "name", name)
+	slug := ctx.Params("languageSlug")
+	log.InfoContext(userCtx, "update language", "slug", slug)
 
 	user, err := c.GetUserClaims(ctx)
 	if err != nil || !user.IsAdmin {
 		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
 	}
 
-	params := LanguageParams{name}
+	params := LanguageParams{slug}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}
@@ -130,9 +130,9 @@ func (c *Controllers) UpdateLanguage(ctx *fiber.Ctx) error {
 	}
 
 	language, serviceErr := c.services.UpdateLanguage(userCtx, services.UpdateLanguageOptions{
-		OriginalName: name,
-		Name:         utils.Slugify(request.Name),
-		Icon:         strings.TrimSpace(request.Icon),
+		Slug: slug,
+		Name: utils.CapitalizedFirst(request.Name),
+		Icon: strings.TrimSpace(request.Icon),
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
@@ -144,20 +144,20 @@ func (c *Controllers) UpdateLanguage(ctx *fiber.Ctx) error {
 func (c *Controllers) DeleteLanguage(ctx *fiber.Ctx) error {
 	log := c.log.WithGroup("controllers.languages.DeleteLanguage")
 	userCtx := ctx.UserContext()
-	name := ctx.Params("languageName")
-	log.InfoContext(userCtx, "delete language", "name", name)
+	slug := ctx.Params("languageSlug")
+	log.InfoContext(userCtx, "delete language", "name", slug)
 
 	user, err := c.GetUserClaims(ctx)
 	if err != nil || !user.IsAdmin {
 		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
 	}
 
-	params := LanguageParams{name}
+	params := LanguageParams{slug}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}
 
-	serviceErr := c.services.DeleteLanguage(userCtx, name)
+	serviceErr := c.services.DeleteLanguage(userCtx, slug)
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}

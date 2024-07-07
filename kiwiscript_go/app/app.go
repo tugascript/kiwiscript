@@ -21,6 +21,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/encryptcookie"
@@ -34,6 +35,7 @@ import (
 	cc "github.com/kiwiscript/kiwiscript_go/providers/cache"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/providers/email"
+	obj_stg "github.com/kiwiscript/kiwiscript_go/providers/object_storage"
 	"github.com/kiwiscript/kiwiscript_go/providers/tokens"
 	"github.com/kiwiscript/kiwiscript_go/routers"
 	"github.com/kiwiscript/kiwiscript_go/services"
@@ -43,9 +45,11 @@ func CreateApp(
 	log *slog.Logger,
 	storage *redis.Storage,
 	dbConnPool *pgxpool.Pool,
+	s3Client *s3.Client,
 	mailConfig *EmailConfig,
 	tokensConfig *TokensConfig,
 	limiterConfig *LimiterConfig,
+	s3Bucket,
 	backendDomain,
 	frontendDomain,
 	refreshCookieName,
@@ -72,6 +76,7 @@ func CreateApp(
 
 	database := db.NewDatabase(dbConnPool)
 	cache := cc.NewCache(storage)
+	objStg := obj_stg.NewObjectStorage(s3Client, s3Bucket)
 	tokenProv := tokens.NewTokens(
 		tokens.NewTokenSecretData(tokensConfig.Access.PublicKey, tokensConfig.Access.PrivateKey, tokensConfig.Access.TtlSec),
 		tokens.NewTokenSecretData(tokensConfig.Refresh.PublicKey, tokensConfig.Refresh.PrivateKey, tokensConfig.Refresh.TtlSec),
@@ -94,7 +99,7 @@ func CreateApp(
 	vld.RegisterValidation(slugValidatorTag, isValidSlug)
 
 	// Build service
-	srvs := services.NewServices(database, cache, mailer, tokenProv, log)
+	srvs := services.NewServices(log, database, cache, objStg, mailer, tokenProv)
 	// Build controllers
 	ctrls := controllers.NewControllers(log, srvs, vld, frontendDomain, refreshCookieName)
 	// Build router

@@ -147,7 +147,7 @@ const (
 	StrFieldErrMessageJWT         string = "must be a valid JWT token"
 	StrFieldErrMessageUrl         string = "must be a valid URL"
 	StrFieldErrMessageSvg         string = "must be a valid SVG"
-	StrFieldErrMessageExtAlphaNum string = "must only contain letters, numbers and spaces"
+	StrFieldErrMessageExtAlphaNum string = "must only contain letters, numbers, spaces, plus and hashtags"
 	StrFieldErrMessageSlug        string = "must be a valid slug"
 
 	IntFieldErrMessageLte string = "must be less"

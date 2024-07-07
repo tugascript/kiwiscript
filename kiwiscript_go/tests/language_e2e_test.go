@@ -115,7 +115,7 @@ func TestCreateLanguage(t *testing.T) {
 			ExpStatus: fiber.StatusCreated,
 			AssertFn: func(t *testing.T, req controllers.CreateLanguageRequest, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.LanguageResponse{})
-				AssertEqual(t, utils.Slugify(req.Name), resBody.Name)
+				AssertEqual(t, utils.CapitalizedFirst(req.Name), resBody.Name)
 				AssertEqual(t, strings.TrimSpace(req.Icon), resBody.Icon)
 			},
 			DelayMs: 0,
@@ -234,24 +234,28 @@ func TestGetLanguages(t *testing.T) {
 		testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 		cLangPrms := [4]db.CreateLanguageParams{
 			{
-				Name:     utils.Slugify("Rust"),
+				Name:     "Rust",
 				Icon:     strings.TrimSpace(languageIcons["Rust"]),
 				AuthorID: testUser.ID,
+				Slug:     "rust",
 			},
 			{
-				Name:     utils.Slugify("TypeScript"),
+				Name:     "TypeScript",
 				Icon:     strings.TrimSpace(languageIcons["TypeScript"]),
 				AuthorID: testUser.ID,
+				Slug:     "typescript",
 			},
 			{
-				Name:     utils.Slugify("Go"),
+				Name:     "Go",
 				Icon:     strings.TrimSpace(languageIcons["Go"]),
 				AuthorID: testUser.ID,
+				Slug:     "go",
 			},
 			{
-				Name:     utils.Slugify("Python"),
+				Name:     "Python",
 				Icon:     strings.TrimSpace(languageIcons["Python"]),
 				AuthorID: testUser.ID,
+				Slug:     "python",
 			},
 		}
 		testDb := GetTestDatabase(t)
@@ -275,14 +279,14 @@ func TestGetLanguages(t *testing.T) {
 				AssertEqual(t, 4, len(resBody.Results))
 				AssertEqual(t, "", resBody.Next)
 				AssertEqual(t, "", resBody.Previous)
-				AssertEqual(t, "go", resBody.Results[0].Name)
-				AssertEqual(t, "typescript", resBody.Results[3].Name)
+				AssertEqual(t, "go", resBody.Results[0].Slug)
+				AssertEqual(t, "typescript", resBody.Results[3].Slug)
 			},
 			DelayMs: 0,
 			Path:    baseLanguagesPath,
 		},
 		{
-			Name:      "Should return 200 OK with only python with a py search",
+			Name:      "Should return 200 OK with only Python with a py search",
 			ReqFn:     reqFn,
 			ExpStatus: fiber.StatusOK,
 			AssertFn: func(t *testing.T, req string, resp *http.Response) {
@@ -291,7 +295,7 @@ func TestGetLanguages(t *testing.T) {
 				AssertEqual(t, 1, len(resBody.Results))
 				AssertEqual(t, "", resBody.Next)
 				AssertEqual(t, "", resBody.Previous)
-				AssertEqual(t, "python", resBody.Results[0].Name)
+				AssertEqual(t, "Python", resBody.Results[0].Name)
 			},
 			DelayMs: 0,
 			Path:    baseLanguagesPath + "?search=py&limit=2",
@@ -306,8 +310,8 @@ func TestGetLanguages(t *testing.T) {
 				AssertEqual(t, 2, len(resBody.Results))
 				AssertNotEmpty(t, resBody.Next)
 				AssertEqual(t, "", resBody.Previous)
-				AssertEqual(t, "go", resBody.Results[0].Name)
-				AssertEqual(t, "python", resBody.Results[1].Name)
+				AssertEqual(t, "go", resBody.Results[0].Slug)
+				AssertEqual(t, "python", resBody.Results[1].Slug)
 			},
 			Path: baseLanguagesPath + "?limit=2",
 		},
@@ -321,7 +325,7 @@ func TestGetLanguages(t *testing.T) {
 				AssertEqual(t, 1, len(resBody.Results))
 				AssertEqual(t, "", resBody.Next)
 				AssertNotEmpty(t, resBody.Previous)
-				AssertEqual(t, "typescript", resBody.Results[0].Name)
+				AssertEqual(t, "TypeScript", resBody.Results[0].Name)
 			},
 			Path: baseLanguagesPath + "?limit=1&offset=2&search=t",
 		},
@@ -363,7 +367,7 @@ func TestGetLanguage(t *testing.T) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
 				AssertEqual(t, controllers.RequestValidationLocationParams, resBody.Location)
 				AssertEqual(t, 1, len(resBody.Fields))
-				AssertEqual(t, "name", resBody.Fields[0].Param)
+				AssertEqual(t, "slug", resBody.Fields[0].Param)
 				AssertEqual(t, controllers.StrFieldErrMessageSlug, resBody.Fields[0].Message)
 			},
 			Path: baseLanguagesPath + "/some-name-",
@@ -381,9 +385,10 @@ func TestGetLanguage(t *testing.T) {
 		testDb := GetTestDatabase(t)
 
 		params := db.CreateLanguageParams{
-			Name:     utils.Slugify("Rust"),
+			Name:     "Rust",
 			Icon:     strings.TrimSpace(languageIcons["Rust"]),
 			AuthorID: testUser.ID,
+			Slug:     "rust",
 		}
 		if _, err := testDb.CreateLanguage(context.Background(), params); err != nil {
 			t.Fatal("Failed to create language", err)
@@ -397,7 +402,8 @@ func TestGetLanguage(t *testing.T) {
 			ExpStatus: fiber.StatusOK,
 			AssertFn: func(t *testing.T, req string, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.LanguageResponse{})
-				AssertEqual(t, "rust", resBody.Name)
+				AssertEqual(t, "Rust", resBody.Name)
+				AssertEqual(t, "rust", resBody.Slug)
 				AssertEqual(t, strings.TrimSpace(languageIcons["Rust"]), resBody.Icon)
 			},
 			Path: baseLanguagesPath + "/rust",
@@ -432,9 +438,10 @@ func TestUpdateLanguage(t *testing.T) {
 		testDb := GetTestDatabase(t)
 
 		params := db.CreateLanguageParams{
-			Name:     utils.Slugify("Rustasdasd"),
+			Name:     "Rustasdasd",
 			Icon:     strings.TrimSpace(languageIcons["Rust"]),
 			AuthorID: testUser.ID,
+			Slug:     "rustasdasd",
 		}
 		if _, err := testDb.CreateLanguage(context.Background(), params); err != nil {
 			t.Fatal("Failed to create language", err)
@@ -457,7 +464,8 @@ func TestUpdateLanguage(t *testing.T) {
 			ExpStatus: fiber.StatusOK,
 			AssertFn: func(t *testing.T, req controllers.UpdateLanguageRequest, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.LanguageResponse{})
-				AssertEqual(t, "rust", resBody.Name)
+				AssertEqual(t, "Rust", resBody.Name)
+				AssertEqual(t, "rust", resBody.Slug)
 				AssertEqual(t, strings.TrimSpace(languageIcons["Rust"]), resBody.Icon)
 			},
 			Path: baseLanguagesPath + "/rustasdasd",
@@ -558,9 +566,10 @@ func TestDeleteLanguage(t *testing.T) {
 		testDb := GetTestDatabase(t)
 
 		params := db.CreateLanguageParams{
-			Name:     utils.Slugify("Rust"),
+			Name:     "Rust",
 			Icon:     strings.TrimSpace(languageIcons["Rust"]),
 			AuthorID: testUser.ID,
+			Slug:     "rust",
 		}
 		if _, err := testDb.CreateLanguage(context.Background(), params); err != nil {
 			t.Fatal("Failed to create language", err)

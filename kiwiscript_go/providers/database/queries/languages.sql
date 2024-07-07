@@ -18,36 +18,39 @@
 -- name: CreateLanguage :one
 INSERT INTO "languages" (
   "name",
+  "slug",
   "icon",
   "author_id"
 ) VALUES (
   $1,
   $2,
-  $3
+  $3,
+  $4
 ) RETURNING *;
 
 -- name: UpdateLanguage :one
 UPDATE "languages" SET
   "name" = $1,
-  "icon" = $2
-WHERE "id" = $3
+  "icon" = $2,
+  "slug" = $3
+WHERE "id" = $4
 RETURNING *;
 
 -- name: FindLanguageById :one
 SELECT * FROM "languages"
 WHERE "id" = $1 LIMIT 1;
 
--- name: FindLanguageByName :one
+-- name: FindLanguageBySlug :one
 SELECT * FROM "languages"
-WHERE "name" = $1 LIMIT 1;
+WHERE "slug" = $1 LIMIT 1;
 
 -- name: FindAllLanguages :many
 SELECT * FROM "languages"
-ORDER BY "name" ASC;
+ORDER BY "slug" ASC;
 
 -- name: FindPaginatedLanguages :many
 SELECT * FROM "languages"
-ORDER BY "name" ASC
+ORDER BY "slug" ASC
 LIMIT $1 OFFSET $2;
 
 -- name: CountLanguages :one
@@ -56,7 +59,7 @@ SELECT COUNT("id") FROM "languages";
 -- name: FindFilteredPaginatedLanguages :many
 SELECT * FROM "languages"
 WHERE "name" ILIKE $1
-ORDER BY "name" ASC
+ORDER BY "slug" ASC
 LIMIT $2 OFFSET $3;
 
 -- name: CountFilteredLanguages :one

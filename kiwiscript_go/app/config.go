@@ -1,17 +1,17 @@
 // Copyright (C) 2024 Afonso Barracha
-// 
+//
 // This file is part of KiwiScript.
-// 
+//
 // KiwiScript is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // KiwiScript is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
@@ -56,6 +56,14 @@ type LimiterConfig struct {
 	ExpSec int64
 }
 
+type ObjectStorageConfig struct {
+	Bucket    string
+	SecretKey string
+	AccessKey string
+	Region    string
+	Host      string
+}
+
 type AppConfig struct {
 	MaxProcs          int64
 	Port              string
@@ -69,9 +77,10 @@ type AppConfig struct {
 	Email             EmailConfig
 	Tokens            TokensConfig
 	Limiter           LimiterConfig
+	ObjectStorage     ObjectStorageConfig
 }
 
-var variables = [26]string{
+var variables = [31]string{
 	"PORT",
 	"ENV",
 	"DEBUG",
@@ -98,6 +107,11 @@ var variables = [26]string{
 	"EMAIL_NAME",
 	"LIMITER_MAX",
 	"LIMITER_EXP_SEC",
+	"OBJECT_STORAGE_BUCKET",
+	"OBJECT_STORAGE_SECRET_KEY",
+	"OBJECT_STORAGE_ACCESS_KEY",
+	"OBJECT_STORAGE_REGION",
+	"OBJECT_STORAGE_HOST",
 }
 
 var numerics = [6]string{
@@ -174,6 +188,13 @@ func NewConfig(log *slog.Logger, envPath string) *AppConfig {
 		Limiter: LimiterConfig{
 			Max:    intMap["LIMITER_MAX"],
 			ExpSec: intMap["LIMITER_EXP_SEC"],
+		},
+		ObjectStorage: ObjectStorageConfig{
+			Bucket:    variablesMap["OBJECT_STORAGE_BUCKET"],
+			SecretKey: variablesMap["OBJECT_STORAGE_SECRET_KEY"],
+			AccessKey: variablesMap["OBJECT_STORAGE_ACCESS_KEY"],
+			Region:    variablesMap["OBJECT_STORAGE_REGION"],
+			Host:      variablesMap["OBJECT_STORAGE_HOST"],
 		},
 	}
 }

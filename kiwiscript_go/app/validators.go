@@ -49,7 +49,7 @@ func isValidExtAlphaNum(fl validator.FieldLevel) bool {
 		return false
 	}
 
-	re, err := regexp.Compile(`^[a-zA-Z0-9 ]+$`)
+	re, err := regexp.Compile(`^[a-zA-Z0-9 #+]+$`)
 	if err != nil {
 		return false
 	}

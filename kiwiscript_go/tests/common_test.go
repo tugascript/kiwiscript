@@ -28,6 +28,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-faker/faker/v4"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/storage/redis/v3"
@@ -37,6 +41,7 @@ import (
 	cc "github.com/kiwiscript/kiwiscript_go/providers/cache"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/providers/email"
+	obj_stg "github.com/kiwiscript/kiwiscript_go/providers/object_storage"
 	"github.com/kiwiscript/kiwiscript_go/providers/tokens"
 	"github.com/kiwiscript/kiwiscript_go/services"
 	"github.com/kiwiscript/kiwiscript_go/utils"
@@ -79,6 +84,22 @@ func initTestServicesAndApp(t *testing.T) {
 	}
 	log.Info("Finished building database connection")
 
+	// Build s3 client
+	log.Info("Building s3 client...")
+	s3Cfg, err := config.LoadDefaultConfig(
+		ctx,
+		config.WithRegion(testConfig.ObjectStorage.Region),
+		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(testConfig.ObjectStorage.AccessKey, testConfig.ObjectStorage.SecretKey, "")),
+	)
+	if err != nil {
+		log.ErrorContext(ctx, "Failed to load s3 config", "error", err)
+		t.Fatal("Failed to load s3 config", err)
+	}
+	s3Client := s3.NewFromConfig(s3Cfg, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String("http://" + testConfig.ObjectStorage.Host)
+	})
+	log.Info("Finished building s3 client")
+
 	testTokens = tokens.NewTokens(
 		tokens.NewTokenSecretData(testConfig.Tokens.Access.PublicKey, testConfig.Tokens.Access.PrivateKey, testConfig.Tokens.Access.TtlSec),
 		tokens.NewTokenSecretData(testConfig.Tokens.Refresh.PublicKey, testConfig.Tokens.Refresh.PrivateKey, testConfig.Tokens.Refresh.TtlSec),
@@ -95,20 +116,24 @@ func initTestServicesAndApp(t *testing.T) {
 	)
 	testDatabase = db.NewDatabase(dbConnPool)
 	testCache = cc.NewCache(storage)
+	testObjectStorage := obj_stg.NewObjectStorage(s3Client, testConfig.ObjectStorage.Bucket)
 	testServices = services.NewServices(
+		log,
 		testDatabase,
 		testCache,
+		testObjectStorage,
 		mailer,
 		testTokens,
-		log,
 	)
 	testApp = app.CreateApp(
 		log,
 		storage,
 		dbConnPool,
+		s3Client,
 		&testConfig.Email,
 		&testConfig.Tokens,
 		&testConfig.Limiter,
+		testConfig.ObjectStorage.Bucket,
 		testConfig.BackendDomain,
 		testConfig.FrontendDomain,
 		testConfig.RefreshCookieName,

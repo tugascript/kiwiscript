@@ -25,11 +25,17 @@ build:
 	GOARCH=amd64 GOOS=linux go build -o ./$(BUILD_DIR)/kiwiscript_linux main.go
 	GOARCH=amd64 GOOS=windows go build -o ./$(BUILD_DIR)/kiwiscript_windows.exe main.go
 
+build-schema:
+	dbml2sql ../initial_schema.dbml --postgres -o providers/database/migrations/20240622231845_create_tables.up.sql
+
 dc-up:
 	docker-compose -f ../docker-compose.yaml up -d
 
 pm-up:
 	podman-compose -f ../docker-compose.yaml up -d
+
+pm-start:
+	podman-compose -f ../docker-compose.yaml start
 
 dc-down:
 	docker-compose -f ../docker-compose.yaml down

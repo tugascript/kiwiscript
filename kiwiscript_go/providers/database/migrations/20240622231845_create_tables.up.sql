@@ -1,23 +1,6 @@
--- Copyright (C) 2024 Afonso Barracha
--- 
--- This file is part of KiwiScript.
--- 
--- KiwiScript is free software: you can redistribute it and/or modify
--- it under the terms of the GNU General Public License as published by
--- the Free Software Foundation, either version 3 of the License, or
--- (at your option) any later version.
--- 
--- KiwiScript is distributed in the hope that it will be useful,
--- but WITHOUT ANY WARRANTY; without even the implied warranty of
--- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
--- GNU General Public License for more details.
--- 
--- You should have received a copy of the GNU General Public License
--- along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
-
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2024-06-25T07:43:46.448Z
+-- Generated at: 2024-07-07T04:13:29.320Z
 
 CREATE TABLE "users" (
   "id" serial PRIMARY KEY,
@@ -45,18 +28,17 @@ CREATE TABLE "auth_providers" (
 
 CREATE TABLE "languages" (
   "id" serial PRIMARY KEY,
-  "name" varchar(50) UNIQUE NOT NULL,
+  "name" varchar(50) NOT NULL,
+  "slug" varchar(50) NOT NULL,
   "icon" text NOT NULL,
   "author_id" int NOT NULL,
   "created_at" timestamp NOT NULL DEFAULT (now()),
   "updated_at" timestamp NOT NULL DEFAULT (now())
 );
 
-CREATE TABLE "categories" (
+CREATE TABLE "tags" (
   "id" serial PRIMARY KEY,
-  "title" varchar(100) NOT NULL,
-  "slug" varchar(100) NOT NULL,
-  "description" text NOT NULL,
+  "name" varchar(50) NOT NULL,
   "author_id" int NOT NULL,
   "created_at" timestamp NOT NULL DEFAULT (now()),
   "updated_at" timestamp NOT NULL DEFAULT (now())
@@ -78,18 +60,11 @@ CREATE TABLE "series" (
   "updated_at" timestamp NOT NULL DEFAULT (now())
 );
 
-CREATE TABLE "language_categories" (
-  "language_id" int NOT NULL,
-  "category_id" int NOT NULL,
-  "created_at" timestamp NOT NULL DEFAULT (now()),
-  PRIMARY KEY ("language_id", "category_id")
-);
-
-CREATE TABLE "series_categories" (
+CREATE TABLE "series_tags" (
   "series_id" int NOT NULL,
-  "category_id" int NOT NULL,
+  "tag_id" int NOT NULL,
   "created_at" timestamp NOT NULL DEFAULT (now()),
-  PRIMARY KEY ("series_id", "category_id")
+  PRIMARY KEY ("series_id", "tag_id")
 );
 
 CREATE TABLE "series_parts" (
@@ -109,8 +84,6 @@ CREATE TABLE "series_parts" (
 CREATE TABLE "lectures" (
   "id" serial PRIMARY KEY,
   "title" text NOT NULL,
-  "video" varchar(250) NOT NULL,
-  "duration_seconds" int NOT NULL,
   "position" smallint NOT NULL,
   "description" text NOT NULL,
   "is_published" boolean NOT NULL DEFAULT false,
@@ -119,6 +92,36 @@ CREATE TABLE "lectures" (
   "series_id" int NOT NULL,
   "series_part_id" int NOT NULL,
   "language_id" int NOT NULL,
+  "created_at" timestamp NOT NULL DEFAULT (now()),
+  "updated_at" timestamp NOT NULL DEFAULT (now())
+);
+
+CREATE TABLE "lecture_videos" (
+  "id" serial PRIMARY KEY,
+  "lecture_id" int NOT NULL,
+  "author_id" int NOT NULL,
+  "video" varchar(250) NOT NULL,
+  "duration_seconds" int NOT NULL,
+  "created_at" timestamp NOT NULL DEFAULT (now()),
+  "updated_at" timestamp NOT NULL DEFAULT (now())
+);
+
+CREATE TABLE "lecture_articles" (
+  "id" serial PRIMARY KEY,
+  "lecture_id" int NOT NULL,
+  "author_id" int NOT NULL,
+  "text" text NOT NULL,
+  "created_at" timestamp NOT NULL DEFAULT (now()),
+  "updated_at" timestamp NOT NULL DEFAULT (now())
+);
+
+CREATE TABLE "lecture_files" (
+  "id" serial PRIMARY KEY,
+  "lecture_id" int NOT NULL,
+  "author_id" int NOT NULL,
+  "file" uuid NOT NULL,
+  "ext" varchar(10) NOT NULL,
+  "filename" varchar(250) NOT NULL,
   "created_at" timestamp NOT NULL DEFAULT (now()),
   "updated_at" timestamp NOT NULL DEFAULT (now())
 );
@@ -162,7 +165,7 @@ CREATE TABLE "lecture_progress" (
   "updated_at" timestamp NOT NULL DEFAULT (now())
 );
 
-CREATE TABLE "series_review" (
+CREATE TABLE "series_reviews" (
   "id" serial PRIMARY KEY,
   "author_id" int NOT NULL,
   "series_id" int NOT NULL,
@@ -233,9 +236,11 @@ CREATE UNIQUE INDEX "auth_providers_email_provider_unique_idx" ON "auth_provider
 
 CREATE UNIQUE INDEX "languages_name_unique_idx" ON "languages" ("name");
 
-CREATE UNIQUE INDEX "categories_title_unique_idx" ON "categories" ("title");
+CREATE UNIQUE INDEX "languages_slug_unique_idx" ON "languages" ("slug");
 
-CREATE UNIQUE INDEX "categories_slug_unique_idx" ON "categories" ("slug");
+CREATE UNIQUE INDEX "tags_name_unique_idx" ON "tags" ("name");
+
+CREATE INDEX "tags_author_id_idx" ON "tags" ("author_id");
 
 CREATE UNIQUE INDEX "series_title_unique_idx" ON "series" ("title");
 
@@ -271,6 +276,18 @@ CREATE INDEX "lectures_is_listed_idx" ON "lectures" ("is_published");
 
 CREATE INDEX "lectures_position_idx" ON "lectures" ("position");
 
+CREATE UNIQUE INDEX "lecture_videos_lecture_id_unique_idx" ON "lecture_videos" ("lecture_id");
+
+CREATE INDEX "lectures_videos_author_id_idx" ON "lecture_videos" ("author_id");
+
+CREATE UNIQUE INDEX "lecture_articles_lecture_id_unique_idx" ON "lecture_articles" ("lecture_id");
+
+CREATE INDEX "lecture_articles_author_id_idx" ON "lecture_articles" ("author_id");
+
+CREATE UNIQUE INDEX "lecture_files_lecture_id_unique_idx" ON "lecture_files" ("lecture_id");
+
+CREATE INDEX "lecture_files_author_id_idx" ON "lecture_files" ("author_id");
+
 CREATE UNIQUE INDEX "series_progress_user_id_series_id_language_id_unique_idx" ON "series_progress" ("user_id", "series_id", "language_id");
 
 CREATE INDEX "series_progress_user_id_idx" ON "series_progress" ("user_id");
@@ -305,13 +322,13 @@ CREATE INDEX "lecture_progress_series_part_progress_id_idx" ON "lecture_progress
 
 CREATE INDEX "lecture_progress_language_id_idx" ON "lecture_progress" ("language_id");
 
-CREATE UNIQUE INDEX "series_review_user_id_series_id_language_id_unique_idx" ON "series_review" ("author_id", "series_id", "language_id");
+CREATE UNIQUE INDEX "series_review_user_id_series_id_language_id_unique_idx" ON "series_reviews" ("author_id", "series_id", "language_id");
 
-CREATE INDEX "series_review_author_id_idx" ON "series_review" ("author_id");
+CREATE INDEX "series_review_author_id_idx" ON "series_reviews" ("author_id");
 
-CREATE INDEX "series_review_series_id_idx" ON "series_review" ("series_id");
+CREATE INDEX "series_review_series_id_idx" ON "series_reviews" ("series_id");
 
-CREATE INDEX "series_review_language_id_idx" ON "series_review" ("language_id");
+CREATE INDEX "series_review_language_id_idx" ON "series_reviews" ("language_id");
 
 CREATE INDEX "lecture_comments_author_id_idx" ON "lecture_comments" ("author_id");
 
@@ -339,17 +356,13 @@ ALTER TABLE "auth_providers" ADD FOREIGN KEY ("email") REFERENCES "users" ("emai
 
 ALTER TABLE "languages" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "categories" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "tags" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "series" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "language_categories" ADD FOREIGN KEY ("language_id") REFERENCES "languages" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "series_tags" ADD FOREIGN KEY ("series_id") REFERENCES "series" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "language_categories" ADD FOREIGN KEY ("category_id") REFERENCES "categories" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "series_categories" ADD FOREIGN KEY ("series_id") REFERENCES "series" ("id");
-
-ALTER TABLE "series_categories" ADD FOREIGN KEY ("category_id") REFERENCES "categories" ("id");
+ALTER TABLE "series_tags" ADD FOREIGN KEY ("tag_id") REFERENCES "tags" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "series_parts" ADD FOREIGN KEY ("series_id") REFERENCES "series" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -362,6 +375,12 @@ ALTER TABLE "lectures" ADD FOREIGN KEY ("series_id") REFERENCES "series" ("id") 
 ALTER TABLE "lectures" ADD FOREIGN KEY ("series_part_id") REFERENCES "series_parts" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "lectures" ADD FOREIGN KEY ("language_id") REFERENCES "languages" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "lecture_videos" ADD FOREIGN KEY ("lecture_id") REFERENCES "lectures" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "lecture_videos" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "lecture_files" ADD FOREIGN KEY ("lecture_id") REFERENCES "lectures" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "series_progress" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -387,11 +406,11 @@ ALTER TABLE "lecture_progress" ADD FOREIGN KEY ("series_progress_id") REFERENCES
 
 ALTER TABLE "lecture_progress" ADD FOREIGN KEY ("series_part_progress_id") REFERENCES "series_part_progress" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "series_review" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "series_reviews" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "series_review" ADD FOREIGN KEY ("series_id") REFERENCES "series" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "series_reviews" ADD FOREIGN KEY ("series_id") REFERENCES "series" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "series_review" ADD FOREIGN KEY ("language_id") REFERENCES "languages" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "series_reviews" ADD FOREIGN KEY ("language_id") REFERENCES "languages" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "lecture_comments" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

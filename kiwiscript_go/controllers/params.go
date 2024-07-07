@@ -18,5 +18,5 @@
 package controllers
 
 type LanguageParams struct {
-	Name string `validate:"required,min=2,max=50,slug"`
+	Slug string `validate:"required,min=2,max=50,slug"`
 }

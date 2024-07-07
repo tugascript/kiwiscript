@@ -15,25 +15,15 @@
 -- You should have received a copy of the GNU General Public License
 -- along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
--- name: CreateLanguageCategory :one
-INSERT INTO "language_categories" (
-  "language_id",
-  "category_id"
+-- name: CreateSeriesTags :one
+INSERT INTO "series_tags" (
+    "series_id",
+    "tag_id"
 ) VALUES (
-  $1,
-  $2
+    $1,
+    $2
 ) RETURNING *;
 
--- name: DeleteLanguageCategory :exec
-DELETE FROM "language_categories"
-WHERE "language_id" = $1 AND "category_id" = $2;
-
--- name: FindCategoryLanguages :many
-SELECT "languages".* FROM "language_categories"
-LEFT JOIN "languages" ON "languages"."id" = "language_categories"."language_id"
-WHERE "category_id" = $1;
-
--- name: FindLanguageCategories :many
-SELECT "categories".* FROM "language_categories"
-LEFT JOIN "categories" ON "categories"."id" = "language_categories"."category_id"
-WHERE "language_id" = $1;
+-- name: DeleteSeriesTagByIds :exec
+DELETE FROM "series_tags"
+WHERE "series_id" = $1 AND "tag_id" = $2;

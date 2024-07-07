@@ -1,17 +1,17 @@
 // Copyright (C) 2024 Afonso Barracha
-// 
+//
 // This file is part of KiwiScript.
-// 
+//
 // KiwiScript is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // KiwiScript is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
@@ -30,8 +30,8 @@ type CreateLanguageOptions struct {
 	Icon   string
 }
 
-func (s *Services) FindLanguageByName(ctx context.Context, name string) (db.Language, *ServiceError) {
-	language, err := s.database.FindLanguageByName(ctx, name)
+func (s *Services) FindLanguageBySlug(ctx context.Context, slug string) (db.Language, *ServiceError) {
+	language, err := s.database.FindLanguageBySlug(ctx, slug)
 
 	if err != nil {
 		return language, FromDBError(err)
@@ -54,9 +54,10 @@ func (s *Services) CreateLanguage(ctx context.Context, options CreateLanguageOpt
 	log := s.log.WithGroup("service.languages.CreateLanguage")
 	log.InfoContext(ctx, "create language", "name", options.Name)
 	var language db.Language
+	slug := utils.Slugify(options.Name)
 
-	if _, serviceErr := s.FindLanguageByName(ctx, options.Name); serviceErr == nil {
-		log.InfoContext(ctx, "language already exists", "name", options.Name)
+	if _, serviceErr := s.FindLanguageBySlug(ctx, slug); serviceErr == nil {
+		log.InfoContext(ctx, "language already exists", "slug", slug)
 		return language, NewValidationError("language already exists")
 	}
 
@@ -64,6 +65,7 @@ func (s *Services) CreateLanguage(ctx context.Context, options CreateLanguageOpt
 		AuthorID: options.UserID,
 		Name:     options.Name,
 		Icon:     options.Icon,
+		Slug:     slug,
 	})
 	if err != nil {
 		return language, FromDBError(err)
@@ -73,22 +75,24 @@ func (s *Services) CreateLanguage(ctx context.Context, options CreateLanguageOpt
 }
 
 type UpdateLanguageOptions struct {
-	OriginalName string
-	Name         string
-	Icon         string
+	Slug string
+	Name string
+	Icon string
 }
 
 func (s *Services) UpdateLanguage(ctx context.Context, options UpdateLanguageOptions) (db.Language, *ServiceError) {
 	log := s.log.WithGroup("service.languages.UpdateLanguage")
-	log.InfoContext(ctx, "update language", "originalName", options.OriginalName, "name", options.Name)
-	language, serviceErr := s.FindLanguageByName(ctx, options.OriginalName)
+	log.InfoContext(ctx, "update language", "slug", options.Slug, "name", options.Name)
+	language, serviceErr := s.FindLanguageBySlug(ctx, options.Slug)
 
 	if serviceErr != nil {
-		log.InfoContext(ctx, "language not found", "name", options.OriginalName)
+		log.InfoContext(ctx, "language not found", "slug", options.Slug)
 		return language, serviceErr
 	}
-	if _, serviceErr := s.FindLanguageByName(ctx, options.Name); serviceErr == nil {
-		log.InfoContext(ctx, "language already exists", "name", options.Name)
+
+	slug := utils.Slugify(options.Name)
+	if _, serviceErr := s.FindLanguageBySlug(ctx, slug); serviceErr == nil {
+		log.InfoContext(ctx, "language already exists", "slug", slug)
 		return language, NewValidationError("language already exists")
 	}
 
@@ -96,6 +100,7 @@ func (s *Services) UpdateLanguage(ctx context.Context, options UpdateLanguageOpt
 		ID:   language.ID,
 		Name: options.Name,
 		Icon: options.Icon,
+		Slug: slug,
 	})
 	if err != nil {
 		return language, FromDBError(err)
@@ -104,15 +109,14 @@ func (s *Services) UpdateLanguage(ctx context.Context, options UpdateLanguageOpt
 	return language, nil
 }
 
-func (s *Services) DeleteLanguage(ctx context.Context, name string) *ServiceError {
+func (s *Services) DeleteLanguage(ctx context.Context, slug string) *ServiceError {
 	log := s.log.WithGroup("service.languages.DeleteLanguage")
-	log.InfoContext(ctx, "delete language", "name", name)
-
-	language, serviceErr := s.FindLanguageByName(ctx, name)
+	log.InfoContext(ctx, "delete language", "slug", slug)
+	language, serviceErr := s.FindLanguageBySlug(ctx, slug)
 
 	// TODO add restrictions to see if the language is used in any course
 	if serviceErr != nil {
-		log.InfoContext(ctx, "language not found", "name", name)
+		log.InfoContext(ctx, "language not found", "slug", slug)
 		return serviceErr
 	}
 

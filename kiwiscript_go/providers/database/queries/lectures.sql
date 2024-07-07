@@ -18,8 +18,6 @@
 -- name: CreateLecture :one
 INSERT INTO "lectures" (
   "title",
-  "video",
-  "duration_seconds",
   "description",
   "author_id",
   "series_id",
@@ -33,21 +31,17 @@ INSERT INTO "lectures" (
   $4,
   $5,
   $6,
-  $7,
-  $8,
   (
     SELECT COUNT("id") + 1 FROM "lectures"
-    WHERE "series_part_id" = $6
+    WHERE "series_part_id" = $5
   )
 ) RETURNING *;
 
 -- name: UpdateLecture :one
 UPDATE "lectures" SET
   "title" = $1,
-  "video" = $2,
-  "duration_seconds" = $3,
-  "description" = $4
-WHERE "id" = $5
+  "description" = $2
+WHERE "id" = $3
 RETURNING *;
 
 -- name: UpdateLectureIsPublished :one
