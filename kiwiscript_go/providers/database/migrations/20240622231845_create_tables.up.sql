@@ -1,6 +1,6 @@
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2024-07-07T04:13:29.320Z
+-- Generated at: 2024-07-10T07:23:28.345Z
 
 CREATE TABLE "users" (
   "id" serial PRIMARY KEY,
@@ -55,7 +55,18 @@ CREATE TABLE "series" (
   "review_avg" smallint NOT NULL DEFAULT 0,
   "review_count" int NOT NULL DEFAULT 0,
   "is_published" boolean NOT NULL DEFAULT false,
+  "language_id" int NOT NULL,
   "author_id" int NOT NULL,
+  "created_at" timestamp NOT NULL DEFAULT (now()),
+  "updated_at" timestamp NOT NULL DEFAULT (now())
+);
+
+CREATE TABLE "series_images" (
+  "id" serial PRIMARY KEY,
+  "series_id" int NOT NULL,
+  "author_id" int NOT NULL,
+  "file" uuid NOT NULL,
+  "ext" varchar(10) NOT NULL,
   "created_at" timestamp NOT NULL DEFAULT (now()),
   "updated_at" timestamp NOT NULL DEFAULT (now())
 );
@@ -248,6 +259,14 @@ CREATE UNIQUE INDEX "series_slug_unique_idx" ON "series" ("slug");
 
 CREATE INDEX "series_is_published_idx" ON "series" ("is_published");
 
+CREATE INDEX "series_language_id_idx" ON "series" ("language_id");
+
+CREATE INDEX "series_author_id_idx" ON "series" ("author_id");
+
+CREATE UNIQUE INDEX "series_images_series_id_unique_idx" ON "series_images" ("series_id");
+
+CREATE INDEX "series_images_author_id_idx" ON "series_images" ("author_id");
+
 CREATE UNIQUE INDEX "series_parts_title_series_id_unique_idx" ON "series_parts" ("title", "series_id");
 
 CREATE UNIQUE INDEX "series_parts_series_id_position_unique_idx" ON "series_parts" ("series_id", "position");
@@ -359,6 +378,8 @@ ALTER TABLE "languages" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") 
 ALTER TABLE "tags" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "series" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "series" ADD FOREIGN KEY ("language_id") REFERENCES "languages" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "series_tags" ADD FOREIGN KEY ("series_id") REFERENCES "series" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

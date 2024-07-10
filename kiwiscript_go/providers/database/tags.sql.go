@@ -9,21 +9,21 @@ import (
 	"context"
 )
 
-const createTag = `-- name: CreateTag :one
-
-INSERT INTO "tags" (
-  "name",
-  "author_id"
-) VALUES (
-  $1,
-  $2
-) RETURNING id, name, author_id, created_at, updated_at
+const deleteManyTags = `-- name: DeleteManyTags :exec
+DELETE FROM "tags"
+WHERE "ID" IN ($1::int[])
 `
 
-type CreateTagParams struct {
-	Name     string
-	AuthorID int32
+func (q *Queries) DeleteManyTags(ctx context.Context, dollar_1 []int32) error {
+	_, err := q.db.Exec(ctx, deleteManyTags, dollar_1)
+	return err
 }
+
+const deleteTagById = `-- name: DeleteTagById :exec
+
+DELETE FROM "tags"
+WHERE "id" = $1
+`
 
 // Copyright (C) 2024 Afonso Barracha
 //
@@ -41,8 +41,30 @@ type CreateTagParams struct {
 //
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
-func (q *Queries) CreateTag(ctx context.Context, arg CreateTagParams) (Tag, error) {
-	row := q.db.QueryRow(ctx, createTag, arg.Name, arg.AuthorID)
+func (q *Queries) DeleteTagById(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, deleteTagById, id)
+	return err
+}
+
+const findOrCreateTag = `-- name: FindOrCreateTag :one
+INSERT INTO "tags" (
+  "name",
+  "author_id"
+) VALUES (
+  $1,
+  $2
+) ON CONFLICT ("name") DO UPDATE SET
+  "name" = EXCLUDED."name"
+RETURNING id, name, author_id, created_at, updated_at
+`
+
+type FindOrCreateTagParams struct {
+	Name     string
+	AuthorID int32
+}
+
+func (q *Queries) FindOrCreateTag(ctx context.Context, arg FindOrCreateTagParams) (Tag, error) {
+	row := q.db.QueryRow(ctx, findOrCreateTag, arg.Name, arg.AuthorID)
 	var i Tag
 	err := row.Scan(
 		&i.ID,
@@ -52,24 +74,4 @@ func (q *Queries) CreateTag(ctx context.Context, arg CreateTagParams) (Tag, erro
 		&i.UpdatedAt,
 	)
 	return i, err
-}
-
-const deleteManyTags = `-- name: DeleteManyTags :exec
-DELETE FROM "tags"
-WHERE "ID" IN ($1::int[])
-`
-
-func (q *Queries) DeleteManyTags(ctx context.Context, dollar_1 []int32) error {
-	_, err := q.db.Exec(ctx, deleteManyTags, dollar_1)
-	return err
-}
-
-const deleteTagById = `-- name: DeleteTagById :exec
-DELETE FROM "tags"
-WHERE "id" = $1
-`
-
-func (q *Queries) DeleteTagById(ctx context.Context, id int32) error {
-	_, err := q.db.Exec(ctx, deleteTagById, id)
-	return err
 }

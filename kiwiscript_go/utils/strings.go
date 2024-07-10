@@ -18,6 +18,7 @@
 package utils
 
 import (
+	"regexp"
 	"strings"
 	"unicode"
 
@@ -83,6 +84,10 @@ func DbSearch(s string) string {
 }
 
 func Slugify(s string) string {
+	s = strings.ReplaceAll(s, "+", " plus ")
+	s = strings.ReplaceAll(s, "#", " sharp ")
+	re := regexp.MustCompile(`[^a-zA-Z0-9\s]+`)
+	s = re.ReplaceAllString(s, "")
 	s = Lowered(s)
 	s = strings.Join(strings.Fields(s), "-")
 	return s

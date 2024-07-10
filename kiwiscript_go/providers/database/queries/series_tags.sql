@@ -15,14 +15,14 @@
 -- You should have received a copy of the GNU General Public License
 -- along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
--- name: CreateSeriesTags :one
+-- name: CreateSeriesTag :exec
 INSERT INTO "series_tags" (
     "series_id",
     "tag_id"
 ) VALUES (
     $1,
     $2
-) RETURNING *;
+);
 
 -- name: DeleteSeriesTagByIds :exec
 DELETE FROM "series_tags"

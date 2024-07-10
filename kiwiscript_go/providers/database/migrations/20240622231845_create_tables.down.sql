@@ -30,6 +30,8 @@ DROP TABLE IF EXISTS "lecture_files";
 DROP TABLE IF EXISTS "lectures";
 DROP TABLE IF EXISTS "series_parts";
 DROP TABLE IF EXISTS "series_tags";
+DROP TABLE IF EXISTS "tags";
+DROP TABLE IF EXISTS "series_languages";
 DROP TABLE IF EXISTS "series";
 DROP TABLE IF EXISTS "languages";
 DROP TABLE IF EXISTS "auth_providers";

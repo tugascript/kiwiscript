@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const addSeriesPartsCount = `-- name: AddSeriesPartsCount :exec
@@ -38,7 +40,7 @@ INSERT INTO "series" (
   $2,
   $3,
   $4
-) RETURNING id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, author_id, created_at, updated_at
+) RETURNING id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, language_id, author_id, created_at, updated_at
 `
 
 type CreateSeriesParams struct {
@@ -83,6 +85,7 @@ func (q *Queries) CreateSeries(ctx context.Context, arg CreateSeriesParams) (Ser
 		&i.ReviewAvg,
 		&i.ReviewCount,
 		&i.IsPublished,
+		&i.LanguageID,
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -128,176 +131,8 @@ func (q *Queries) DeleteSeriesById(ctx context.Context, id int32) error {
 	return err
 }
 
-const findAllSeriesOrderById = `-- name: FindAllSeriesOrderById :many
-SELECT id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, author_id, created_at, updated_at FROM "series"
-ORDER BY "id" DESC
-`
-
-func (q *Queries) FindAllSeriesOrderById(ctx context.Context) ([]Series, error) {
-	rows, err := q.db.Query(ctx, findAllSeriesOrderById)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Series{}
-	for rows.Next() {
-		var i Series
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Slug,
-			&i.Description,
-			&i.PartsCount,
-			&i.LecturesCount,
-			&i.TotalDurationSeconds,
-			&i.ReviewAvg,
-			&i.ReviewCount,
-			&i.IsPublished,
-			&i.AuthorID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const findAllSeriesOrderBySlug = `-- name: FindAllSeriesOrderBySlug :many
-SELECT id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, author_id, created_at, updated_at FROM "series"
-ORDER BY "slug" ASC
-`
-
-func (q *Queries) FindAllSeriesOrderBySlug(ctx context.Context) ([]Series, error) {
-	rows, err := q.db.Query(ctx, findAllSeriesOrderBySlug)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Series{}
-	for rows.Next() {
-		var i Series
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Slug,
-			&i.Description,
-			&i.PartsCount,
-			&i.LecturesCount,
-			&i.TotalDurationSeconds,
-			&i.ReviewAvg,
-			&i.ReviewCount,
-			&i.IsPublished,
-			&i.AuthorID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const findPaginatedSeriesOrderById = `-- name: FindPaginatedSeriesOrderById :many
-SELECT id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, author_id, created_at, updated_at FROM "series"
-ORDER BY "id" DESC
-LIMIT $1 OFFSET $2
-`
-
-type FindPaginatedSeriesOrderByIdParams struct {
-	Limit  int32
-	Offset int32
-}
-
-func (q *Queries) FindPaginatedSeriesOrderById(ctx context.Context, arg FindPaginatedSeriesOrderByIdParams) ([]Series, error) {
-	rows, err := q.db.Query(ctx, findPaginatedSeriesOrderById, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Series{}
-	for rows.Next() {
-		var i Series
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Slug,
-			&i.Description,
-			&i.PartsCount,
-			&i.LecturesCount,
-			&i.TotalDurationSeconds,
-			&i.ReviewAvg,
-			&i.ReviewCount,
-			&i.IsPublished,
-			&i.AuthorID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const findPaginatedSeriesOrderBySlug = `-- name: FindPaginatedSeriesOrderBySlug :many
-SELECT id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, author_id, created_at, updated_at FROM "series"
-ORDER BY "slug" ASC
-LIMIT $1 OFFSET $2
-`
-
-type FindPaginatedSeriesOrderBySlugParams struct {
-	Limit  int32
-	Offset int32
-}
-
-func (q *Queries) FindPaginatedSeriesOrderBySlug(ctx context.Context, arg FindPaginatedSeriesOrderBySlugParams) ([]Series, error) {
-	rows, err := q.db.Query(ctx, findPaginatedSeriesOrderBySlug, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []Series{}
-	for rows.Next() {
-		var i Series
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Slug,
-			&i.Description,
-			&i.PartsCount,
-			&i.LecturesCount,
-			&i.TotalDurationSeconds,
-			&i.ReviewAvg,
-			&i.ReviewCount,
-			&i.IsPublished,
-			&i.AuthorID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const findSeriesById = `-- name: FindSeriesById :one
-SELECT id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, author_id, created_at, updated_at FROM "series"
+SELECT id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, language_id, author_id, created_at, updated_at FROM "series"
 WHERE "id" = $1 LIMIT 1
 `
 
@@ -315,6 +150,7 @@ func (q *Queries) FindSeriesById(ctx context.Context, id int32) (Series, error) 
 		&i.ReviewAvg,
 		&i.ReviewCount,
 		&i.IsPublished,
+		&i.LanguageID,
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -323,7 +159,7 @@ func (q *Queries) FindSeriesById(ctx context.Context, id int32) (Series, error) 
 }
 
 const findSeriesBySlug = `-- name: FindSeriesBySlug :one
-SELECT id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, author_id, created_at, updated_at FROM "series"
+SELECT id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, language_id, author_id, created_at, updated_at FROM "series"
 WHERE "slug" = $1 LIMIT 1
 `
 
@@ -341,11 +177,86 @@ func (q *Queries) FindSeriesBySlug(ctx context.Context, slug string) (Series, er
 		&i.ReviewAvg,
 		&i.ReviewCount,
 		&i.IsPublished,
+		&i.LanguageID,
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const findSeriesBySlugWithJoins = `-- name: FindSeriesBySlugWithJoins :many
+SELECT 
+    series.id, series.title, series.slug, series.description, series.parts_count, series.lectures_count, series.total_duration_seconds, series.review_avg, series.review_count, series.is_published, series.language_id, series.author_id, series.created_at, series.updated_at,
+    "tags"."name" AS "tag_name",
+    "users"."first_name" AS "author_first_name",
+    "users"."last_name" AS "author_last_name"
+FROM "series"
+LEFT JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_tags" ON "series"."id" = "series_tags"."series_id"
+    LEFT JOIN "tags" ON "series_tags"."tag_id" = "tags"."id"
+WHERE 
+    "series"."is_published" = true AND 
+    "series"."slug" = $1 
+LIMIT 1
+`
+
+type FindSeriesBySlugWithJoinsRow struct {
+	ID                   int32
+	Title                string
+	Slug                 string
+	Description          string
+	PartsCount           int16
+	LecturesCount        int16
+	TotalDurationSeconds int32
+	ReviewAvg            int16
+	ReviewCount          int32
+	IsPublished          bool
+	LanguageID           int32
+	AuthorID             int32
+	CreatedAt            pgtype.Timestamp
+	UpdatedAt            pgtype.Timestamp
+	TagName              pgtype.Text
+	AuthorFirstName      pgtype.Text
+	AuthorLastName       pgtype.Text
+}
+
+func (q *Queries) FindSeriesBySlugWithJoins(ctx context.Context, slug string) ([]FindSeriesBySlugWithJoinsRow, error) {
+	rows, err := q.db.Query(ctx, findSeriesBySlugWithJoins, slug)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FindSeriesBySlugWithJoinsRow{}
+	for rows.Next() {
+		var i FindSeriesBySlugWithJoinsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Slug,
+			&i.Description,
+			&i.PartsCount,
+			&i.LecturesCount,
+			&i.TotalDurationSeconds,
+			&i.ReviewAvg,
+			&i.ReviewCount,
+			&i.IsPublished,
+			&i.LanguageID,
+			&i.AuthorID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.TagName,
+			&i.AuthorFirstName,
+			&i.AuthorLastName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const incrementSeriesLecturesCount = `-- name: IncrementSeriesLecturesCount :exec
@@ -376,7 +287,7 @@ UPDATE "series" SET
   "slug" = $2,
   "description" = $3
 WHERE "id" = $4
-RETURNING id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, author_id, created_at, updated_at
+RETURNING id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, language_id, author_id, created_at, updated_at
 `
 
 type UpdateSeriesParams struct {
@@ -405,6 +316,7 @@ func (q *Queries) UpdateSeries(ctx context.Context, arg UpdateSeriesParams) (Ser
 		&i.ReviewAvg,
 		&i.ReviewCount,
 		&i.IsPublished,
+		&i.LanguageID,
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -416,7 +328,7 @@ const updateSeriesIsPublished = `-- name: UpdateSeriesIsPublished :one
 UPDATE "series" SET
   "is_published" = $1
 WHERE "id" = $2
-RETURNING id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, author_id, created_at, updated_at
+RETURNING id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, language_id, author_id, created_at, updated_at
 `
 
 type UpdateSeriesIsPublishedParams struct {
@@ -438,6 +350,7 @@ func (q *Queries) UpdateSeriesIsPublished(ctx context.Context, arg UpdateSeriesI
 		&i.ReviewAvg,
 		&i.ReviewCount,
 		&i.IsPublished,
+		&i.LanguageID,
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,

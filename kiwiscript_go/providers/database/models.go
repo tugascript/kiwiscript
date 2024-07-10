@@ -148,9 +148,20 @@ type Series struct {
 	ReviewAvg            int16
 	ReviewCount          int32
 	IsPublished          bool
+	LanguageID           int32
 	AuthorID             int32
 	CreatedAt            pgtype.Timestamp
 	UpdatedAt            pgtype.Timestamp
+}
+
+type SeriesImage struct {
+	ID        int32
+	SeriesID  int32
+	AuthorID  int32
+	File      uuid.UUID
+	Ext       string
+	CreatedAt pgtype.Timestamp
+	UpdatedAt pgtype.Timestamp
 }
 
 type SeriesPart struct {

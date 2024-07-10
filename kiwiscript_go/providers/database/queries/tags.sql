@@ -15,15 +15,6 @@
 -- You should have received a copy of the GNU General Public License
 -- along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
--- name: CreateTag :one
-INSERT INTO "tags" (
-  "name",
-  "author_id"
-) VALUES (
-  $1,
-  $2
-) RETURNING *;
-
 -- name: DeleteTagById :exec
 DELETE FROM "tags"
 WHERE "id" = $1;
@@ -31,3 +22,14 @@ WHERE "id" = $1;
 -- name: DeleteManyTags :exec
 DELETE FROM "tags"
 WHERE "ID" IN ($1::int[]);
+
+-- name: FindOrCreateTag :one
+INSERT INTO "tags" (
+  "name",
+  "author_id"
+) VALUES (
+  $1,
+  $2
+) ON CONFLICT ("name") DO UPDATE SET
+  "name" = EXCLUDED."name"
+RETURNING *;

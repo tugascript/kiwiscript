@@ -82,24 +82,21 @@ WHERE "id" = $1 LIMIT 1;
 SELECT * FROM "series"
 WHERE "slug" = $1 LIMIT 1;
 
--- name: FindAllSeriesOrderBySlug :many
-SELECT * FROM "series"
-ORDER BY "slug" ASC;
-
--- name: FindPaginatedSeriesOrderBySlug :many
-SELECT * FROM "series"
-ORDER BY "slug" ASC
-LIMIT $1 OFFSET $2;
-
--- name: FindAllSeriesOrderById :many
-SELECT * FROM "series"
-ORDER BY "id" DESC;
-
--- name: FindPaginatedSeriesOrderById :many
-SELECT * FROM "series"
-ORDER BY "id" DESC
-LIMIT $1 OFFSET $2;
-
 -- name: DeleteSeriesById :exec
 DELETE FROM "series"
 WHERE "id" = $1;
+
+-- name: FindSeriesBySlugWithJoins :many
+SELECT 
+    "series".*,
+    "tags"."name" AS "tag_name",
+    "users"."first_name" AS "author_first_name",
+    "users"."last_name" AS "author_last_name"
+FROM "series"
+LEFT JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_tags" ON "series"."id" = "series_tags"."series_id"
+    LEFT JOIN "tags" ON "series_tags"."tag_id" = "tags"."id"
+WHERE 
+    "series"."is_published" = true AND 
+    "series"."slug" = $1 
+LIMIT 1;

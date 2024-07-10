@@ -9,7 +9,7 @@ import (
 	"context"
 )
 
-const createSeriesTags = `-- name: CreateSeriesTags :one
+const createSeriesTag = `-- name: CreateSeriesTag :exec
 
 INSERT INTO "series_tags" (
     "series_id",
@@ -17,10 +17,10 @@ INSERT INTO "series_tags" (
 ) VALUES (
     $1,
     $2
-) RETURNING series_id, tag_id, created_at
+)
 `
 
-type CreateSeriesTagsParams struct {
+type CreateSeriesTagParams struct {
 	SeriesID int32
 	TagID    int32
 }
@@ -41,11 +41,9 @@ type CreateSeriesTagsParams struct {
 //
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
-func (q *Queries) CreateSeriesTags(ctx context.Context, arg CreateSeriesTagsParams) (SeriesTag, error) {
-	row := q.db.QueryRow(ctx, createSeriesTags, arg.SeriesID, arg.TagID)
-	var i SeriesTag
-	err := row.Scan(&i.SeriesID, &i.TagID, &i.CreatedAt)
-	return i, err
+func (q *Queries) CreateSeriesTag(ctx context.Context, arg CreateSeriesTagParams) error {
+	_, err := q.db.Exec(ctx, createSeriesTag, arg.SeriesID, arg.TagID)
+	return err
 }
 
 const deleteSeriesTagByIds = `-- name: DeleteSeriesTagByIds :exec
