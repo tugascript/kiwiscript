@@ -18,5 +18,10 @@
 package controllers
 
 type LanguageParams struct {
-	Slug string `validate:"required,min=2,max=50,slug"`
+	LanguageSlug string `validate:"required,min=2,max=50,slug"`
+}
+
+type SeriesParams struct {
+	LanguageSlug string `validate:"required,min=2,max=50,slug"`
+	SeriesSlug   string `validate:"required,min=2,max=100,slug"`
 }

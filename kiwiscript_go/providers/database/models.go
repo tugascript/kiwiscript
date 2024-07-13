@@ -66,9 +66,9 @@ type Lecture struct {
 	IsPublished   bool
 	CommentsCount int32
 	AuthorID      int32
-	SeriesID      int32
 	SeriesPartID  int32
-	LanguageID    int32
+	HasVideo      bool
+	HasArticle    bool
 	CreatedAt     pgtype.Timestamp
 	UpdatedAt     pgtype.Timestamp
 }

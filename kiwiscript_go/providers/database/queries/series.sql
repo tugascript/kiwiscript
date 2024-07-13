@@ -20,12 +20,14 @@ INSERT INTO "series" (
   "title",
   "slug",
   "description",
+  "language_id",
   "author_id"
 ) VALUES (
   $1,
   $2,
   $3,
-  $4
+  $4,
+  $5
 ) RETURNING *;
 
 -- name: UpdateSeries :one
@@ -78,25 +80,27 @@ WHERE "id" = $1;
 SELECT * FROM "series"
 WHERE "id" = $1 LIMIT 1;
 
--- name: FindSeriesBySlug :one
+-- name: FindSeriesBySlugAndLanguageID :one
 SELECT * FROM "series"
-WHERE "slug" = $1 LIMIT 1;
+WHERE "slug" = $1 AND "language_id" = $2
+LIMIT 1;
 
 -- name: DeleteSeriesById :exec
 DELETE FROM "series"
 WHERE "id" = $1;
 
--- name: FindSeriesBySlugWithJoins :many
+-- name: FindSeriesBySlugAndLanguageIDWithJoins :many
 SELECT 
-    "series".*,
-    "tags"."name" AS "tag_name",
-    "users"."first_name" AS "author_first_name",
-    "users"."last_name" AS "author_last_name"
+  "series".*,
+  "tags"."name" AS "tag_name",
+  "users"."first_name" AS "author_first_name",
+  "users"."last_name" AS "author_last_name"
 FROM "series"
 LEFT JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_tags" ON "series"."id" = "series_tags"."series_id"
-    LEFT JOIN "tags" ON "series_tags"."tag_id" = "tags"."id"
+  LEFT JOIN "tags" ON "series_tags"."tag_id" = "tags"."id"
 WHERE 
-    "series"."is_published" = true AND 
-    "series"."slug" = $1 
+  "series"."is_published" = $1 AND 
+  "series"."slug" = $2 AND
+  "series"."language_id" = $3
 LIMIT 1;

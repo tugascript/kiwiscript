@@ -20,20 +20,16 @@ INSERT INTO "lectures" (
   "title",
   "description",
   "author_id",
-  "series_id",
   "series_part_id",
-  "language_id",
   "position"
 ) VALUES (
   $1,
   $2,
   $3,
   $4,
-  $5,
-  $6,
   (
     SELECT COUNT("id") + 1 FROM "lectures"
-    WHERE "series_part_id" = $5
+    WHERE "series_part_id" = $4
   )
 ) RETURNING *;
 
@@ -42,6 +38,14 @@ UPDATE "lectures" SET
   "title" = $1,
   "description" = $2
 WHERE "id" = $3
+RETURNING *;
+
+-- name: UpdateLectureWithPosition :one
+UPDATE "lectures" SET
+  "title" = $1,
+  "description" = $2,
+  "position" = $3
+WHERE "id" = $4
 RETURNING *;
 
 -- name: UpdateLectureIsPublished :one
@@ -59,7 +63,10 @@ RETURNING *;
 -- name: IncrementLecturePosition :exec
 UPDATE "lectures" SET
   "position" = "position" + 1
-WHERE "series_part_id" = $1 AND "position" >= $2;
+WHERE
+  "series_part_id" = $1 AND
+  "position" < $2 AND
+  "position" >= $3;
 
 -- name: DecrementLecturePosition :exec
 UPDATE "lectures" SET
@@ -79,17 +86,37 @@ UPDATE "lectures" SET
   "comments_count" = "comments_count" - 1
 WHERE "id" = $1;
 
--- name: FindLectureById :one
+-- name: FindPublishedLectureByIDs :one
 SELECT * FROM "lectures"
-WHERE "id" = $1 LIMIT 1;
+WHERE 
+  "is_published" = true AND 
+  "series_part_id" = $1 AND
+  "id" = $2
+LIMIT 1;
+
+-- name: FindLectureByIDs :one
+SELECT * FROM "lectures"
+WHERE
+  "series_part_id" = $1 AND
+  "id" = $2
+LIMIT 1;
 
 -- name: FindLecturesBySeriesPartId :many
 SELECT * FROM "lectures"
 WHERE "series_part_id" = $1
 ORDER BY "position" ASC;
 
--- name: FindPaginatedLecturesBySeriesPartId :many
+-- name: FindPaginatedLecturesBySeriesPartID :many
 SELECT * FROM "lectures"
 WHERE "series_part_id" = $1
 ORDER BY "position" ASC
 LIMIT $2 OFFSET $3;
+
+-- name: CountLecturesBySeriesPartID :one
+SELECT COUNT("id") FROM "lectures"
+WHERE "series_part_id" = $1
+LIMIT 1;
+
+-- name: DeleteLectureByID :exec
+DELETE FROM "lectures"
+WHERE "id" = $1;

@@ -1,6 +1,6 @@
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2024-07-10T07:23:28.345Z
+-- Generated at: 2024-07-13T04:15:24.577Z
 
 CREATE TABLE "users" (
   "id" serial PRIMARY KEY,
@@ -100,9 +100,9 @@ CREATE TABLE "lectures" (
   "is_published" boolean NOT NULL DEFAULT false,
   "comments_count" int NOT NULL DEFAULT 0,
   "author_id" int NOT NULL,
-  "series_id" int NOT NULL,
   "series_part_id" int NOT NULL,
-  "language_id" int NOT NULL,
+  "has_video" boolean NOT NULL DEFAULT false,
+  "has_article" boolean NOT NULL DEFAULT false,
   "created_at" timestamp NOT NULL DEFAULT (now()),
   "updated_at" timestamp NOT NULL DEFAULT (now())
 );
@@ -279,13 +279,9 @@ CREATE INDEX "series_parts_is_published_idx" ON "series_parts" ("is_published");
 
 CREATE INDEX "series_parts_position_idx" ON "series_parts" ("position");
 
-CREATE UNIQUE INDEX "lectures_title_series_id_series_part_id_unique_idx" ON "lectures" ("title", "series_id", "series_part_id");
+CREATE UNIQUE INDEX "lectures_title_series_part_id_unique_idx" ON "lectures" ("title", "series_part_id");
 
 CREATE UNIQUE INDEX "lectures_series_part_id_position_unique_idx" ON "lectures" ("series_part_id", "position");
-
-CREATE INDEX "lectures_series_id_idx" ON "lectures" ("series_id");
-
-CREATE INDEX "lectures_language_id_idx" ON "lectures" ("language_id");
 
 CREATE INDEX "lectures_series_part_id_idx" ON "lectures" ("series_part_id");
 
@@ -391,11 +387,7 @@ ALTER TABLE "series_parts" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id
 
 ALTER TABLE "lectures" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "lectures" ADD FOREIGN KEY ("series_id") REFERENCES "series" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
 ALTER TABLE "lectures" ADD FOREIGN KEY ("series_part_id") REFERENCES "series_parts" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "lectures" ADD FOREIGN KEY ("language_id") REFERENCES "languages" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "lecture_videos" ADD FOREIGN KEY ("lecture_id") REFERENCES "lectures" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

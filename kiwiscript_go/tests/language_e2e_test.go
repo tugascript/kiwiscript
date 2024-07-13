@@ -89,23 +89,23 @@ var languageIcons = map[string]string{
 }
 
 func TestCreateLanguage(t *testing.T) {
-	generateFakeCreateLanguageRequest := func(t *testing.T) controllers.CreateLanguageRequest {
+	generateFakeCreateLanguageRequest := func(t *testing.T) controllers.LanguageRequest {
 		var req fakeCreateLanguageRequest
 
 		if err := faker.FakeData(&req); err != nil {
 			t.Fatal("Failed to generate fake data", err)
 		}
 
-		return controllers.CreateLanguageRequest{
+		return controllers.LanguageRequest{
 			Name: req.Name,
 			Icon: languageIcons[req.Name],
 		}
 	}
 
-	testCases := []TestRequestCase[controllers.CreateLanguageRequest]{
+	testCases := []TestRequestCase[controllers.LanguageRequest]{
 		{
 			Name: "Should return 201 CREATED when creating a language",
-			ReqFn: func(t *testing.T) (controllers.CreateLanguageRequest, string) {
+			ReqFn: func(t *testing.T) (controllers.LanguageRequest, string) {
 				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 				testUser.IsAdmin = true
 				accessToken, _ := GenerateTestAuthTokens(t, testUser)
@@ -113,7 +113,7 @@ func TestCreateLanguage(t *testing.T) {
 				return req, accessToken
 			},
 			ExpStatus: fiber.StatusCreated,
-			AssertFn: func(t *testing.T, req controllers.CreateLanguageRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, req controllers.LanguageRequest, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.LanguageResponse{})
 				AssertEqual(t, utils.CapitalizedFirst(req.Name), resBody.Name)
 				AssertEqual(t, strings.TrimSpace(req.Icon), resBody.Icon)
@@ -122,14 +122,14 @@ func TestCreateLanguage(t *testing.T) {
 		},
 		{
 			Name: "Should return 409 FORBIDEN if user is not admin",
-			ReqFn: func(t *testing.T) (controllers.CreateLanguageRequest, string) {
+			ReqFn: func(t *testing.T) (controllers.LanguageRequest, string) {
 				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 				accessToken, _ := GenerateTestAuthTokens(t, testUser)
 				req := generateFakeCreateLanguageRequest(t)
 				return req, accessToken
 			},
 			ExpStatus: fiber.StatusForbidden,
-			AssertFn: func(t *testing.T, req controllers.CreateLanguageRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, req controllers.LanguageRequest, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 				AssertEqual(t, controllers.StatusForbidden, resBody.Message)
 				AssertEqual(t, controllers.StatusForbidden, resBody.Code)
@@ -138,30 +138,30 @@ func TestCreateLanguage(t *testing.T) {
 		},
 		{
 			Name: "Should return 401 if user is not authenticated",
-			ReqFn: func(t *testing.T) (controllers.CreateLanguageRequest, string) {
+			ReqFn: func(t *testing.T) (controllers.LanguageRequest, string) {
 				req := generateFakeCreateLanguageRequest(t)
 				return req, ""
 			},
 			ExpStatus: fiber.StatusUnauthorized,
-			AssertFn: func(t *testing.T, req controllers.CreateLanguageRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, req controllers.LanguageRequest, resp *http.Response) {
 				assertUnauthorizeError(t, resp)
 			},
 			DelayMs: 0,
 		},
 		{
 			Name: "Should return 400 BAD REQUEST if validation fails",
-			ReqFn: func(t *testing.T) (controllers.CreateLanguageRequest, string) {
+			ReqFn: func(t *testing.T) (controllers.LanguageRequest, string) {
 				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 				testUser.IsAdmin = true
 				accessToken, _ := GenerateTestAuthTokens(t, testUser)
-				req := controllers.CreateLanguageRequest{
+				req := controllers.LanguageRequest{
 					Name: "Some non valid @#$^%",
 					Icon: "not svg",
 				}
 				return req, accessToken
 			},
 			ExpStatus: fiber.StatusBadRequest,
-			AssertFn: func(t *testing.T, req controllers.CreateLanguageRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, req controllers.LanguageRequest, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
 				AssertEqual(t, 2, len(resBody.Fields))
 				AssertEqual(t, "name", resBody.Fields[0].Param)
@@ -448,21 +448,21 @@ func TestUpdateLanguage(t *testing.T) {
 		}
 	}()
 
-	testCases := []TestRequestCase[controllers.UpdateLanguageRequest]{
+	testCases := []TestRequestCase[controllers.LanguageRequest]{
 		{
 			Name: "Should return 200 OK when updating a language",
-			ReqFn: func(t *testing.T) (controllers.UpdateLanguageRequest, string) {
+			ReqFn: func(t *testing.T) (controllers.LanguageRequest, string) {
 				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 				testUser.IsAdmin = true
 				accessToken, _ := GenerateTestAuthTokens(t, testUser)
-				req := controllers.UpdateLanguageRequest{
+				req := controllers.LanguageRequest{
 					Name: "Rust",
 					Icon: languageIcons["Rust"],
 				}
 				return req, accessToken
 			},
 			ExpStatus: fiber.StatusOK,
-			AssertFn: func(t *testing.T, req controllers.UpdateLanguageRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, req controllers.LanguageRequest, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.LanguageResponse{})
 				AssertEqual(t, "Rust", resBody.Name)
 				AssertEqual(t, "rust", resBody.Slug)
@@ -472,18 +472,18 @@ func TestUpdateLanguage(t *testing.T) {
 		},
 		{
 			Name: "Should return 404 NOT FOUND when language is not found",
-			ReqFn: func(t *testing.T) (controllers.UpdateLanguageRequest, string) {
+			ReqFn: func(t *testing.T) (controllers.LanguageRequest, string) {
 				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 				testUser.IsAdmin = true
 				accessToken, _ := GenerateTestAuthTokens(t, testUser)
-				req := controllers.UpdateLanguageRequest{
+				req := controllers.LanguageRequest{
 					Name: "Rust",
 					Icon: languageIcons["Rust"],
 				}
 				return req, accessToken
 			},
 			ExpStatus: fiber.StatusNotFound,
-			AssertFn: func(t *testing.T, req controllers.UpdateLanguageRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, req controllers.LanguageRequest, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 				AssertEqual(t, controllers.StatusNotFound, resBody.Code)
 				AssertEqual(t, "Resource not found", resBody.Message)
@@ -492,18 +492,18 @@ func TestUpdateLanguage(t *testing.T) {
 		},
 		{
 			Name: "Should return 400 BAD REQUEST if language name is invalid",
-			ReqFn: func(t *testing.T) (controllers.UpdateLanguageRequest, string) {
+			ReqFn: func(t *testing.T) (controllers.LanguageRequest, string) {
 				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 				testUser.IsAdmin = true
 				accessToken, _ := GenerateTestAuthTokens(t, testUser)
-				req := controllers.UpdateLanguageRequest{
+				req := controllers.LanguageRequest{
 					Name: "Some non valid @#$^%",
 					Icon: "not svg",
 				}
 				return req, accessToken
 			},
 			ExpStatus: fiber.StatusBadRequest,
-			AssertFn: func(t *testing.T, req controllers.UpdateLanguageRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, req controllers.LanguageRequest, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
 				AssertEqual(t, 2, len(resBody.Fields))
 				AssertEqual(t, "name", resBody.Fields[0].Param)
@@ -515,32 +515,32 @@ func TestUpdateLanguage(t *testing.T) {
 		},
 		{
 			Name: "Should return 401 UNAUTHORIZED if user is not authenticated",
-			ReqFn: func(t *testing.T) (controllers.UpdateLanguageRequest, string) {
-				req := controllers.UpdateLanguageRequest{
+			ReqFn: func(t *testing.T) (controllers.LanguageRequest, string) {
+				req := controllers.LanguageRequest{
 					Name: "Rust",
 					Icon: languageIcons["Rust"],
 				}
 				return req, ""
 			},
 			ExpStatus: fiber.StatusUnauthorized,
-			AssertFn: func(t *testing.T, req controllers.UpdateLanguageRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, req controllers.LanguageRequest, resp *http.Response) {
 				assertUnauthorizeError(t, resp)
 			},
 			Path: baseLanguagesPath + "/rustasdasd",
 		},
 		{
 			Name: "Should return 403 FORBIDEN if user is not admin",
-			ReqFn: func(t *testing.T) (controllers.UpdateLanguageRequest, string) {
+			ReqFn: func(t *testing.T) (controllers.LanguageRequest, string) {
 				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 				accessToken, _ := GenerateTestAuthTokens(t, testUser)
-				req := controllers.UpdateLanguageRequest{
+				req := controllers.LanguageRequest{
 					Name: "Rust",
 					Icon: languageIcons["Rust"],
 				}
 				return req, accessToken
 			},
 			ExpStatus: fiber.StatusForbidden,
-			AssertFn: func(t *testing.T, req controllers.UpdateLanguageRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, req controllers.LanguageRequest, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 				AssertEqual(t, controllers.StatusForbidden, resBody.Message)
 				AssertEqual(t, controllers.StatusForbidden, resBody.Code)

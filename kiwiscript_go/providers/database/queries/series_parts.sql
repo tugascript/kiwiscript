@@ -40,49 +40,72 @@ UPDATE "series_parts" SET
 WHERE "id" = $3
 RETURNING *;
 
+-- name: UpdateSeriesPartWithPosition :one
+UPDATE "series_parts" SET
+  "title" = $1,
+  "description" = $2,
+  "position" = $3
+WHERE "id" = $4
+RETURNING *;
+
 -- name: UpdateSeriesPartIsPublished :one
 UPDATE "series_parts" SET
   "is_published" = $1
 WHERE "id" = $2
 RETURNING *;
 
--- name: UpdateSeriesPartPosition :one
-UPDATE "series_parts" SET
-  "position" = $1
-WHERE "id" = $2
-RETURNING *;
-
 -- name: IncrementSeriesPartPosition :exec
 UPDATE "series_parts" SET
   "position" = "position" + 1
-WHERE "series_id" = $1 AND "position" >= $2;
+WHERE
+  "series_id" = $1 AND 
+  "position" < $2 AND
+  "position" >= $3;
 
 -- name: DecrementSeriesPartPosition :exec
 UPDATE "series_parts" SET
   "position" = "position" - 1
 WHERE 
-    "series_id" = $1 AND
-    "position" > $2 AND 
-    "position" <= $3;
+  "series_id" = $1 AND
+  "position" > $2 AND 
+  "position" <= $3;
 
 -- name: FindSeriesPartById :one
 SELECT * FROM "series_parts"
 WHERE "id" = $1 LIMIT 1;
 
--- name: FindSeriesPartBySeriesId :many
+-- name: FindSeriesPartBySeriesIDAndID :one
 SELECT * FROM "series_parts"
-WHERE "series_id" = $1
-ORDER BY "position" ASC;
+WHERE "series_id" = $1 AND "id" = $2 LIMIT 1;
 
+-- name: FindSeriesPartBySeriesIDAndIDWithLectures :many
+SELECT 
+    "series_parts".*, 
+    "lectures"."id" AS "lecture_id", 
+    "lectures"."title" AS "lecture_title"
+FROM "series_parts"
+LEFT JOIN "lectures" ON ("series_parts"."id" = "lectures"."series_part_id" AND "lectures"."is_published" = true)
+WHERE "series_parts"."series_id" = $1 AND "series_parts"."id" = $2
+ORDER BY "lectures"."position" ASC;
 
--- name: FindPaginatedSeriesPartsBySeriesId :many
-SELECT * FROM "series_parts"
-WHERE "series_id" = $1
-ORDER BY "position" ASC
+-- name: FindPaginatedSeriesPartsBySeriesIdWithLectures :many
+SELECT 
+    "series_parts".*, 
+    "lectures"."id" AS "lecture_id", 
+    "lectures"."title" AS "lecture_title"
+FROM "series_parts"
+LEFT JOIN "lectures" ON (
+    "series_parts"."id" = "lectures"."series_part_id" AND 
+    "lectures"."is_published" = true
+)
+WHERE "series_parts"."series_id" = $1
+ORDER BY 
+    "series_parts"."position" ASC,
+    "lectures"."position" ASC
 LIMIT $2 OFFSET $3;
 
 -- name: CountSeriesPartsBySeriesId :one
-SELECT COUNT(*) AS "count" FROM "series_parts"
+SELECT COUNT("id") AS "count" FROM "series_parts"
 WHERE "series_id" = $1 LIMIT 1;
 
 -- name: DeleteSeriesPartById :exec

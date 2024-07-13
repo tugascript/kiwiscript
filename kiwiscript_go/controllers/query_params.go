@@ -27,3 +27,8 @@ type GetLanguagesQueryParams struct {
 	Offset int32  `validate:"omitempty,gte=0"`
 	Search string `validate:"omitempty,min=1,max=50,extalphanum"`
 }
+
+type PaginationQueryParams struct {
+	Limit  int32 `validate:"omitempty,gte=1,lte=100"`
+	Offset int32 `validate:"omitempty,gte=0"`
+}

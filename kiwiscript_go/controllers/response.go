@@ -22,6 +22,7 @@ import (
 
 	"github.com/google/uuid"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
+	"github.com/kiwiscript/kiwiscript_go/services"
 )
 
 type AuthResponse struct {
@@ -112,5 +113,54 @@ func NewLanguageResponse(language db.Language) LanguageResponse {
 		Name: language.Name,
 		Slug: language.Slug,
 		Icon: language.Icon,
+	}
+}
+
+type AdminSeriesResponse struct {
+	ID          int32    `json:"id"`
+	Title       string   `json:"title"`
+	Slug        string   `json:"slug"`
+	Description string   `json:"description"`
+	Parts       int16    `json:"parts"`
+	Lectures    int16    `json:"lectures"`
+	ReviewAvg   int16    `json:"reviewAvg"`
+	ReviewCount int32    `json:"reviewCount"`
+	IsPublished bool     `json:"isPublished"`
+	Tags        []string `json:"tags"`
+}
+
+func NewAdminSeriesResponse(series *db.Series, tags []db.Tag) *AdminSeriesResponse {
+	strTags := make([]string, len(tags))
+
+	for i, t := range tags {
+		strTags[i] = t.Name
+	}
+
+	return &AdminSeriesResponse{
+		ID:          series.ID,
+		Title:       series.Title,
+		Slug:        series.Slug,
+		Description: series.Description,
+		Parts:       series.PartsCount,
+		Lectures:    series.LecturesCount,
+		ReviewAvg:   series.ReviewAvg,
+		ReviewCount: series.ReviewCount,
+		IsPublished: series.IsPublished,
+		Tags:        strTags,
+	}
+}
+
+func NewAdminSeriesFromDto(dtos *services.SeriesDto) *AdminSeriesResponse {
+	return &AdminSeriesResponse{
+		ID:          dtos.ID,
+		Title:       dtos.Title,
+		Slug:        dtos.Slug,
+		Description: dtos.Description,
+		Parts:       dtos.Parts,
+		Lectures:    dtos.Lectures,
+		ReviewAvg:   dtos.ReviewAvg,
+		ReviewCount: dtos.ReviewCount,
+		IsPublished: dtos.IsPublished,
+		Tags:        dtos.Tags,
 	}
 }

@@ -28,7 +28,7 @@ import (
 func (c *Controllers) CreateLanguage(ctx *fiber.Ctx) error {
 	log := c.log.WithGroup("controllers.languages.CreateLanguage")
 	userCtx := ctx.UserContext()
-	var request CreateLanguageRequest
+	var request LanguageRequest
 	user, err := c.GetUserClaims(ctx)
 
 	if err != nil || !user.IsAdmin {
@@ -121,7 +121,7 @@ func (c *Controllers) UpdateLanguage(ctx *fiber.Ctx) error {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}
 
-	var request UpdateLanguageRequest
+	var request LanguageRequest
 	if err := ctx.BodyParser(&request); err != nil {
 		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 	}

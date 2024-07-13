@@ -34,12 +34,14 @@ INSERT INTO "series" (
   "title",
   "slug",
   "description",
+  "language_id",
   "author_id"
 ) VALUES (
   $1,
   $2,
   $3,
-  $4
+  $4,
+  $5
 ) RETURNING id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, language_id, author_id, created_at, updated_at
 `
 
@@ -47,6 +49,7 @@ type CreateSeriesParams struct {
 	Title       string
 	Slug        string
 	Description string
+	LanguageID  int32
 	AuthorID    int32
 }
 
@@ -71,6 +74,7 @@ func (q *Queries) CreateSeries(ctx context.Context, arg CreateSeriesParams) (Ser
 		arg.Title,
 		arg.Slug,
 		arg.Description,
+		arg.LanguageID,
 		arg.AuthorID,
 	)
 	var i Series
@@ -158,13 +162,19 @@ func (q *Queries) FindSeriesById(ctx context.Context, id int32) (Series, error) 
 	return i, err
 }
 
-const findSeriesBySlug = `-- name: FindSeriesBySlug :one
+const findSeriesBySlugAndLanguageID = `-- name: FindSeriesBySlugAndLanguageID :one
 SELECT id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, language_id, author_id, created_at, updated_at FROM "series"
-WHERE "slug" = $1 LIMIT 1
+WHERE "slug" = $1 AND "language_id" = $2
+LIMIT 1
 `
 
-func (q *Queries) FindSeriesBySlug(ctx context.Context, slug string) (Series, error) {
-	row := q.db.QueryRow(ctx, findSeriesBySlug, slug)
+type FindSeriesBySlugAndLanguageIDParams struct {
+	Slug       string
+	LanguageID int32
+}
+
+func (q *Queries) FindSeriesBySlugAndLanguageID(ctx context.Context, arg FindSeriesBySlugAndLanguageIDParams) (Series, error) {
+	row := q.db.QueryRow(ctx, findSeriesBySlugAndLanguageID, arg.Slug, arg.LanguageID)
 	var i Series
 	err := row.Scan(
 		&i.ID,
@@ -185,23 +195,30 @@ func (q *Queries) FindSeriesBySlug(ctx context.Context, slug string) (Series, er
 	return i, err
 }
 
-const findSeriesBySlugWithJoins = `-- name: FindSeriesBySlugWithJoins :many
+const findSeriesBySlugAndLanguageIDWithJoins = `-- name: FindSeriesBySlugAndLanguageIDWithJoins :many
 SELECT 
-    series.id, series.title, series.slug, series.description, series.parts_count, series.lectures_count, series.total_duration_seconds, series.review_avg, series.review_count, series.is_published, series.language_id, series.author_id, series.created_at, series.updated_at,
-    "tags"."name" AS "tag_name",
-    "users"."first_name" AS "author_first_name",
-    "users"."last_name" AS "author_last_name"
+  series.id, series.title, series.slug, series.description, series.parts_count, series.lectures_count, series.total_duration_seconds, series.review_avg, series.review_count, series.is_published, series.language_id, series.author_id, series.created_at, series.updated_at,
+  "tags"."name" AS "tag_name",
+  "users"."first_name" AS "author_first_name",
+  "users"."last_name" AS "author_last_name"
 FROM "series"
 LEFT JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_tags" ON "series"."id" = "series_tags"."series_id"
-    LEFT JOIN "tags" ON "series_tags"."tag_id" = "tags"."id"
+  LEFT JOIN "tags" ON "series_tags"."tag_id" = "tags"."id"
 WHERE 
-    "series"."is_published" = true AND 
-    "series"."slug" = $1 
+  "series"."is_published" = $1 AND 
+  "series"."slug" = $2 AND
+  "series"."language_id" = $3
 LIMIT 1
 `
 
-type FindSeriesBySlugWithJoinsRow struct {
+type FindSeriesBySlugAndLanguageIDWithJoinsParams struct {
+	IsPublished bool
+	Slug        string
+	LanguageID  int32
+}
+
+type FindSeriesBySlugAndLanguageIDWithJoinsRow struct {
 	ID                   int32
 	Title                string
 	Slug                 string
@@ -221,15 +238,15 @@ type FindSeriesBySlugWithJoinsRow struct {
 	AuthorLastName       pgtype.Text
 }
 
-func (q *Queries) FindSeriesBySlugWithJoins(ctx context.Context, slug string) ([]FindSeriesBySlugWithJoinsRow, error) {
-	rows, err := q.db.Query(ctx, findSeriesBySlugWithJoins, slug)
+func (q *Queries) FindSeriesBySlugAndLanguageIDWithJoins(ctx context.Context, arg FindSeriesBySlugAndLanguageIDWithJoinsParams) ([]FindSeriesBySlugAndLanguageIDWithJoinsRow, error) {
+	rows, err := q.db.Query(ctx, findSeriesBySlugAndLanguageIDWithJoins, arg.IsPublished, arg.Slug, arg.LanguageID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []FindSeriesBySlugWithJoinsRow{}
+	items := []FindSeriesBySlugAndLanguageIDWithJoinsRow{}
 	for rows.Next() {
-		var i FindSeriesBySlugWithJoinsRow
+		var i FindSeriesBySlugAndLanguageIDWithJoinsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,

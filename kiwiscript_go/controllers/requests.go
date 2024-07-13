@@ -70,12 +70,20 @@ type UpdateEmailRequest struct {
 	Password string `json:"password" validate:"required,min=1"`
 }
 
-type CreateLanguageRequest struct {
+type LanguageRequest struct {
 	Name string `json:"name" validate:"required,min=2,max=50,extalphanum"`
 	Icon string `json:"icon" validate:"required,svg"`
 }
 
-type UpdateLanguageRequest struct {
-	Name string `json:"name" validate:"required,min=2,max=50,extalphanum"`
-	Icon string `json:"icon" validate:"required,svg"`
+type CreateSeriesRequest struct {
+	Title       string   `json:"title" validate:"require,min=2,max=100"`
+	Description string   `json:"description" validate:"required,min=2"`
+	Tags        []string `json:"tags" validate:"required,max=5,unique,dive,min=2,max=50,slug"`
+}
+
+type UpdateSeriesRequest struct {
+	Title       string   `json:"title" validate:"require,min=2,max=100"`
+	Description string   `json:"description" validate:"required,min=2"`
+	Tags        []string `json:"tags" validate:"required,max=5,unique,dive,min=2,max=50,slug"`
+	Position    int16    `json:"position" validate:"required,gte=1"`
 }
