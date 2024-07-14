@@ -197,6 +197,53 @@ func (c *Controllers) UpdateSeries(ctx *fiber.Ctx) error {
 	return ctx.JSON(c.NewSeriesResponse(&user, series, tags, languageSlug))
 }
 
+func (c *Controllers) UpdateSeriesIsPublished(ctx *fiber.Ctx) error {
+	log := c.log.WithGroup("controllers.series.UpdateIsPublished")
+	userCtx := ctx.UserContext()
+	languageSlug := ctx.Params("languageSlug")
+	seriesSlug := ctx.Params("seriesSlug")
+	log.InfoContext(userCtx, "Updating series published status...", "languageSlug", languageSlug, "seriesSlug", seriesSlug)
+
+	user, err := c.GetUserClaims(ctx)
+	if err != nil || !user.IsStaff {
+		log.ErrorContext(userCtx, "User is not staff, should not have reached here")
+		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+	}
+
+	params := SeriesParams{
+		LanguageSlug: languageSlug,
+		SeriesSlug:   seriesSlug,
+	}
+	if err := c.validate.StructCtx(userCtx, params); err != nil {
+		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
+	}
+
+	var request UpdateSeriesIsPublishedRequest
+	if err := ctx.BodyParser(&request); err != nil {
+		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
+	}
+	if err := c.validate.StructCtx(userCtx, request); err != nil {
+		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
+	}
+	series, serviceErr := c.services.UpdateSeriesIsPublished(userCtx, services.UpdateSeriesIsPublishedOptions{
+		UserID:       user.ID,
+		LanguageSlug: params.LanguageSlug,
+		SeriesSlug:   params.SeriesSlug,
+		IsPublished:  request.IsPublished,
+	})
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	tags, serviceErr := c.services.FindTagsBySeriesID(userCtx, series.ID)
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	return ctx.JSON(c.NewSeriesResponse(&user, series, tags, languageSlug))
+
+}
+
 func (c *Controllers) AddTagToSeries(ctx *fiber.Ctx) error {
 	log := c.log.WithGroup("controllers.series.AddTagToSeries")
 	userCtx := ctx.UserContext()

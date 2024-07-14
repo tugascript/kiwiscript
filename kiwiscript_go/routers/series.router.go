@@ -21,4 +21,7 @@ func (r *Router) SeriesPrivateRoutes() {
 	series.Post("/", r.controllers.CreateSeries)
 	series.Put("/:seriesSlug", r.controllers.UpdateSeries)
 	series.Delete("/:seriesSlug", r.controllers.DeleteSeries)
+	series.Patch("/:seriesSlug/publish", r.controllers.UpdateSeriesIsPublished)
+	series.Patch("/:seriesSlug/tags", r.controllers.AddTagToSeries)
+	series.Delete("/:seriesSlug/tags/:tagSlug", r.controllers.RemoveTagFromSeries)
 }

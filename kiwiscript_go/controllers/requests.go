@@ -90,3 +90,7 @@ type UpdateSeriesRequest struct {
 type AddTagToSeriesRequest struct {
 	Tag string `json:"tag" validate:"required,min=2,max=50,slug"`
 }
+
+type UpdateSeriesIsPublishedRequest struct {
+	IsPublished bool `json:"is_published" validate:"required"`
+}
