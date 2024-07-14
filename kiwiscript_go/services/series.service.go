@@ -272,13 +272,18 @@ type findPaginatedSeriesRowsOptions struct {
 	Order       string
 }
 
+// FIX me this is wrong
 func (s *Services) findPaginatedSeriesRows(ctx context.Context, options findPaginatedSeriesRowsOptions) ([]SeriesRow, int64, *ServiceError) {
 	log := s.log.WithGroup("service.series.GetSeries")
 	log.InfoContext(ctx, "Getting series...")
 	args := make([]interface{}, 6)
 	args[0] = options.LanguageID
-	idx := 1
-	query := `SELECT
+	args[1] = options.Limit
+	args[2] = options.Offset
+	idx := 3
+
+	// Base query for main selection
+	baseQuery := `SELECT
 		"series"."id",
 		"series"."title",
 		"series"."slug",
@@ -288,14 +293,8 @@ func (s *Services) findPaginatedSeriesRows(ctx context.Context, options findPagi
 		"series"."is_published",
 		"series"."review_avg",
 		"series"."review_count",
-		"series"."author_id",
-		"users"."first_name" AS "author_first_name",
-		"users"."last_name" AS "author_last_name",
-		"tags"."name" AS "tag_name"
+		"series"."author_id"
 	FROM "series"
-	LEFT JOIN "users" ON "series"."author_id" = "users"."id"
-	LEFT JOIN "series_tags" ON "series"."id" = "series_tags"."series_id"
-	LEFT JOIN "tags" ON "series_tags"."tag_id" = "tags"."id"
 	WHERE "series"."language_id" = $1
 	`
 	countQueryWhere := `WHERE "series"."language_id" = $1 `
@@ -303,31 +302,35 @@ func (s *Services) findPaginatedSeriesRows(ctx context.Context, options findPagi
 
 	if options.IsPublished {
 		where := `AND "series"."is_published" = true `
-		query += where
+		baseQuery += where
 		countQueryWhere += where
 	}
 	if options.AuthorID > 0 {
 		where := fmt.Sprintf(`AND "series"."author_id" = $%d `, idx+1)
-		query += where
+		baseQuery += where
 		countQueryWhere += where
 		args[idx] = options.AuthorID
 		idx++
 	}
 	if options.Search != "" {
 		where := fmt.Sprintf(`AND "series"."title" ILIKE $%d `, idx+1)
-		query += where
+		baseQuery += where
 		countQueryWhere += where
 		args[idx] = "%" + options.Search + "%"
 		idx++
 	}
 	if options.Tag != "" {
-		where := fmt.Sprintf(`AND "tags"."name" = $%d `, idx+1)
-		query += where
+		baseQuery += fmt.Sprintf(`AND EXISTS (
+			SELECT 1 FROM "series_tags" 
+			JOIN "tags" ON "series_tags"."tag_id" = "tags"."id" 
+				WHERE "series_tags"."series_id" = "series"."id" AND 
+				"tags"."name" = $%d
+		) `, idx+1)
 		countQueryJoin += `
 		LEFT JOIN "series_tags" ON "series"."id" = "series_tags"."series_id"
 		LEFT JOIN "tags" ON "series_tags"."tag_id" = "tags"."id" 
 		`
-		countQueryWhere += where
+		countQueryWhere += fmt.Sprintf(`AND "tags"."name" = $%d `, idx+1)
 		args[idx] = options.Tag
 		idx++
 	}
@@ -339,7 +342,23 @@ func (s *Services) findPaginatedSeriesRows(ctx context.Context, options findPagi
 		return nil, 0, FromDBError(err)
 	}
 
-	query += fmt.Sprintf(`ORDER BY "series"."%s" %s LIMIT $%d OFFSET $%d`, options.SortBy, options.Order, idx+1, idx+2)
+	query := fmt.Sprintf(`
+		WITH "series" AS (
+			%s
+			ORDER BY "%s" %s
+			LIMIT $%d OFFSET $%d
+		)
+		SELECT
+			"series".*,
+			"users"."first_name" AS "author_first_name",
+			"users"."last_name" AS "author_last_name",
+			"tags"."name" AS "tag_name"
+		FROM "series"
+		LEFT JOIN "users" ON "series"."author_id" = "users"."id"
+		LEFT JOIN "series_tags" ON "series"."id" = "series_tags"."series_id"
+		LEFT JOIN "tags" ON "series_tags"."tag_id" = "tags"."id"
+		ORDER BY "series"."%s" %s, "tags"."name" ASC;
+	`, baseQuery, options.SortBy, options.Order, idx+1, idx+2, options.SortBy, options.Order)
 	args[idx] = options.Limit
 	args[idx+1] = options.Offset
 	rows, err := s.database.RawQuery(ctx, query, args)
