@@ -19,10 +19,6 @@
 DELETE FROM "tags"
 WHERE "id" = $1;
 
--- name: DeleteManyTags :exec
-DELETE FROM "tags"
-WHERE "ID" IN ($1::int[]);
-
 -- name: FindOrCreateTag :one
 INSERT INTO "tags" (
   "name",
@@ -33,3 +29,8 @@ INSERT INTO "tags" (
 ) ON CONFLICT ("name") DO UPDATE SET
   "name" = EXCLUDED."name"
 RETURNING *;
+
+-- name: FindTagByName :one
+SELECT * FROM "tags"
+WHERE "name" = $1
+LIMIT 1;

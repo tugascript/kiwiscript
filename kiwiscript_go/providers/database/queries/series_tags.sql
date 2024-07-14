@@ -24,6 +24,17 @@ INSERT INTO "series_tags" (
     $2
 );
 
--- name: DeleteSeriesTagByIds :exec
+-- name: DeleteSeriesTagByIDs :exec
 DELETE FROM "series_tags"
 WHERE "series_id" = $1 AND "tag_id" = $2;
+
+-- name: CountSeriesTagsBySeriesID :one
+SELECT COUNT("tag_id") FROM "series_tags"
+WHERE "series_id" = $1
+LIMIT 1;
+
+-- name: FindTagsBySeriesID :many
+SELECT "tags".* FROM "series_tags"
+JOIN "tags" ON "tags"."id" = "series_tags"."tag_id"
+WHERE "series_tags"."series_id" = $1
+ORDER BY "tags"."name" ASC;

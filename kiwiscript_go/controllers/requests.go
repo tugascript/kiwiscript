@@ -82,8 +82,11 @@ type CreateSeriesRequest struct {
 }
 
 type UpdateSeriesRequest struct {
-	Title       string   `json:"title" validate:"require,min=2,max=100"`
-	Description string   `json:"description" validate:"required,min=2"`
-	Tags        []string `json:"tags" validate:"required,max=5,unique,dive,min=2,max=50,slug"`
-	Position    int16    `json:"position" validate:"required,gte=1"`
+	Title       string `json:"title" validate:"require,min=2,max=100"`
+	Description string `json:"description" validate:"required,min=2"`
+	Position    int16  `json:"position" validate:"required,gte=1"`
+}
+
+type AddTagToSeriesRequest struct {
+	Tag string `json:"tag" validate:"required,min=2,max=50,slug"`
 }

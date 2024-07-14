@@ -25,3 +25,9 @@ type SeriesParams struct {
 	LanguageSlug string `validate:"required,min=2,max=50,slug"`
 	SeriesSlug   string `validate:"required,min=2,max=100,slug"`
 }
+
+type RemoveTagFromSeriesParams struct {
+	LanguageSlug string `validate:"required,min=2,max=50,slug"`
+	SeriesSlug   string `validate:"required,min=2,max=100,slug"`
+	Tag          string `validate:"required,min=2,max=50"`
+}

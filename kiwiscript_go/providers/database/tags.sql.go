@@ -9,16 +9,6 @@ import (
 	"context"
 )
 
-const deleteManyTags = `-- name: DeleteManyTags :exec
-DELETE FROM "tags"
-WHERE "ID" IN ($1::int[])
-`
-
-func (q *Queries) DeleteManyTags(ctx context.Context, dollar_1 []int32) error {
-	_, err := q.db.Exec(ctx, deleteManyTags, dollar_1)
-	return err
-}
-
 const deleteTagById = `-- name: DeleteTagById :exec
 
 DELETE FROM "tags"
@@ -65,6 +55,25 @@ type FindOrCreateTagParams struct {
 
 func (q *Queries) FindOrCreateTag(ctx context.Context, arg FindOrCreateTagParams) (Tag, error) {
 	row := q.db.QueryRow(ctx, findOrCreateTag, arg.Name, arg.AuthorID)
+	var i Tag
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.AuthorID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const findTagByName = `-- name: FindTagByName :one
+SELECT id, name, author_id, created_at, updated_at FROM "tags"
+WHERE "name" = $1
+LIMIT 1
+`
+
+func (q *Queries) FindTagByName(ctx context.Context, name string) (Tag, error) {
+	row := q.db.QueryRow(ctx, findTagByName, name)
 	var i Tag
 	err := row.Scan(
 		&i.ID,

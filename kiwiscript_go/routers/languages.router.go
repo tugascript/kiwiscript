@@ -17,10 +17,10 @@
 
 package routers
 
-const languagesPath = "/v1/languages"
+import "github.com/kiwiscript/kiwiscript_go/paths"
 
 func (r *Router) LanguagePublicRoutes() {
-	languages := r.router.Group(languagesPath)
+	languages := r.router.Group(paths.LanguagePathV1)
 
 	languages.Get("/", r.controllers.GetLanguages)
 	languages.Get("/:languageSlug", r.controllers.GetLanguage)
@@ -28,7 +28,7 @@ func (r *Router) LanguagePublicRoutes() {
 
 func (r *Router) LanguagePrivateRoutes() {
 	languages := r.router.Group(
-		languagesPath,
+		paths.LanguagePathV1,
 		r.controllers.AccessClaimsMiddleware,
 		r.controllers.AdminUserMiddleware,
 	)

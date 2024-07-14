@@ -18,7 +18,7 @@ func (s *Services) CreateLectures(ctx context.Context, opts CreateLecturesOption
 	log := s.log.WithGroup("services.lectures.CreateLectures").With("title", opts.Title)
 	log.InfoContext(ctx, "Creating lectures...")
 
-	servicePart, serviceErr := s.AssertSeriesOwnership(ctx, AssertSeriesPartOwnershipOptions{
+	servicePart, serviceErr := s.AssertSeriesPartOwnership(ctx, AssertSeriesPartOwnershipOptions{
 		UserID:       opts.UserID,
 		SeriesSlug:   opts.SeriesSlug,
 		SeriesPartID: opts.SeriesPartID,
@@ -155,7 +155,7 @@ func (s *Services) AssertLectureOwnership(ctx context.Context, opts AssertLectur
 	log := s.log.WithGroup("services.lectures.AssertLectureOwnership").With("lecture_id", opts.LectureID)
 	log.InfoContext(ctx, "Asserting lecture ownership...")
 
-	servicePart, serviceErr := s.AssertSeriesOwnership(ctx, AssertSeriesPartOwnershipOptions{
+	servicePart, serviceErr := s.AssertSeriesPartOwnership(ctx, AssertSeriesPartOwnershipOptions{
 		UserID:       opts.UserID,
 		SeriesSlug:   opts.SeriesSlug,
 		SeriesPartID: opts.SeriesPartID,

@@ -9,6 +9,19 @@ import (
 	"context"
 )
 
+const countSeriesTagsBySeriesID = `-- name: CountSeriesTagsBySeriesID :one
+SELECT COUNT("tag_id") FROM "series_tags"
+WHERE "series_id" = $1
+LIMIT 1
+`
+
+func (q *Queries) CountSeriesTagsBySeriesID(ctx context.Context, seriesID int32) (int64, error) {
+	row := q.db.QueryRow(ctx, countSeriesTagsBySeriesID, seriesID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createSeriesTag = `-- name: CreateSeriesTag :exec
 
 INSERT INTO "series_tags" (
@@ -46,17 +59,68 @@ func (q *Queries) CreateSeriesTag(ctx context.Context, arg CreateSeriesTagParams
 	return err
 }
 
-const deleteSeriesTagByIds = `-- name: DeleteSeriesTagByIds :exec
+const deleteSeriesTagByIDs = `-- name: DeleteSeriesTagByIDs :exec
 DELETE FROM "series_tags"
 WHERE "series_id" = $1 AND "tag_id" = $2
 `
 
-type DeleteSeriesTagByIdsParams struct {
+type DeleteSeriesTagByIDsParams struct {
 	SeriesID int32
 	TagID    int32
 }
 
-func (q *Queries) DeleteSeriesTagByIds(ctx context.Context, arg DeleteSeriesTagByIdsParams) error {
-	_, err := q.db.Exec(ctx, deleteSeriesTagByIds, arg.SeriesID, arg.TagID)
+func (q *Queries) DeleteSeriesTagByIDs(ctx context.Context, arg DeleteSeriesTagByIDsParams) error {
+	_, err := q.db.Exec(ctx, deleteSeriesTagByIDs, arg.SeriesID, arg.TagID)
 	return err
+}
+
+const deleteSeriesTagByNameAndSeriesID = `-- name: DeleteSeriesTagByNameAndSeriesID :exec
+DELETE FROM "series_tags"
+WHERE "tag_id" = (
+    SELECT "id" FROM "tags"
+    WHERE "name" = $1 LIMIT 1
+) AND "series_id" = $2
+`
+
+type DeleteSeriesTagByNameAndSeriesIDParams struct {
+	Name     string
+	SeriesID int32
+}
+
+func (q *Queries) DeleteSeriesTagByNameAndSeriesID(ctx context.Context, arg DeleteSeriesTagByNameAndSeriesIDParams) error {
+	_, err := q.db.Exec(ctx, deleteSeriesTagByNameAndSeriesID, arg.Name, arg.SeriesID)
+	return err
+}
+
+const findTagsBySeriesID = `-- name: FindTagsBySeriesID :many
+SELECT tags.id, tags.name, tags.author_id, tags.created_at, tags.updated_at FROM "series_tags"
+JOIN "tags" ON "tags"."id" = "series_tags"."tag_id"
+WHERE "series_tags"."series_id" = $1
+ORDER BY "tags"."name" ASC
+`
+
+func (q *Queries) FindTagsBySeriesID(ctx context.Context, seriesID int32) ([]Tag, error) {
+	rows, err := q.db.Query(ctx, findTagsBySeriesID, seriesID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Tag{}
+	for rows.Next() {
+		var i Tag
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.AuthorID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

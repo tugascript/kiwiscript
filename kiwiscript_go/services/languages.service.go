@@ -30,14 +30,14 @@ type CreateLanguageOptions struct {
 	Icon   string
 }
 
-func (s *Services) FindLanguageBySlug(ctx context.Context, slug string) (db.Language, *ServiceError) {
+func (s *Services) FindLanguageBySlug(ctx context.Context, slug string) (*db.Language, *ServiceError) {
 	language, err := s.database.FindLanguageBySlug(ctx, slug)
 
 	if err != nil {
-		return language, FromDBError(err)
+		return nil, FromDBError(err)
 	}
 
-	return language, nil
+	return &language, nil
 }
 
 func (s *Services) FindLanguageByID(ctx context.Context, id int32) (db.Language, *ServiceError) {
@@ -50,15 +50,14 @@ func (s *Services) FindLanguageByID(ctx context.Context, id int32) (db.Language,
 	return language, nil
 }
 
-func (s *Services) CreateLanguage(ctx context.Context, options CreateLanguageOptions) (db.Language, *ServiceError) {
+func (s *Services) CreateLanguage(ctx context.Context, options CreateLanguageOptions) (*db.Language, *ServiceError) {
 	log := s.log.WithGroup("service.languages.CreateLanguage")
 	log.InfoContext(ctx, "create language", "name", options.Name)
-	var language db.Language
 	slug := utils.Slugify(options.Name)
 
 	if _, serviceErr := s.FindLanguageBySlug(ctx, slug); serviceErr == nil {
 		log.InfoContext(ctx, "language already exists", "slug", slug)
-		return language, NewValidationError("language already exists")
+		return nil, NewValidationError("language already exists")
 	}
 
 	language, err := s.database.CreateLanguage(ctx, db.CreateLanguageParams{
@@ -68,10 +67,10 @@ func (s *Services) CreateLanguage(ctx context.Context, options CreateLanguageOpt
 		Slug:     slug,
 	})
 	if err != nil {
-		return language, FromDBError(err)
+		return nil, FromDBError(err)
 	}
 
-	return language, nil
+	return &language, nil
 }
 
 type UpdateLanguageOptions struct {
@@ -80,33 +79,33 @@ type UpdateLanguageOptions struct {
 	Icon string
 }
 
-func (s *Services) UpdateLanguage(ctx context.Context, options UpdateLanguageOptions) (db.Language, *ServiceError) {
+func (s *Services) UpdateLanguage(ctx context.Context, options UpdateLanguageOptions) (*db.Language, *ServiceError) {
 	log := s.log.WithGroup("service.languages.UpdateLanguage")
 	log.InfoContext(ctx, "update language", "slug", options.Slug, "name", options.Name)
 	language, serviceErr := s.FindLanguageBySlug(ctx, options.Slug)
 
 	if serviceErr != nil {
 		log.InfoContext(ctx, "language not found", "slug", options.Slug)
-		return language, serviceErr
+		return nil, serviceErr
 	}
 
 	slug := utils.Slugify(options.Name)
 	if _, serviceErr := s.FindLanguageBySlug(ctx, slug); serviceErr == nil {
 		log.InfoContext(ctx, "language already exists", "slug", slug)
-		return language, NewValidationError("language already exists")
+		return nil, NewValidationError("language already exists")
 	}
 
-	language, err := s.database.UpdateLanguage(ctx, db.UpdateLanguageParams{
+	updateLanguage, err := s.database.UpdateLanguage(ctx, db.UpdateLanguageParams{
 		ID:   language.ID,
 		Name: options.Name,
 		Icon: options.Icon,
 		Slug: slug,
 	})
 	if err != nil {
-		return language, FromDBError(err)
+		return nil, FromDBError(err)
 	}
 
-	return language, nil
+	return &updateLanguage, nil
 }
 
 func (s *Services) DeleteLanguage(ctx context.Context, slug string) *ServiceError {
@@ -138,7 +137,6 @@ type FindPaginatedLanguagesOptions struct {
 func (s *Services) FindPaginatedLanguages(ctx context.Context, options FindPaginatedLanguagesOptions) ([]db.Language, int64, *ServiceError) {
 	log := s.log.WithGroup("service.languages.GetLanguages")
 	log.InfoContext(ctx, "get languages")
-	var count int64
 
 	if options.Search == "" {
 		languages, err := s.database.FindPaginatedLanguages(ctx, db.FindPaginatedLanguagesParams{
@@ -146,12 +144,12 @@ func (s *Services) FindPaginatedLanguages(ctx context.Context, options FindPagin
 			Limit:  options.Limit,
 		})
 		if err != nil {
-			return languages, count, FromDBError(err)
+			return nil, 0, FromDBError(err)
 		}
 
-		count, err = s.database.CountLanguages(ctx)
+		count, err := s.database.CountLanguages(ctx)
 		if err != nil {
-			return languages, count, FromDBError(err)
+			return nil, 0, FromDBError(err)
 		}
 
 		return languages, count, nil
@@ -164,12 +162,12 @@ func (s *Services) FindPaginatedLanguages(ctx context.Context, options FindPagin
 		Limit:  options.Limit,
 	})
 	if err != nil {
-		return languages, count, FromDBError(err)
+		return nil, 0, FromDBError(err)
 	}
 
-	count, err = s.database.CountFilteredLanguages(ctx, search)
+	count, err := s.database.CountFilteredLanguages(ctx, search)
 	if err != nil {
-		return languages, count, FromDBError(err)
+		return nil, 0, FromDBError(err)
 	}
 
 	return languages, count, nil

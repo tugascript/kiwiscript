@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/kiwiscript/kiwiscript_go/paths"
 	"github.com/kiwiscript/kiwiscript_go/services"
 	"github.com/kiwiscript/kiwiscript_go/utils"
 )
@@ -50,7 +51,7 @@ func (c *Controllers) CreateLanguage(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.Status(fiber.StatusCreated).JSON(NewLanguageResponse(language))
+	return ctx.Status(fiber.StatusCreated).JSON(c.NewLanguageResponse(language))
 }
 
 func (c *Controllers) GetLanguage(ctx *fiber.Ctx) error {
@@ -69,39 +70,39 @@ func (c *Controllers) GetLanguage(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(NewLanguageResponse(language))
+	return ctx.JSON(c.NewLanguageResponse(language))
 }
 
 func (c *Controllers) GetLanguages(ctx *fiber.Ctx) error {
 	log := c.log.WithGroup("controllers.languages.GetLanguages")
 	userCtx := ctx.UserContext()
 	log.InfoContext(userCtx, "get languages")
-	query_params := GetLanguagesQueryParams{
+	queryParams := GetLanguagesQueryParams{
 		Offset: int32(ctx.QueryInt("offset", OffsetDefault)),
 		Limit:  int32(ctx.QueryInt("limit", LimitDefault)),
 		Search: ctx.Query("search"),
 	}
 
-	if err := c.validate.StructCtx(userCtx, query_params); err != nil {
+	if err := c.validate.StructCtx(userCtx, queryParams); err != nil {
 		return c.validateQueryErrorResponse(log, userCtx, err, ctx)
 	}
 
 	languages, count, serviceErr := c.services.FindPaginatedLanguages(userCtx, services.FindPaginatedLanguagesOptions{
-		Search: query_params.Search,
-		Offset: query_params.Offset,
-		Limit:  query_params.Limit,
+		Search: queryParams.Search,
+		Offset: queryParams.Offset,
+		Limit:  queryParams.Limit,
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
 	return ctx.JSON(NewPaginatedResponse(
-		c.frontendDomain,
-		query_params.Limit,
-		query_params.Offset,
+		c.backendDomain,
+		paths.LanguagePathV1,
+		&queryParams,
 		count,
 		languages,
-		NewLanguageResponse,
+		c.NewLanguageResponse,
 	))
 }
 
@@ -138,7 +139,7 @@ func (c *Controllers) UpdateLanguage(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(NewLanguageResponse(language))
+	return ctx.JSON(c.NewLanguageResponse(language))
 }
 
 func (c *Controllers) DeleteLanguage(ctx *fiber.Ctx) error {

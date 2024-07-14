@@ -198,8 +198,8 @@ func TestGetLanguages(t *testing.T) {
 				resBody := AssertTestResponseBody(t, resp, controllers.PaginatedResponse[controllers.LanguageResponse]{})
 				AssertEqual(t, 0, resBody.Count)
 				AssertEqual(t, 0, len(resBody.Results))
-				AssertEqual(t, "", resBody.Next)
-				AssertEqual(t, "", resBody.Previous)
+				AssertEqual(t, nil, resBody.Links.Next)
+				AssertEqual(t, nil, resBody.Links.Prev)
 			},
 			DelayMs: 0,
 			Path:    baseLanguagesPath,
@@ -277,8 +277,8 @@ func TestGetLanguages(t *testing.T) {
 				resBody := AssertTestResponseBody(t, resp, controllers.PaginatedResponse[controllers.LanguageResponse]{})
 				AssertEqual(t, 4, resBody.Count)
 				AssertEqual(t, 4, len(resBody.Results))
-				AssertEqual(t, "", resBody.Next)
-				AssertEqual(t, "", resBody.Previous)
+				AssertEqual(t, nil, resBody.Links.Next)
+				AssertEqual(t, nil, resBody.Links.Prev)
 				AssertEqual(t, "go", resBody.Results[0].Slug)
 				AssertEqual(t, "typescript", resBody.Results[3].Slug)
 			},
@@ -293,8 +293,8 @@ func TestGetLanguages(t *testing.T) {
 				resBody := AssertTestResponseBody(t, resp, controllers.PaginatedResponse[controllers.LanguageResponse]{})
 				AssertEqual(t, 1, resBody.Count)
 				AssertEqual(t, 1, len(resBody.Results))
-				AssertEqual(t, "", resBody.Next)
-				AssertEqual(t, "", resBody.Previous)
+				AssertEqual(t, nil, resBody.Links.Next)
+				AssertEqual(t, nil, resBody.Links.Prev)
 				AssertEqual(t, "Python", resBody.Results[0].Name)
 			},
 			DelayMs: 0,
@@ -308,8 +308,8 @@ func TestGetLanguages(t *testing.T) {
 				resBody := AssertTestResponseBody(t, resp, controllers.PaginatedResponse[controllers.LanguageResponse]{})
 				AssertEqual(t, 4, resBody.Count)
 				AssertEqual(t, 2, len(resBody.Results))
-				AssertNotEmpty(t, resBody.Next)
-				AssertEqual(t, "", resBody.Previous)
+				AssertNotEmpty(t, resBody.Links.Next.Href)
+				AssertEqual(t, nil, resBody.Links.Prev)
 				AssertEqual(t, "go", resBody.Results[0].Slug)
 				AssertEqual(t, "python", resBody.Results[1].Slug)
 			},
@@ -323,8 +323,8 @@ func TestGetLanguages(t *testing.T) {
 				resBody := AssertTestResponseBody(t, resp, controllers.PaginatedResponse[controllers.LanguageResponse]{})
 				AssertEqual(t, 3, resBody.Count)
 				AssertEqual(t, 1, len(resBody.Results))
-				AssertEqual(t, "", resBody.Next)
-				AssertNotEmpty(t, resBody.Previous)
+				AssertEqual(t, nil, resBody.Links.Next)
+				AssertNotEmpty(t, resBody.Links.Prev.Href)
 				AssertEqual(t, "TypeScript", resBody.Results[0].Name)
 			},
 			Path: baseLanguagesPath + "?limit=1&offset=2&search=t",

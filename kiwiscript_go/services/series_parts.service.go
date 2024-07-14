@@ -242,7 +242,7 @@ type AssertSeriesPartOwnershipOptions struct {
 	SeriesPartID int32
 }
 
-func (s *Services) AssertSeriesOwnership(ctx context.Context, opts AssertSeriesPartOwnershipOptions) (db.SeriesPart, *ServiceError) {
+func (s *Services) AssertSeriesPartOwnership(ctx context.Context, opts AssertSeriesPartOwnershipOptions) (db.SeriesPart, *ServiceError) {
 	log := s.
 		log.
 		WithGroup("services.series_parts.AssertSeriesOwnership").
@@ -294,7 +294,7 @@ func (s *Services) UpdateSeriesPart(ctx context.Context, opts UpdateSeriesPartOp
 		With("series_slug", opts.SeriesSlug, "series_part_id", opts.SeriesPartID)
 	log.InfoContext(ctx, "Updating series part...")
 
-	seriesPart, serviceErr := s.AssertSeriesOwnership(ctx, AssertSeriesPartOwnershipOptions{
+	seriesPart, serviceErr := s.AssertSeriesPartOwnership(ctx, AssertSeriesPartOwnershipOptions{
 		UserID:       opts.UserID,
 		SeriesSlug:   opts.SeriesSlug,
 		SeriesPartID: opts.SeriesPartID,
@@ -388,7 +388,7 @@ func (s *Services) UpdateSeriesPartIsPublished(ctx context.Context, opts UpdateS
 		With("series_slug", opts.SeriesSlug, "series_part_id", opts.SeriesPartID)
 	log.InfoContext(ctx, "Updating series part is published...")
 
-	seriesPart, serviceErr := s.AssertSeriesOwnership(ctx, AssertSeriesPartOwnershipOptions{
+	seriesPart, serviceErr := s.AssertSeriesPartOwnership(ctx, AssertSeriesPartOwnershipOptions{
 		UserID:       opts.UserID,
 		SeriesSlug:   opts.SeriesSlug,
 		SeriesPartID: opts.SeriesPartID,
@@ -460,7 +460,7 @@ func (s *Services) DeleteSeriesPart(ctx context.Context, opts DeleteSeriesPartOp
 		With("series_slug", opts.SeriesSlug, "series_part_id", opts.SeriesPartID)
 	log.InfoContext(ctx, "Deleting series part...")
 
-	seriesPart, serviceErr := s.AssertSeriesOwnership(ctx, AssertSeriesPartOwnershipOptions(opts))
+	seriesPart, serviceErr := s.AssertSeriesPartOwnership(ctx, AssertSeriesPartOwnershipOptions(opts))
 	if serviceErr != nil {
 		return serviceErr
 	}

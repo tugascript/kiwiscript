@@ -101,7 +101,7 @@ func CreateApp(
 	// Build service
 	srvs := services.NewServices(log, database, cache, objStg, mailer, tokenProv)
 	// Build controllers
-	ctrls := controllers.NewControllers(log, srvs, vld, frontendDomain, refreshCookieName)
+	ctrls := controllers.NewControllers(log, srvs, vld, frontendDomain, backendDomain, refreshCookieName)
 	// Build router
 	rtr := routers.NewRouter(app, ctrls)
 
@@ -110,10 +110,12 @@ func CreateApp(
 	rtr.HealthRoutes()
 	rtr.AuthPublicRoutes()
 	rtr.LanguagePublicRoutes()
+	rtr.SeriesPublicRoutes()
 
 	// Private routes
 	rtr.AuthPrivateRoutes()
 	rtr.LanguagePrivateRoutes()
+	rtr.SeriesPrivateRoutes()
 
 	return app
 }

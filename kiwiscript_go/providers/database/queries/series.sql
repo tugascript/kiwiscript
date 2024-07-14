@@ -103,4 +103,4 @@ WHERE
   "series"."is_published" = $1 AND 
   "series"."slug" = $2 AND
   "series"."language_id" = $3
-LIMIT 1;
+ORDER BY "tags"."name" ASC;
