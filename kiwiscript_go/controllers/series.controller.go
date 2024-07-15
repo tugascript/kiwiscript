@@ -81,7 +81,6 @@ func (c *Controllers) GetSingleSeries(ctx *fiber.Ctx) error {
 	seriesDto, serviceErr := c.services.FindSeriesBySlugsWithJoins(userCtx, services.FindSeriesBySlugsWithJoinsOptions{
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
-		IsPublished:  false,
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)

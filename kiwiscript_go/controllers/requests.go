@@ -94,3 +94,8 @@ type AddTagToSeriesRequest struct {
 type UpdateSeriesIsPublishedRequest struct {
 	IsPublished bool `json:"is_published" validate:"required"`
 }
+
+type CreateSeriesPartRequest struct {
+	Title       string `json:"title" validate:"required,min=2,max=250"`
+	Description string `json:"description" validate:"required,min=2"`
+}

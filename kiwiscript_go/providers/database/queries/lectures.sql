@@ -101,9 +101,9 @@ WHERE
   "id" = $2
 LIMIT 1;
 
--- name: FindLecturesBySeriesPartId :many
+-- name: FindLecturesBySeriesPartID :many
 SELECT * FROM "lectures"
-WHERE "series_part_id" = $1
+WHERE "series_part_id" = $1 AND "is_published" = $2
 ORDER BY "position" ASC;
 
 -- name: FindPaginatedLecturesBySeriesPartID :many

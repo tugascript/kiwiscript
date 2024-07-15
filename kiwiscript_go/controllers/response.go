@@ -311,3 +311,138 @@ func (c *Controllers) NewSeriesFromDto(dto *services.SeriesDto) *SeriesResponse 
 		Tags:        dto.Tags,
 	}
 }
+
+type SeriesPartLinks struct {
+	Self     LinkResponse `json:"self"`
+	Lectures LinkResponse `json:"lectures"`
+}
+
+func (c *Controllers) newSeriesPartLinks(languageSlug, seriesSlug string, partID int32) SeriesPartLinks {
+	return SeriesPartLinks{
+		Self: LinkResponse{
+			fmt.Sprintf("https://%s%s/%s%s/%s%s/%d", c.backendDomain, paths.LanguagePathV1, languageSlug, paths.SeriesPath, seriesSlug, paths.PartsPath, partID),
+		},
+		Lectures: LinkResponse{
+			fmt.Sprintf("https://%s%s/%s%s/%s%s/%d%s", c.backendDomain, paths.LanguagePathV1, languageSlug, paths.SeriesPath, seriesSlug, paths.PartsPath, partID, paths.LecturesPath),
+		},
+	}
+}
+
+type SeriesPartLecture struct {
+	ID               int32            `json:"id"`
+	Title            string           `json:"title"`
+	WatchTimeSeconds int32            `json:"watchTimeSeconds"`
+	ReadTimeSeconds  int32            `json:"readTimeSeconds"`
+	IsPublished      bool             `json:"isPublished"`
+	Links            SelfLinkResponse `json:"_links"`
+}
+
+type SeriesPartEmbedded struct {
+	Lectures []SeriesPartLecture `json:"lectures"`
+}
+
+func (c *Controllers) newSeriesPartEmbedded(languageSlug, seriesSlug string, partID int32, lectures []db.Lecture) SeriesPartEmbedded {
+	seriesPartLectures := make([]SeriesPartLecture, len(lectures))
+
+	for i, l := range lectures {
+		seriesPartLectures[i] = SeriesPartLecture{
+			ID:               l.ID,
+			Title:            l.Title,
+			WatchTimeSeconds: l.WatchTimeSeconds,
+			ReadTimeSeconds:  l.ReadTimeSeconds,
+			IsPublished:      l.IsPublished,
+			Links: SelfLinkResponse{
+				LinkResponse{
+					fmt.Sprintf(
+						"https://%s%s/%s%s/%s%s/%d%s/%d",
+						c.backendDomain,
+						paths.LanguagePathV1,
+						languageSlug,
+						paths.SeriesPath,
+						seriesSlug,
+						paths.PartsPath,
+						partID,
+						paths.LecturesPath,
+						l.ID,
+					),
+				},
+			},
+		}
+	}
+
+	return SeriesPartEmbedded{Lectures: seriesPartLectures}
+}
+
+func (c *Controllers) newSeriesPartEmbeddedFromDto(
+	languageSlug,
+	seriesSlug string,
+	partID int32,
+	lectures []services.SeriesPartLecture,
+) SeriesPartEmbedded {
+	seriesPartLectures := make([]SeriesPartLecture, len(lectures))
+
+	for i, l := range lectures {
+		seriesPartLectures[i] = SeriesPartLecture{
+			ID:               l.ID,
+			Title:            l.Title,
+			WatchTimeSeconds: l.WatchTimeSeconds,
+			ReadTimeSeconds:  l.ReadTimeSeconds,
+			IsPublished:      l.IsPublished,
+			Links: SelfLinkResponse{
+				LinkResponse{
+					fmt.Sprintf(
+						"https://%s%s/%s%s/%s%s/%d%s/%d",
+						c.backendDomain,
+						paths.LanguagePathV1,
+						languageSlug,
+						paths.SeriesPath,
+						seriesSlug,
+						paths.PartsPath,
+						partID,
+						paths.LecturesPath,
+						l.ID,
+					),
+				},
+			},
+		}
+	}
+
+	return SeriesPartEmbedded{Lectures: seriesPartLectures}
+}
+
+type SeriesPartResponse struct {
+	ID            int32              `json:"id"`
+	Title         string             `json:"title"`
+	Description   string             `json:"description"`
+	Lectures      int16              `json:"lectures"`
+	TotalDuration int32              `json:"totalDuration"`
+	IsPublished   bool               `json:"isPublished"`
+	Embedded      SeriesPartEmbedded `json:"_embedded"`
+	Links         SeriesPartLinks    `json:"_links"`
+}
+
+func (c *Controllers) NewSeriesPartResponse(part *db.SeriesPart, lectures []db.Lecture, languageSlug, seriesSlug string) *SeriesPartResponse {
+	return &SeriesPartResponse{
+		ID:            part.ID,
+		Title:         part.Title,
+		Description:   part.Description,
+		Lectures:      part.LecturesCount,
+		TotalDuration: part.TotalDurationSeconds,
+		IsPublished:   part.IsPublished,
+		Links:         c.newSeriesPartLinks(languageSlug, seriesSlug, part.ID),
+		Embedded:      c.newSeriesPartEmbedded(languageSlug, seriesSlug, part.ID, lectures),
+	}
+}
+
+func (c *Controllers) NewSeriesPartResponseFromDTO(dto *services.SeriesPartDto, languageSlug, seriesSlug string) *SeriesPartResponse {
+	return &SeriesPartResponse{
+		ID:            dto.ID,
+		Title:         dto.Title,
+		Description:   dto.Description,
+		Lectures:      dto.LecturesCount,
+		TotalDuration: dto.TotalDurationSeconds,
+		IsPublished:   dto.IsPublished,
+		Links:         c.newSeriesPartLinks(languageSlug, seriesSlug, dto.ID),
+		Embedded:      c.newSeriesPartEmbeddedFromDto(languageSlug, seriesSlug, dto.ID, dto.Lectures),
+	}
+}

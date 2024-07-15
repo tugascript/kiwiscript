@@ -42,6 +42,25 @@ func (s *Services) CreateLectures(ctx context.Context, opts CreateLecturesOption
 	return lecture, nil
 }
 
+type FindLecturesBySeriesPartIDOptions struct {
+	SeriesPartID int32
+	IsPublished  bool
+}
+
+func (s *Services) FindLecturesBySeriesPartID(ctx context.Context, opts FindLecturesBySeriesPartIDOptions) ([]db.Lecture, *ServiceError) {
+	log := s.log.WithGroup("services.lectures.FindLecturesBySeriesPartID").With("series_part_id", opts.SeriesPartID)
+	log.InfoContext(ctx, "Finding lectures by series part ID...")
+
+	lectures, err := s.database.FindLecturesBySeriesPartID(ctx, db.FindLecturesBySeriesPartIDParams(opts))
+	if err != nil {
+		log.ErrorContext(ctx, "Failed to find lectures", "error", err)
+		return nil, FromDBError(err)
+	}
+
+	log.InfoContext(ctx, "Lectures found successfully")
+	return lectures, nil
+}
+
 type FindLectureOptions struct {
 	SeriesSlug   string
 	SeriesPartID int32

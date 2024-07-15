@@ -78,31 +78,83 @@ WHERE "id" = $1 LIMIT 1;
 SELECT * FROM "series_parts"
 WHERE "series_id" = $1 AND "id" = $2 LIMIT 1;
 
+-- name: FindPublishedSeriesPartBySeriesIDAndIDWithLectures :many
+SELECT 
+    "series_parts".*, 
+    "lectures"."id" AS "lecture_id", 
+    "lectures"."title" AS "lecture_title",
+    "lectures"."watch_time_seconds" AS "lecture_watch_time_seconds",
+    "lectures"."read_time_seconds" AS "lecture_read_time_seconds",
+    "lectures"."is_published" AS "lecture_is_published"
+FROM "series_parts"
+LEFT JOIN "lectures" ON ("series_parts"."id" = "lectures"."series_part_id" AND "lectures"."is_published" = true)
+WHERE 
+    "series_parts"."series_id" = $1 AND 
+    "series_parts"."id" = $2 AND
+    "series_parts"."is_published" = true
+ORDER BY "lectures"."position" ASC;
+
 -- name: FindSeriesPartBySeriesIDAndIDWithLectures :many
 SELECT 
     "series_parts".*, 
     "lectures"."id" AS "lecture_id", 
-    "lectures"."title" AS "lecture_title"
+    "lectures"."title" AS "lecture_title",
+    "lectures"."watch_time_seconds" AS "lecture_watch_time_seconds",
+    "lectures"."read_time_seconds" AS "lecture_read_time_seconds",
+    "lectures"."is_published" AS "lecture_is_published"
 FROM "series_parts"
-LEFT JOIN "lectures" ON ("series_parts"."id" = "lectures"."series_part_id" AND "lectures"."is_published" = true)
-WHERE "series_parts"."series_id" = $1 AND "series_parts"."id" = $2
+LEFT JOIN "lectures" ON ("series_parts"."id" = "lectures"."series_part_id")
+WHERE 
+    "series_parts"."series_id" = $1 AND 
+    "series_parts"."id" = $2
 ORDER BY "lectures"."position" ASC;
 
--- name: FindPaginatedSeriesPartsBySeriesIdWithLectures :many
+-- name: FindPublishedPaginatedSeriesPartsBySeriesIdWithLectures :many
+WITH "series_parts" AS (
+    SELECT * FROM "series_parts"
+    WHERE 
+        "series_parts"."series_id" = $1 AND 
+        "series_parts"."is_published" = true
+    ORDER BY "series_parts"."position" ASC
+    LIMIT $2 OFFSET $3
+)
 SELECT 
     "series_parts".*, 
     "lectures"."id" AS "lecture_id", 
-    "lectures"."title" AS "lecture_title"
+    "lectures"."title" AS "lecture_title",
+    "lectures"."watch_time_seconds" AS "lecture_watch_time_seconds",
+    "lectures"."read_time_seconds" AS "lecture_read_time_seconds",
+    "lectures"."is_published" AS "lecture_is_published"
 FROM "series_parts"
 LEFT JOIN "lectures" ON (
     "series_parts"."id" = "lectures"."series_part_id" AND 
     "lectures"."is_published" = true
 )
-WHERE "series_parts"."series_id" = $1
 ORDER BY 
     "series_parts"."position" ASC,
-    "lectures"."position" ASC
-LIMIT $2 OFFSET $3;
+    "lectures"."position" ASC;
+
+-- name: FindPaginatedSeriesPartsBySeriesIdWithLectures :many
+WITH "series_parts" AS (
+    SELECT * FROM "series_parts"
+    WHERE 
+        "series_parts"."series_id" = $1
+    ORDER BY "series_parts"."position" ASC
+    LIMIT $2 OFFSET $3
+)
+SELECT 
+    "series_parts".*, 
+    "lectures"."id" AS "lecture_id", 
+    "lectures"."title" AS "lecture_title",
+    "lectures"."watch_time_seconds" AS "lecture_watch_time_seconds",
+    "lectures"."read_time_seconds" AS "lecture_read_time_seconds",
+    "lectures"."is_published" AS "lecture_is_published"
+FROM "series_parts"
+LEFT JOIN "lectures" ON ("series_parts"."id" = "lectures"."series_part_id")
+ORDER BY 
+    "series_parts"."position" ASC,
+    "lectures"."position" ASC;
+
 
 -- name: CountSeriesPartsBySeriesId :one
 SELECT COUNT("id") AS "count" FROM "series_parts"

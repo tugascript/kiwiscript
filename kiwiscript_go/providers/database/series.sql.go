@@ -206,16 +206,14 @@ LEFT JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_tags" ON "series"."id" = "series_tags"."series_id"
   LEFT JOIN "tags" ON "series_tags"."tag_id" = "tags"."id"
 WHERE 
-  "series"."is_published" = $1 AND 
-  "series"."slug" = $2 AND
-  "series"."language_id" = $3
+  "series"."slug" = $1 AND
+  "series"."language_id" = $2
 ORDER BY "tags"."name" ASC
 `
 
 type FindSeriesBySlugAndLanguageIDWithJoinsParams struct {
-	IsPublished bool
-	Slug        string
-	LanguageID  int32
+	Slug       string
+	LanguageID int32
 }
 
 type FindSeriesBySlugAndLanguageIDWithJoinsRow struct {
@@ -239,7 +237,7 @@ type FindSeriesBySlugAndLanguageIDWithJoinsRow struct {
 }
 
 func (q *Queries) FindSeriesBySlugAndLanguageIDWithJoins(ctx context.Context, arg FindSeriesBySlugAndLanguageIDWithJoinsParams) ([]FindSeriesBySlugAndLanguageIDWithJoinsRow, error) {
-	rows, err := q.db.Query(ctx, findSeriesBySlugAndLanguageIDWithJoins, arg.IsPublished, arg.Slug, arg.LanguageID)
+	rows, err := q.db.Query(ctx, findSeriesBySlugAndLanguageIDWithJoins, arg.Slug, arg.LanguageID)
 	if err != nil {
 		return nil, err
 	}

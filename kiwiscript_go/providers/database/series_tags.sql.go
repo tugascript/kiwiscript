@@ -74,24 +74,6 @@ func (q *Queries) DeleteSeriesTagByIDs(ctx context.Context, arg DeleteSeriesTagB
 	return err
 }
 
-const deleteSeriesTagByNameAndSeriesID = `-- name: DeleteSeriesTagByNameAndSeriesID :exec
-DELETE FROM "series_tags"
-WHERE "tag_id" = (
-    SELECT "id" FROM "tags"
-    WHERE "name" = $1 LIMIT 1
-) AND "series_id" = $2
-`
-
-type DeleteSeriesTagByNameAndSeriesIDParams struct {
-	Name     string
-	SeriesID int32
-}
-
-func (q *Queries) DeleteSeriesTagByNameAndSeriesID(ctx context.Context, arg DeleteSeriesTagByNameAndSeriesIDParams) error {
-	_, err := q.db.Exec(ctx, deleteSeriesTagByNameAndSeriesID, arg.Name, arg.SeriesID)
-	return err
-}
-
 const findTagsBySeriesID = `-- name: FindTagsBySeriesID :many
 SELECT tags.id, tags.name, tags.author_id, tags.created_at, tags.updated_at FROM "series_tags"
 JOIN "tags" ON "tags"."id" = "series_tags"."tag_id"

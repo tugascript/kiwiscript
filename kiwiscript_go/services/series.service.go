@@ -471,17 +471,25 @@ func mapSingleSeriesRowsToDto(rows []db.FindSeriesBySlugAndLanguageIDWithJoinsRo
 type FindSeriesBySlugsWithJoinsOptions struct {
 	LanguageSlug string
 	SeriesSlug   string
-	IsPublished  bool
 }
 
 func (s *Services) FindSeriesBySlugsWithJoins(ctx context.Context, opts FindSeriesBySlugsWithJoinsOptions) (*SeriesDto, *ServiceError) {
-	log := s.log.WithGroup("service.series.FindSeriesBySlugWithJoins").With("slug", opts.SeriesSlug)
+	log := s.
+		log.
+		WithGroup("service.series.FindSeriesBySlugWithJoins").
+		With("SerieSlug", opts.SeriesSlug, "LanguageSlug", opts.LanguageSlug)
 	log.InfoContext(ctx, "Getting series by slug")
-	rows, err := s.database.FindSeriesBySlugAndLanguageIDWithJoins(ctx, db.FindSeriesBySlugAndLanguageIDWithJoinsParams{
-		Slug:        opts.SeriesSlug,
-		IsPublished: opts.IsPublished,
-	})
 
+	language, serviceErr := s.FindLanguageBySlug(ctx, opts.LanguageSlug)
+	if serviceErr != nil {
+		log.WarnContext(ctx, "Language not found", "error", serviceErr)
+		return nil, serviceErr
+	}
+
+	rows, err := s.database.FindSeriesBySlugAndLanguageIDWithJoins(ctx, db.FindSeriesBySlugAndLanguageIDWithJoinsParams{
+		Slug:       opts.SeriesSlug,
+		LanguageID: language.ID,
+	})
 	if err != nil {
 		log.WarnContext(ctx, "Error getting series by slug", "error", err)
 		return nil, FromDBError(err)

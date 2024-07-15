@@ -133,6 +133,7 @@ const (
 	strFieldErrTagSvg      string = "svg"
 	strFieldErrExtAlphaNum string = "extalphanum"
 	strFieldErrSlug        string = "slug"
+	strFieldNumber         string = "number"
 
 	intFieldErrTagGte string = "gte"
 	intFieldErrTagLte string = "lte"
@@ -149,6 +150,7 @@ const (
 	StrFieldErrMessageSvg         string = "must be a valid SVG"
 	StrFieldErrMessageExtAlphaNum string = "must only contain letters, numbers, spaces, plus and hashtags"
 	StrFieldErrMessageSlug        string = "must be a valid slug"
+	StrFieldErrMessageNumber      string = "must be a number"
 
 	IntFieldErrMessageLte string = "must be less"
 	IntFieldErrMessageGte string = "must be greater"
@@ -176,6 +178,8 @@ func selectStrErrMessage(tag string) string {
 		return StrFieldErrMessageExtAlphaNum
 	case strFieldErrSlug:
 		return StrFieldErrMessageSlug
+	case strFieldNumber:
+		return StrFieldErrMessageNumber
 	default:
 		return FieldErrMessageInvalid
 	}

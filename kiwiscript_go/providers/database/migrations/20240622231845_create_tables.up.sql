@@ -1,6 +1,6 @@
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2024-07-13T04:15:24.577Z
+-- Generated at: 2024-07-15T08:59:27.575Z
 
 CREATE TABLE "users" (
   "id" serial PRIMARY KEY,
@@ -80,7 +80,7 @@ CREATE TABLE "series_tags" (
 
 CREATE TABLE "series_parts" (
   "id" serial PRIMARY KEY,
-  "title" text NOT NULL,
+  "title" varchar(250) NOT NULL,
   "series_id" int NOT NULL,
   "description" text NOT NULL,
   "position" smallint NOT NULL,
@@ -99,10 +99,10 @@ CREATE TABLE "lectures" (
   "description" text NOT NULL,
   "is_published" boolean NOT NULL DEFAULT false,
   "comments_count" int NOT NULL DEFAULT 0,
+  "watch_time_seconds" int NOT NULL DEFAULT 0,
+  "read_time_seconds" int NOT NULL DEFAULT 0,
   "author_id" int NOT NULL,
   "series_part_id" int NOT NULL,
-  "has_video" boolean NOT NULL DEFAULT false,
-  "has_article" boolean NOT NULL DEFAULT false,
   "created_at" timestamp NOT NULL DEFAULT (now()),
   "updated_at" timestamp NOT NULL DEFAULT (now())
 );
@@ -112,7 +112,7 @@ CREATE TABLE "lecture_videos" (
   "lecture_id" int NOT NULL,
   "author_id" int NOT NULL,
   "video" varchar(250) NOT NULL,
-  "duration_seconds" int NOT NULL,
+  "watch_time_seconds" int NOT NULL,
   "created_at" timestamp NOT NULL DEFAULT (now()),
   "updated_at" timestamp NOT NULL DEFAULT (now())
 );
@@ -121,7 +121,8 @@ CREATE TABLE "lecture_articles" (
   "id" serial PRIMARY KEY,
   "lecture_id" int NOT NULL,
   "author_id" int NOT NULL,
-  "text" text NOT NULL,
+  "reading_time_seconds" int NOT NULL,
+  "content" text NOT NULL,
   "created_at" timestamp NOT NULL DEFAULT (now()),
   "updated_at" timestamp NOT NULL DEFAULT (now())
 );

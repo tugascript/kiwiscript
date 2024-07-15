@@ -100,7 +100,6 @@ LEFT JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_tags" ON "series"."id" = "series_tags"."series_id"
   LEFT JOIN "tags" ON "series_tags"."tag_id" = "tags"."id"
 WHERE 
-  "series"."is_published" = $1 AND 
-  "series"."slug" = $2 AND
-  "series"."language_id" = $3
+  "series"."slug" = $1 AND
+  "series"."language_id" = $2
 ORDER BY "tags"."name" ASC;

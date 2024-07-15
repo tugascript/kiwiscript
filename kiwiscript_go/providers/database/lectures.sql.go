@@ -39,7 +39,7 @@ INSERT INTO "lectures" (
     SELECT COUNT("id") + 1 FROM "lectures"
     WHERE "series_part_id" = $4
   )
-) RETURNING id, title, position, description, is_published, comments_count, author_id, series_part_id, has_video, has_article, created_at, updated_at
+) RETURNING id, title, position, description, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, series_part_id, created_at, updated_at
 `
 
 type CreateLectureParams struct {
@@ -80,10 +80,10 @@ func (q *Queries) CreateLecture(ctx context.Context, arg CreateLectureParams) (L
 		&i.Description,
 		&i.IsPublished,
 		&i.CommentsCount,
+		&i.WatchTimeSeconds,
+		&i.ReadTimeSeconds,
 		&i.AuthorID,
 		&i.SeriesPartID,
-		&i.HasVideo,
-		&i.HasArticle,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -132,7 +132,7 @@ func (q *Queries) DeleteLectureByID(ctx context.Context, id int32) error {
 }
 
 const findLectureByIDs = `-- name: FindLectureByIDs :one
-SELECT id, title, position, description, is_published, comments_count, author_id, series_part_id, has_video, has_article, created_at, updated_at FROM "lectures"
+SELECT id, title, position, description, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, series_part_id, created_at, updated_at FROM "lectures"
 WHERE
   "series_part_id" = $1 AND
   "id" = $2
@@ -154,24 +154,29 @@ func (q *Queries) FindLectureByIDs(ctx context.Context, arg FindLectureByIDsPara
 		&i.Description,
 		&i.IsPublished,
 		&i.CommentsCount,
+		&i.WatchTimeSeconds,
+		&i.ReadTimeSeconds,
 		&i.AuthorID,
 		&i.SeriesPartID,
-		&i.HasVideo,
-		&i.HasArticle,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
-const findLecturesBySeriesPartId = `-- name: FindLecturesBySeriesPartId :many
-SELECT id, title, position, description, is_published, comments_count, author_id, series_part_id, has_video, has_article, created_at, updated_at FROM "lectures"
-WHERE "series_part_id" = $1
+const findLecturesBySeriesPartID = `-- name: FindLecturesBySeriesPartID :many
+SELECT id, title, position, description, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, series_part_id, created_at, updated_at FROM "lectures"
+WHERE "series_part_id" = $1 AND "is_published" = $2
 ORDER BY "position" ASC
 `
 
-func (q *Queries) FindLecturesBySeriesPartId(ctx context.Context, seriesPartID int32) ([]Lecture, error) {
-	rows, err := q.db.Query(ctx, findLecturesBySeriesPartId, seriesPartID)
+type FindLecturesBySeriesPartIDParams struct {
+	SeriesPartID int32
+	IsPublished  bool
+}
+
+func (q *Queries) FindLecturesBySeriesPartID(ctx context.Context, arg FindLecturesBySeriesPartIDParams) ([]Lecture, error) {
+	rows, err := q.db.Query(ctx, findLecturesBySeriesPartID, arg.SeriesPartID, arg.IsPublished)
 	if err != nil {
 		return nil, err
 	}
@@ -186,10 +191,10 @@ func (q *Queries) FindLecturesBySeriesPartId(ctx context.Context, seriesPartID i
 			&i.Description,
 			&i.IsPublished,
 			&i.CommentsCount,
+			&i.WatchTimeSeconds,
+			&i.ReadTimeSeconds,
 			&i.AuthorID,
 			&i.SeriesPartID,
-			&i.HasVideo,
-			&i.HasArticle,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -204,7 +209,7 @@ func (q *Queries) FindLecturesBySeriesPartId(ctx context.Context, seriesPartID i
 }
 
 const findPaginatedLecturesBySeriesPartID = `-- name: FindPaginatedLecturesBySeriesPartID :many
-SELECT id, title, position, description, is_published, comments_count, author_id, series_part_id, has_video, has_article, created_at, updated_at FROM "lectures"
+SELECT id, title, position, description, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, series_part_id, created_at, updated_at FROM "lectures"
 WHERE "series_part_id" = $1
 ORDER BY "position" ASC
 LIMIT $2 OFFSET $3
@@ -232,10 +237,10 @@ func (q *Queries) FindPaginatedLecturesBySeriesPartID(ctx context.Context, arg F
 			&i.Description,
 			&i.IsPublished,
 			&i.CommentsCount,
+			&i.WatchTimeSeconds,
+			&i.ReadTimeSeconds,
 			&i.AuthorID,
 			&i.SeriesPartID,
-			&i.HasVideo,
-			&i.HasArticle,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -250,7 +255,7 @@ func (q *Queries) FindPaginatedLecturesBySeriesPartID(ctx context.Context, arg F
 }
 
 const findPublishedLectureByIDs = `-- name: FindPublishedLectureByIDs :one
-SELECT id, title, position, description, is_published, comments_count, author_id, series_part_id, has_video, has_article, created_at, updated_at FROM "lectures"
+SELECT id, title, position, description, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, series_part_id, created_at, updated_at FROM "lectures"
 WHERE 
   "is_published" = true AND 
   "series_part_id" = $1 AND
@@ -273,10 +278,10 @@ func (q *Queries) FindPublishedLectureByIDs(ctx context.Context, arg FindPublish
 		&i.Description,
 		&i.IsPublished,
 		&i.CommentsCount,
+		&i.WatchTimeSeconds,
+		&i.ReadTimeSeconds,
 		&i.AuthorID,
 		&i.SeriesPartID,
-		&i.HasVideo,
-		&i.HasArticle,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -319,7 +324,7 @@ UPDATE "lectures" SET
   "title" = $1,
   "description" = $2
 WHERE "id" = $3
-RETURNING id, title, position, description, is_published, comments_count, author_id, series_part_id, has_video, has_article, created_at, updated_at
+RETURNING id, title, position, description, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, series_part_id, created_at, updated_at
 `
 
 type UpdateLectureParams struct {
@@ -338,10 +343,10 @@ func (q *Queries) UpdateLecture(ctx context.Context, arg UpdateLectureParams) (L
 		&i.Description,
 		&i.IsPublished,
 		&i.CommentsCount,
+		&i.WatchTimeSeconds,
+		&i.ReadTimeSeconds,
 		&i.AuthorID,
 		&i.SeriesPartID,
-		&i.HasVideo,
-		&i.HasArticle,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -352,7 +357,7 @@ const updateLectureIsPublished = `-- name: UpdateLectureIsPublished :one
 UPDATE "lectures" SET
   "is_published" = $1
 WHERE "id" = $2
-RETURNING id, title, position, description, is_published, comments_count, author_id, series_part_id, has_video, has_article, created_at, updated_at
+RETURNING id, title, position, description, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, series_part_id, created_at, updated_at
 `
 
 type UpdateLectureIsPublishedParams struct {
@@ -370,10 +375,10 @@ func (q *Queries) UpdateLectureIsPublished(ctx context.Context, arg UpdateLectur
 		&i.Description,
 		&i.IsPublished,
 		&i.CommentsCount,
+		&i.WatchTimeSeconds,
+		&i.ReadTimeSeconds,
 		&i.AuthorID,
 		&i.SeriesPartID,
-		&i.HasVideo,
-		&i.HasArticle,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -384,7 +389,7 @@ const updateLecturePosition = `-- name: UpdateLecturePosition :one
 UPDATE "lectures" SET
   "position" = $1
 WHERE "id" = $2
-RETURNING id, title, position, description, is_published, comments_count, author_id, series_part_id, has_video, has_article, created_at, updated_at
+RETURNING id, title, position, description, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, series_part_id, created_at, updated_at
 `
 
 type UpdateLecturePositionParams struct {
@@ -402,10 +407,10 @@ func (q *Queries) UpdateLecturePosition(ctx context.Context, arg UpdateLecturePo
 		&i.Description,
 		&i.IsPublished,
 		&i.CommentsCount,
+		&i.WatchTimeSeconds,
+		&i.ReadTimeSeconds,
 		&i.AuthorID,
 		&i.SeriesPartID,
-		&i.HasVideo,
-		&i.HasArticle,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -418,7 +423,7 @@ UPDATE "lectures" SET
   "description" = $2,
   "position" = $3
 WHERE "id" = $4
-RETURNING id, title, position, description, is_published, comments_count, author_id, series_part_id, has_video, has_article, created_at, updated_at
+RETURNING id, title, position, description, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, series_part_id, created_at, updated_at
 `
 
 type UpdateLectureWithPositionParams struct {
@@ -443,10 +448,10 @@ func (q *Queries) UpdateLectureWithPosition(ctx context.Context, arg UpdateLectu
 		&i.Description,
 		&i.IsPublished,
 		&i.CommentsCount,
+		&i.WatchTimeSeconds,
+		&i.ReadTimeSeconds,
 		&i.AuthorID,
 		&i.SeriesPartID,
-		&i.HasVideo,
-		&i.HasArticle,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

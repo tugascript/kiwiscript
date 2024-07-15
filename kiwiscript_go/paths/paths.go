@@ -7,4 +7,5 @@ const (
 	SeriesPath     = "/series"
 	ReviewsPath    = "/reviews"
 	PartsPath      = "/parts"
+	LecturesPath   = "/lectures"
 )

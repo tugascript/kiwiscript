@@ -59,27 +59,28 @@ type Language struct {
 }
 
 type Lecture struct {
-	ID            int32
-	Title         string
-	Position      int16
-	Description   string
-	IsPublished   bool
-	CommentsCount int32
-	AuthorID      int32
-	SeriesPartID  int32
-	HasVideo      bool
-	HasArticle    bool
-	CreatedAt     pgtype.Timestamp
-	UpdatedAt     pgtype.Timestamp
+	ID               int32
+	Title            string
+	Position         int16
+	Description      string
+	IsPublished      bool
+	CommentsCount    int32
+	WatchTimeSeconds int32
+	ReadTimeSeconds  int32
+	AuthorID         int32
+	SeriesPartID     int32
+	CreatedAt        pgtype.Timestamp
+	UpdatedAt        pgtype.Timestamp
 }
 
 type LectureArticle struct {
-	ID        int32
-	LectureID int32
-	AuthorID  int32
-	Text      string
-	CreatedAt pgtype.Timestamp
-	UpdatedAt pgtype.Timestamp
+	ID                 int32
+	LectureID          int32
+	AuthorID           int32
+	ReadingTimeSeconds int32
+	Content            string
+	CreatedAt          pgtype.Timestamp
+	UpdatedAt          pgtype.Timestamp
 }
 
 type LectureComment struct {
@@ -117,13 +118,13 @@ type LectureProgress struct {
 }
 
 type LectureVideo struct {
-	ID              int32
-	LectureID       int32
-	AuthorID        int32
-	Video           string
-	DurationSeconds int32
-	CreatedAt       pgtype.Timestamp
-	UpdatedAt       pgtype.Timestamp
+	ID               int32
+	LectureID        int32
+	AuthorID         int32
+	Video            string
+	WatchTimeSeconds int32
+	CreatedAt        pgtype.Timestamp
+	UpdatedAt        pgtype.Timestamp
 }
 
 type Payment struct {
