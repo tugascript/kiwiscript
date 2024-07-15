@@ -87,7 +87,10 @@ SELECT
     "lectures"."read_time_seconds" AS "lecture_read_time_seconds",
     "lectures"."is_published" AS "lecture_is_published"
 FROM "series_parts"
-LEFT JOIN "lectures" ON ("series_parts"."id" = "lectures"."series_part_id" AND "lectures"."is_published" = true)
+LEFT JOIN "lectures" ON (
+    "series_parts"."id" = "lectures"."series_part_id" AND 
+    "lectures"."is_published" = true
+)
 WHERE 
     "series_parts"."series_id" = $1 AND 
     "series_parts"."id" = $2 AND
@@ -151,6 +154,29 @@ SELECT
     "lectures"."is_published" AS "lecture_is_published"
 FROM "series_parts"
 LEFT JOIN "lectures" ON ("series_parts"."id" = "lectures"."series_part_id")
+ORDER BY 
+    "series_parts"."position" ASC,
+    "lectures"."position" ASC;
+
+-- name: FindPaginatedSeriesPartsBySeriesIdWithPublishedLectures :many
+WITH "series_parts" AS (
+    SELECT * FROM "series_parts"
+    WHERE "series_parts"."series_id" = $1
+    ORDER BY "series_parts"."position" ASC
+    LIMIT $2 OFFSET $3
+)
+SELECT 
+    "series_parts".*, 
+    "lectures"."id" AS "lecture_id", 
+    "lectures"."title" AS "lecture_title",
+    "lectures"."watch_time_seconds" AS "lecture_watch_time_seconds",
+    "lectures"."read_time_seconds" AS "lecture_read_time_seconds",
+    "lectures"."is_published" AS "lecture_is_published"
+FROM "series_parts"
+LEFT JOIN "lectures" ON (
+    "series_parts"."id" = "lectures"."series_part_id" AND 
+    "lectures"."is_published" = true
+)
 ORDER BY 
     "series_parts"."position" ASC,
     "lectures"."position" ASC;

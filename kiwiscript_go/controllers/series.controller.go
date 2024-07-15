@@ -90,7 +90,7 @@ func (c *Controllers) GetSingleSeries(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
 	}
 
-	return ctx.JSON(c.NewSeriesFromDto(seriesDto))
+	return ctx.JSON(c.NewSeriesFromDto(seriesDto, params.LanguageSlug))
 }
 
 func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
@@ -138,14 +138,18 @@ func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(NewPaginatedResponse(
-		c.backendDomain,
-		fmt.Sprintf("%s/%s%s", paths.LanguagePathV1, languageSlug, paths.SeriesPath),
-		&queryParams,
-		count,
-		dtos,
-		c.NewSeriesFromDto,
-	))
+	return ctx.JSON(
+		NewPaginatedResponse(
+			c.backendDomain,
+			fmt.Sprintf("%s/%s%s", paths.LanguagePathV1, languageSlug, paths.SeriesPath),
+			&queryParams,
+			count,
+			dtos,
+			func(dto *services.SeriesDto) *SeriesResponse {
+				return c.NewSeriesFromDto(dto, params.LanguageSlug)
+			},
+		),
+	)
 }
 
 func (c *Controllers) UpdateSeries(ctx *fiber.Ctx) error {

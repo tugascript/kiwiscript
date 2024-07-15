@@ -192,18 +192,17 @@ type SeriesLanguage struct {
 }
 
 type SeriesDto struct {
-	ID           int32
-	Title        string
-	Slug         string
-	Description  string
-	Parts        int16
-	Lectures     int16
-	IsPublished  bool
-	ReviewAvg    int16
-	ReviewCount  int32
-	LanguageSlug string
-	Author       SeriesAuthor
-	Tags         []string
+	ID          int32
+	Title       string
+	Slug        string
+	Description string
+	Parts       int16
+	Lectures    int16
+	IsPublished bool
+	ReviewAvg   int16
+	ReviewCount int32
+	Author      SeriesAuthor
+	Tags        []string
 }
 
 type seriesMapper struct {
@@ -211,7 +210,7 @@ type seriesMapper struct {
 	idx int
 }
 
-func mapSeriesRowsToDtos(rows []SeriesRow, languageSlug string) []SeriesDto {
+func mapSeriesRowsToDtos(rows []SeriesRow) []SeriesDto {
 	dtos := make(map[int32]seriesMapper)
 
 	for i, row := range rows {
@@ -222,16 +221,15 @@ func mapSeriesRowsToDtos(rows []SeriesRow, languageSlug string) []SeriesDto {
 			idx = m.idx
 		} else {
 			dto = SeriesDto{
-				ID:           row.ID,
-				Title:        row.Title,
-				Slug:         row.Slug,
-				Description:  row.Description,
-				Parts:        row.PartsCount,
-				Lectures:     row.LecturesCount,
-				IsPublished:  row.IsPublished,
-				ReviewAvg:    row.ReviewAvg,
-				ReviewCount:  row.ReviewCount,
-				LanguageSlug: languageSlug,
+				ID:          row.ID,
+				Title:       row.Title,
+				Slug:        row.Slug,
+				Description: row.Description,
+				Parts:       row.PartsCount,
+				Lectures:    row.LecturesCount,
+				IsPublished: row.IsPublished,
+				ReviewAvg:   row.ReviewAvg,
+				ReviewCount: row.ReviewCount,
 				Author: SeriesAuthor{
 					ID:        row.AuthorID,
 					FirstName: row.AuthorFirstName.String,
@@ -436,21 +434,20 @@ func (s *Services) FindPaginatedSeries(ctx context.Context, options FindPaginate
 		return nil, 0, serviceErr
 	}
 
-	return mapSeriesRowsToDtos(rows, language.Slug), count, nil
+	return mapSeriesRowsToDtos(rows), count, nil
 }
 
-func mapSingleSeriesRowsToDto(rows []db.FindSeriesBySlugAndLanguageIDWithJoinsRow, languageSlug string) *SeriesDto {
+func mapSingleSeriesRowsToDto(rows []db.FindSeriesBySlugAndLanguageIDWithJoinsRow) *SeriesDto {
 	dto := SeriesDto{
-		ID:           rows[0].ID,
-		Title:        rows[0].Title,
-		Slug:         rows[0].Slug,
-		Description:  rows[0].Description,
-		Parts:        rows[0].PartsCount,
-		Lectures:     rows[0].LecturesCount,
-		IsPublished:  rows[0].IsPublished,
-		ReviewAvg:    rows[0].ReviewAvg,
-		ReviewCount:  rows[0].ReviewCount,
-		LanguageSlug: languageSlug,
+		ID:          rows[0].ID,
+		Title:       rows[0].Title,
+		Slug:        rows[0].Slug,
+		Description: rows[0].Description,
+		Parts:       rows[0].PartsCount,
+		Lectures:    rows[0].LecturesCount,
+		IsPublished: rows[0].IsPublished,
+		ReviewAvg:   rows[0].ReviewAvg,
+		ReviewCount: rows[0].ReviewCount,
 		Author: SeriesAuthor{
 			ID:        rows[0].AuthorID,
 			FirstName: rows[0].AuthorFirstName.String,
@@ -496,7 +493,7 @@ func (s *Services) FindSeriesBySlugsWithJoins(ctx context.Context, opts FindSeri
 	}
 
 	log.InfoContext(ctx, "Series found")
-	return mapSingleSeriesRowsToDto(rows, opts.LanguageSlug), nil
+	return mapSingleSeriesRowsToDto(rows), nil
 }
 
 type AssertSeriesOwnershipOptions struct {

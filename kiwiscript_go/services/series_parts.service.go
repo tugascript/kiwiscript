@@ -224,15 +224,16 @@ func mapSeriesPartsToDtos(rows []db.FindPublishedPaginatedSeriesPartsBySeriesIdW
 	return dtos
 }
 
-type FindSeriesPartsOptions struct {
-	LanguageSlug string
-	SeriesSlug   string
-	IsPublished  bool
-	Limit        int32
-	Offset       int32
+type FindSeriesPartsBySlugsAndIDOptions struct {
+	LanguageSlug      string
+	SeriesSlug        string
+	IsPublished       bool
+	PublishedLectures bool
+	Limit             int32
+	Offset            int32
 }
 
-func (s *Services) FindPaginatedSeriesPartsBySlugsAndId(ctx context.Context, opts FindSeriesPartsOptions) ([]SeriesPartDto, int64, *ServiceError) {
+func (s *Services) FindPaginatedSeriesPartsBySlugsAndID(ctx context.Context, opts FindSeriesPartsBySlugsAndIDOptions) ([]SeriesPartDto, int64, *ServiceError) {
 	log := s.
 		log.
 		WithGroup("services.series_parts.FindPaginatedSeriesPartsBySlugAndId").
@@ -266,19 +267,36 @@ func (s *Services) FindPaginatedSeriesPartsBySlugsAndId(ctx context.Context, opt
 			return nil, 0, FromDBError(err)
 		}
 	} else {
-		notPublishedParts, err := s.database.FindPaginatedSeriesPartsBySeriesIdWithLectures(
-			ctx,
-			db.FindPaginatedSeriesPartsBySeriesIdWithLecturesParams(params),
-		)
+		if opts.PublishedLectures {
+			notPublishedParts, err := s.database.FindPaginatedSeriesPartsBySeriesIdWithPublishedLectures(
+				ctx,
+				db.FindPaginatedSeriesPartsBySeriesIdWithPublishedLecturesParams(params),
+			)
 
-		if err != nil {
-			log.ErrorContext(ctx, "Failed to find series parts", "error", err)
-			return nil, 0, FromDBError(err)
-		}
+			if err != nil {
+				log.ErrorContext(ctx, "Failed to find series parts", "error", err)
+				return nil, 0, FromDBError(err)
+			}
 
-		parts = make([]db.FindPublishedPaginatedSeriesPartsBySeriesIdWithLecturesRow, len(notPublishedParts))
-		for i, part := range notPublishedParts {
-			parts[i] = db.FindPublishedPaginatedSeriesPartsBySeriesIdWithLecturesRow(part)
+			parts = make([]db.FindPublishedPaginatedSeriesPartsBySeriesIdWithLecturesRow, len(notPublishedParts))
+			for i, part := range notPublishedParts {
+				parts[i] = db.FindPublishedPaginatedSeriesPartsBySeriesIdWithLecturesRow(part)
+			}
+		} else {
+			notPublishedParts, err := s.database.FindPaginatedSeriesPartsBySeriesIdWithLectures(
+				ctx,
+				db.FindPaginatedSeriesPartsBySeriesIdWithLecturesParams(params),
+			)
+
+			if err != nil {
+				log.ErrorContext(ctx, "Failed to find series parts", "error", err)
+				return nil, 0, FromDBError(err)
+			}
+
+			parts = make([]db.FindPublishedPaginatedSeriesPartsBySeriesIdWithLecturesRow, len(notPublishedParts))
+			for i, part := range notPublishedParts {
+				parts[i] = db.FindPublishedPaginatedSeriesPartsBySeriesIdWithLecturesRow(part)
+			}
 		}
 	}
 

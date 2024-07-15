@@ -1,9 +1,11 @@
 package controllers
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/kiwiscript/kiwiscript_go/paths"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/services"
 )
@@ -58,7 +60,7 @@ func (c *Controllers) CreateSeriesPart(ctx *fiber.Ctx) error {
 	)
 }
 
-func (c *Controllers) FindSeriesPart(ctx *fiber.Ctx) error {
+func (c *Controllers) GetSeriesPart(ctx *fiber.Ctx) error {
 	log := c.log.WithGroup("controllers.series.GetSingleSeries")
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
@@ -103,4 +105,65 @@ func (c *Controllers) FindSeriesPart(ctx *fiber.Ctx) error {
 	}
 
 	return ctx.JSON(c.NewSeriesPartResponseFromDTO(seriesPart, params.LanguageSlug, params.SeriesSlug))
+}
+
+func (c *Controllers) GetSeriesParts(ctx *fiber.Ctx) error {
+	log := c.log.WithGroup("controllers.series.GetSingleSeries")
+	userCtx := ctx.UserContext()
+	languageSlug := ctx.Params("languageSlug")
+	seriesSlug := ctx.Params("seriesSlug")
+	log.InfoContext(userCtx, "Getting series parts...", "languageSlug", languageSlug, "seriesSlug", seriesSlug)
+
+	params := SeriesParams{
+		LanguageSlug: languageSlug,
+		SeriesSlug:   seriesSlug,
+	}
+	if err := c.validate.StructCtx(userCtx, params); err != nil {
+		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
+	}
+
+	queryParams := SeriesPartsQueryParams{
+		IsPublished:       ctx.QueryBool("isPublished", false),
+		PublishedLectures: ctx.QueryBool("publishedLectures", false),
+		Offset:            int32(ctx.QueryInt("offset", OffsetDefault)),
+		Limit:             int32(ctx.QueryInt("limit", LimitDefault)),
+	}
+	if err := c.validate.StructCtx(userCtx, queryParams); err != nil {
+		return c.validateQueryErrorResponse(log, userCtx, err, ctx)
+	}
+
+	user, serviceErr := c.GetUserClaims(ctx)
+	if serviceErr != nil || !user.IsStaff {
+		queryParams.IsPublished = true
+	}
+
+	seriesParts, count, serviceErr := c.services.FindPaginatedSeriesPartsBySlugsAndID(userCtx, services.FindSeriesPartsBySlugsAndIDOptions{
+		LanguageSlug:      params.LanguageSlug,
+		SeriesSlug:        params.SeriesSlug,
+		IsPublished:       queryParams.IsPublished,
+		PublishedLectures: queryParams.PublishedLectures,
+	})
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	return ctx.JSON(
+		NewPaginatedResponse(
+			c.backendDomain,
+			fmt.Sprintf(
+				"%s/%s%s/%s%s",
+				paths.LanguagePathV1,
+				languageSlug,
+				paths.SeriesPath,
+				seriesSlug,
+				paths.PartsPath,
+			),
+			queryParams,
+			count,
+			seriesParts,
+			func(dto *services.SeriesPartDto) *SeriesPartResponse {
+				return c.NewSeriesPartResponseFromDTO(dto, languageSlug, seriesSlug)
+			},
+		),
+	)
 }

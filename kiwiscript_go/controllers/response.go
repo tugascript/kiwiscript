@@ -284,7 +284,7 @@ func (c *Controllers) NewSeriesResponse(user *tokens.AccessUserClaims, series *d
 	}
 }
 
-func (c *Controllers) NewSeriesFromDto(dto *services.SeriesDto) *SeriesResponse {
+func (c *Controllers) NewSeriesFromDto(dto *services.SeriesDto, languageSlug string) *SeriesResponse {
 	seriesTags := make([]SeriesTag, len(dto.Tags))
 
 	for i, t := range dto.Tags {
@@ -292,7 +292,14 @@ func (c *Controllers) NewSeriesFromDto(dto *services.SeriesDto) *SeriesResponse 
 			Name: t,
 			Links: SelfLinkResponse{
 				LinkResponse{
-					fmt.Sprintf("https://%s%s/%s%s?tag=%s", c.backendDomain, paths.LanguagePathV1, dto.LanguageSlug, paths.SeriesPath, t),
+					fmt.Sprintf(
+						"https://%s%s/%s%s?tag=%s",
+						c.backendDomain,
+						paths.LanguagePathV1,
+						languageSlug,
+						paths.SeriesPath,
+						t,
+					),
 				},
 			},
 		}
