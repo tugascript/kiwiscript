@@ -166,17 +166,12 @@ func (q *Queries) FindLectureByIDs(ctx context.Context, arg FindLectureByIDsPara
 
 const findLecturesBySeriesPartID = `-- name: FindLecturesBySeriesPartID :many
 SELECT id, title, position, description, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, series_part_id, created_at, updated_at FROM "lectures"
-WHERE "series_part_id" = $1 AND "is_published" = $2
+WHERE "series_part_id" = $1
 ORDER BY "position" ASC
 `
 
-type FindLecturesBySeriesPartIDParams struct {
-	SeriesPartID int32
-	IsPublished  bool
-}
-
-func (q *Queries) FindLecturesBySeriesPartID(ctx context.Context, arg FindLecturesBySeriesPartIDParams) ([]Lecture, error) {
-	rows, err := q.db.Query(ctx, findLecturesBySeriesPartID, arg.SeriesPartID, arg.IsPublished)
+func (q *Queries) FindLecturesBySeriesPartID(ctx context.Context, seriesPartID int32) ([]Lecture, error) {
+	rows, err := q.db.Query(ctx, findLecturesBySeriesPartID, seriesPartID)
 	if err != nil {
 		return nil, err
 	}

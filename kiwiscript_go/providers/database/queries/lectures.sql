@@ -103,7 +103,7 @@ LIMIT 1;
 
 -- name: FindLecturesBySeriesPartID :many
 SELECT * FROM "lectures"
-WHERE "series_part_id" = $1 AND "is_published" = $2
+WHERE "series_part_id" = $1
 ORDER BY "position" ASC;
 
 -- name: FindPaginatedLecturesBySeriesPartID :many

@@ -111,11 +111,13 @@ func CreateApp(
 	rtr.AuthPublicRoutes()
 	rtr.LanguagePublicRoutes()
 	rtr.SeriesPublicRoutes()
+	rtr.SeriesPartPublicRoutes()
 
 	// Private routes
 	rtr.AuthPrivateRoutes()
 	rtr.LanguagePrivateRoutes()
 	rtr.SeriesPrivateRoutes()
+	rtr.SeriesPartPrivateRoutes()
 
 	return app
 }

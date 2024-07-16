@@ -1,3 +1,20 @@
+// Copyright (C) 2024 Afonso Barracha
+//
+// This file is part of KiwiScript.
+//
+// KiwiScript is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// KiwiScript is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
+
 package services
 
 import (
@@ -355,6 +372,7 @@ func (s *Services) AssertSeriesPartOwnership(ctx context.Context, opts AssertSer
 
 type UpdateSeriesPartOptions struct {
 	UserID       int32
+	LanguageSlug string
 	SeriesSlug   string
 	SeriesPartID int32
 	Title        string
@@ -362,7 +380,7 @@ type UpdateSeriesPartOptions struct {
 	Position     int16
 }
 
-func (s *Services) UpdateSeriesPart(ctx context.Context, opts UpdateSeriesPartOptions) (db.SeriesPart, *ServiceError) {
+func (s *Services) UpdateSeriesPart(ctx context.Context, opts UpdateSeriesPartOptions) (*db.SeriesPart, *ServiceError) {
 	log := s.
 		log.
 		WithGroup("services.series_parts.UpdateSeriesPart").
@@ -371,11 +389,12 @@ func (s *Services) UpdateSeriesPart(ctx context.Context, opts UpdateSeriesPartOp
 
 	seriesPart, serviceErr := s.AssertSeriesPartOwnership(ctx, AssertSeriesPartOwnershipOptions{
 		UserID:       opts.UserID,
+		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
 		SeriesPartID: opts.SeriesPartID,
 	})
 	if serviceErr != nil {
-		return seriesPart, serviceErr
+		return nil, serviceErr
 	}
 
 	if opts.Position == 0 || opts.Position == seriesPart.Position {
@@ -387,27 +406,27 @@ func (s *Services) UpdateSeriesPart(ctx context.Context, opts UpdateSeriesPartOp
 
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to update series part", "error", err)
-			return seriesPart, FromDBError(err)
+			return nil, FromDBError(err)
 		}
 
 		log.InfoContext(ctx, "Series part updated", "id", seriesPart.ID)
-		return seriesPart, nil
+		return &seriesPart, nil
 	}
 
 	count, err := s.database.CountSeriesPartsBySeriesId(ctx, seriesPart.SeriesID)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to count series parts", "error", err)
-		return db.SeriesPart{}, FromDBError(err)
+		return nil, FromDBError(err)
 	}
 	if int64(opts.Position) > count {
 		log.WarnContext(ctx, "Position is out of range", "position", opts.Position, "count", count)
-		return db.SeriesPart{}, NewValidationError("Position is out of range")
+		return nil, NewValidationError("Position is out of range")
 	}
 
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return db.SeriesPart{}, FromDBError(err)
+		return nil, FromDBError(err)
 	}
 	defer s.database.FinalizeTx(ctx, txn, err)
 
@@ -420,7 +439,7 @@ func (s *Services) UpdateSeriesPart(ctx context.Context, opts UpdateSeriesPartOp
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to update series part", "error", err)
-		return seriesPart, FromDBError(err)
+		return nil, FromDBError(err)
 	}
 
 	if oldPosition < opts.Position {
@@ -431,7 +450,7 @@ func (s *Services) UpdateSeriesPart(ctx context.Context, opts UpdateSeriesPartOp
 		}
 		if err := qrs.DecrementSeriesPartPosition(ctx, params); err != nil {
 			log.ErrorContext(ctx, "Failed to decrement series part position", "error", err)
-			return db.SeriesPart{}, FromDBError(err)
+			return nil, FromDBError(err)
 		}
 	} else {
 		params := db.IncrementSeriesPartPositionParams{
@@ -441,22 +460,23 @@ func (s *Services) UpdateSeriesPart(ctx context.Context, opts UpdateSeriesPartOp
 		}
 		if err := qrs.IncrementSeriesPartPosition(ctx, params); err != nil {
 			log.ErrorContext(ctx, "Failed to increment series part position", "error", err)
-			return db.SeriesPart{}, FromDBError(err)
+			return nil, FromDBError(err)
 		}
 	}
 
 	log.InfoContext(ctx, "Series part updated", "id", seriesPart.ID)
-	return seriesPart, nil
+	return &seriesPart, nil
 }
 
 type UpdateSeriesPartIsPublishedOptions struct {
 	UserID       int32
+	LanguageSlug string
 	SeriesSlug   string
 	SeriesPartID int32
 	IsPublished  bool
 }
 
-func (s *Services) UpdateSeriesPartIsPublished(ctx context.Context, opts UpdateSeriesPartIsPublishedOptions) (db.SeriesPart, *ServiceError) {
+func (s *Services) UpdateSeriesPartIsPublished(ctx context.Context, opts UpdateSeriesPartIsPublishedOptions) (*db.SeriesPart, *ServiceError) {
 	log := s.
 		log.
 		WithGroup("services.series_parts.UpdateSeriesPartIsPublished").
@@ -465,26 +485,27 @@ func (s *Services) UpdateSeriesPartIsPublished(ctx context.Context, opts UpdateS
 
 	seriesPart, serviceErr := s.AssertSeriesPartOwnership(ctx, AssertSeriesPartOwnershipOptions{
 		UserID:       opts.UserID,
+		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
 		SeriesPartID: opts.SeriesPartID,
 	})
 	if serviceErr != nil {
-		return db.SeriesPart{}, serviceErr
+		return nil, serviceErr
 	}
 
 	if seriesPart.IsPublished == opts.IsPublished {
 		log.InfoContext(ctx, "Series part is already published", "is_published", opts.IsPublished)
-		return seriesPart, nil
+		return &seriesPart, nil
 	}
 	if opts.IsPublished && seriesPart.LecturesCount == 0 {
 		log.WarnContext(ctx, "Cannot publish series part without lectures", "lectures_count", seriesPart.LecturesCount)
-		return db.SeriesPart{}, NewValidationError("Cannot publish series part without lectures")
+		return nil, NewValidationError("Cannot publish series part without lectures")
 	}
 
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return db.SeriesPart{}, FromDBError(err)
+		return nil, FromDBError(err)
 	}
 	defer s.database.FinalizeTx(ctx, txn, err)
 
@@ -494,7 +515,7 @@ func (s *Services) UpdateSeriesPartIsPublished(ctx context.Context, opts UpdateS
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to update series part is published", "error", err)
-		return seriesPart, FromDBError(err)
+		return nil, FromDBError(err)
 	}
 	if opts.IsPublished {
 		params := db.AddSeriesPartsCountParams{
@@ -503,7 +524,7 @@ func (s *Services) UpdateSeriesPartIsPublished(ctx context.Context, opts UpdateS
 		}
 		if err := qrs.AddSeriesPartsCount(ctx, params); err != nil {
 			log.ErrorContext(ctx, "Failed to add series parts count", "error", err)
-			return db.SeriesPart{}, FromDBError(err)
+			return nil, FromDBError(err)
 		}
 	} else {
 		// TODO: add constraints
@@ -513,12 +534,12 @@ func (s *Services) UpdateSeriesPartIsPublished(ctx context.Context, opts UpdateS
 		}
 		if err := qrs.DecrementSeriesPartsCount(ctx, params); err != nil {
 			log.ErrorContext(ctx, "Failed to decrement series parts count", "error", err)
-			return db.SeriesPart{}, FromDBError(err)
+			return nil, FromDBError(err)
 		}
 	}
 
 	log.InfoContext(ctx, "Series part is published updated", "id", seriesPart.ID)
-	return seriesPart, nil
+	return &seriesPart, nil
 }
 
 type DeleteSeriesPartOptions struct {

@@ -421,6 +421,7 @@ type SeriesPartResponse struct {
 	ID            int32              `json:"id"`
 	Title         string             `json:"title"`
 	Description   string             `json:"description"`
+	Position      int16              `json:"position"`
 	Lectures      int16              `json:"lectures"`
 	TotalDuration int32              `json:"totalDuration"`
 	IsPublished   bool               `json:"isPublished"`
@@ -433,6 +434,7 @@ func (c *Controllers) NewSeriesPartResponse(part *db.SeriesPart, lectures []db.L
 		ID:            part.ID,
 		Title:         part.Title,
 		Description:   part.Description,
+		Position:      part.Position,
 		Lectures:      part.LecturesCount,
 		TotalDuration: part.TotalDurationSeconds,
 		IsPublished:   part.IsPublished,
@@ -446,6 +448,7 @@ func (c *Controllers) NewSeriesPartResponseFromDTO(dto *services.SeriesPartDto, 
 		ID:            dto.ID,
 		Title:         dto.Title,
 		Description:   dto.Description,
+		Position:      dto.Position,
 		Lectures:      dto.LecturesCount,
 		TotalDuration: dto.TotalDurationSeconds,
 		IsPublished:   dto.IsPublished,

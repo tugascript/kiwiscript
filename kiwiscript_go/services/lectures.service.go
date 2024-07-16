@@ -1,3 +1,20 @@
+// Copyright (C) 2024 Afonso Barracha
+//
+// This file is part of KiwiScript.
+//
+// KiwiScript is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// KiwiScript is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
+
 package services
 
 import (
@@ -42,16 +59,11 @@ func (s *Services) CreateLectures(ctx context.Context, opts CreateLecturesOption
 	return lecture, nil
 }
 
-type FindLecturesBySeriesPartIDOptions struct {
-	SeriesPartID int32
-	IsPublished  bool
-}
-
-func (s *Services) FindLecturesBySeriesPartID(ctx context.Context, opts FindLecturesBySeriesPartIDOptions) ([]db.Lecture, *ServiceError) {
-	log := s.log.WithGroup("services.lectures.FindLecturesBySeriesPartID").With("series_part_id", opts.SeriesPartID)
+func (s *Services) FindLecturesBySeriesPartID(ctx context.Context, seriesPartID int32) ([]db.Lecture, *ServiceError) {
+	log := s.log.WithGroup("services.lectures.FindLecturesBySeriesPartID").With("series_part_id", seriesPartID)
 	log.InfoContext(ctx, "Finding lectures by series part ID...")
 
-	lectures, err := s.database.FindLecturesBySeriesPartID(ctx, db.FindLecturesBySeriesPartIDParams(opts))
+	lectures, err := s.database.FindLecturesBySeriesPartID(ctx, seriesPartID)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to find lectures", "error", err)
 		return nil, FromDBError(err)

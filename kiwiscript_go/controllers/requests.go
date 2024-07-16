@@ -91,11 +91,17 @@ type AddTagToSeriesRequest struct {
 	Tag string `json:"tag" validate:"required,min=2,max=50,slug"`
 }
 
-type UpdateSeriesIsPublishedRequest struct {
+type UpdateIsPublishedRequest struct {
 	IsPublished bool `json:"is_published" validate:"required"`
 }
 
 type CreateSeriesPartRequest struct {
 	Title       string `json:"title" validate:"required,min=2,max=250"`
 	Description string `json:"description" validate:"required,min=2"`
+}
+
+type UpdateSeriesPartRequest struct {
+	Title       string `json:"title" validate:"required,min=2,max=250"`
+	Description string `json:"description" validate:"required,min=2"`
+	Position    int16  `json:"position" validate:"required,gte=1"`
 }

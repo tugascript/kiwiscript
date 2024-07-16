@@ -1,3 +1,20 @@
+// Copyright (C) 2024 Afonso Barracha
+//
+// This file is part of KiwiScript.
+//
+// KiwiScript is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// KiwiScript is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
+
 package controllers
 
 import (
@@ -166,4 +183,218 @@ func (c *Controllers) GetSeriesParts(ctx *fiber.Ctx) error {
 			},
 		),
 	)
+}
+
+func (c *Controllers) UpdateSeriesPart(ctx *fiber.Ctx) error {
+	log := c.log.WithGroup("controllers.series.UpdateSingleSeries")
+	userCtx := ctx.UserContext()
+	languageSlug := ctx.Params("languageSlug")
+	seriesSlug := ctx.Params("seriesSlug")
+	seriesPartID := ctx.Params("seriesPartID")
+	log.InfoContext(
+		userCtx,
+		"Updating series part...",
+		"languageSlug",
+		languageSlug,
+		"seriesSlug",
+		seriesSlug,
+		"seriesPartID",
+		seriesPartID,
+	)
+
+	user, serviceErr := c.GetUserClaims(ctx)
+	if serviceErr != nil || !user.IsStaff {
+		log.ErrorContext(userCtx, "User is not staff, should not have reached here")
+		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+	}
+
+	params := SeriesPartParams{
+		LanguageSlug: languageSlug,
+		SeriesSlug:   seriesSlug,
+		SeriesPartID: seriesPartID,
+	}
+	if err := c.validate.StructCtx(userCtx, params); err != nil {
+		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
+	}
+
+	parsedSeriesPartID, err := strconv.Atoi(params.SeriesPartID)
+	if err != nil {
+		return ctx.
+			Status(fiber.StatusBadRequest).
+			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+				Param:   "seriesPartId",
+				Message: StrFieldErrMessageNumber,
+				Value:   params.SeriesPartID,
+			}}))
+	}
+
+	var request UpdateSeriesPartRequest
+	if err := ctx.BodyParser(&request); err != nil {
+		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
+	}
+	if err := c.validate.StructCtx(userCtx, request); err != nil {
+		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
+	}
+
+	seriesPart, serviceErr := c.services.UpdateSeriesPart(userCtx, services.UpdateSeriesPartOptions{
+		UserID:       user.ID,
+		LanguageSlug: params.LanguageSlug,
+		SeriesSlug:   params.SeriesSlug,
+		SeriesPartID: int32(parsedSeriesPartID),
+		Title:        request.Title,
+		Description:  request.Description,
+		Position:     request.Position,
+	})
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	lectures, serviceErr := c.services.FindLecturesBySeriesPartID(userCtx, seriesPart.ID)
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	return ctx.
+		JSON(
+			c.NewSeriesPartResponse(
+				seriesPart,
+				lectures,
+				params.LanguageSlug,
+				params.SeriesSlug,
+			),
+		)
+}
+
+func (c *Controllers) UpdateSeriesPartIsPublished(ctx *fiber.Ctx) error {
+	log := c.log.WithGroup("controllers.series.UpdateSingleSeries")
+	userCtx := ctx.UserContext()
+	languageSlug := ctx.Params("languageSlug")
+	seriesSlug := ctx.Params("seriesSlug")
+	seriesPartID := ctx.Params("seriesPartID")
+	log.InfoContext(
+		userCtx,
+		"Updating series part...",
+		"languageSlug",
+		languageSlug,
+		"seriesSlug",
+		seriesSlug,
+		"seriesPartID",
+		seriesPartID,
+	)
+
+	user, serviceErr := c.GetUserClaims(ctx)
+	if serviceErr != nil || !user.IsStaff {
+		log.ErrorContext(userCtx, "User is not staff, should not have reached here")
+		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+	}
+
+	params := SeriesPartParams{
+		LanguageSlug: languageSlug,
+		SeriesSlug:   seriesSlug,
+		SeriesPartID: seriesPartID,
+	}
+	if err := c.validate.StructCtx(userCtx, params); err != nil {
+		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
+	}
+
+	parsedSeriesPartID, err := strconv.Atoi(params.SeriesPartID)
+	if err != nil {
+		return ctx.
+			Status(fiber.StatusBadRequest).
+			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+				Param:   "seriesPartId",
+				Message: StrFieldErrMessageNumber,
+				Value:   params.SeriesPartID,
+			}}))
+	}
+
+	var request UpdateIsPublishedRequest
+	if err := ctx.BodyParser(&request); err != nil {
+		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
+	}
+	if err := c.validate.StructCtx(userCtx, request); err != nil {
+		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
+	}
+
+	seriesPart, serviceErr := c.services.UpdateSeriesPartIsPublished(userCtx, services.UpdateSeriesPartIsPublishedOptions{
+		UserID:       user.ID,
+		LanguageSlug: params.LanguageSlug,
+		SeriesSlug:   params.SeriesSlug,
+		SeriesPartID: int32(parsedSeriesPartID),
+		IsPublished:  request.IsPublished,
+	})
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	lectures, serviceErr := c.services.FindLecturesBySeriesPartID(userCtx, seriesPart.ID)
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	return ctx.
+		JSON(
+			c.NewSeriesPartResponse(
+				seriesPart,
+				lectures,
+				params.LanguageSlug,
+				params.SeriesSlug,
+			),
+		)
+}
+
+func (c *Controllers) DeleteSeriesPart(ctx *fiber.Ctx) error {
+	log := c.log.WithGroup("controllers.series.UpdateSingleSeries")
+	userCtx := ctx.UserContext()
+	languageSlug := ctx.Params("languageSlug")
+	seriesSlug := ctx.Params("seriesSlug")
+	seriesPartID := ctx.Params("seriesPartID")
+	log.InfoContext(
+		userCtx,
+		"Updating series part...",
+		"languageSlug",
+		languageSlug,
+		"seriesSlug",
+		seriesSlug,
+		"seriesPartID",
+		seriesPartID,
+	)
+
+	user, serviceErr := c.GetUserClaims(ctx)
+	if serviceErr != nil || !user.IsStaff {
+		log.ErrorContext(userCtx, "User is not staff, should not have reached here")
+		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+	}
+
+	params := SeriesPartParams{
+		LanguageSlug: languageSlug,
+		SeriesSlug:   seriesSlug,
+		SeriesPartID: seriesPartID,
+	}
+	if err := c.validate.StructCtx(userCtx, params); err != nil {
+		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
+	}
+
+	parsedSeriesPartID, err := strconv.Atoi(params.SeriesPartID)
+	if err != nil {
+		return ctx.
+			Status(fiber.StatusBadRequest).
+			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+				Param:   "seriesPartId",
+				Message: StrFieldErrMessageNumber,
+				Value:   params.SeriesPartID,
+			}}))
+	}
+
+	serviceErr = c.services.DeleteSeriesPart(userCtx, services.DeleteSeriesPartOptions{
+		UserID:       user.ID,
+		LanguageSlug: params.LanguageSlug,
+		SeriesSlug:   params.SeriesSlug,
+		SeriesPartID: int32(parsedSeriesPartID),
+	})
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	return ctx.SendStatus(fiber.StatusNoContent)
 }

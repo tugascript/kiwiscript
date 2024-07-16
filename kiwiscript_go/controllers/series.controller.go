@@ -221,13 +221,14 @@ func (c *Controllers) UpdateSeriesIsPublished(ctx *fiber.Ctx) error {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}
 
-	var request UpdateSeriesIsPublishedRequest
+	var request UpdateIsPublishedRequest
 	if err := ctx.BodyParser(&request); err != nil {
 		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 	}
 	if err := c.validate.StructCtx(userCtx, request); err != nil {
 		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
+
 	series, serviceErr := c.services.UpdateSeriesIsPublished(userCtx, services.UpdateSeriesIsPublishedOptions{
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
