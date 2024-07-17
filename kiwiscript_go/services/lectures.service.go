@@ -25,23 +25,25 @@ import (
 
 type CreateLecturesOptions struct {
 	UserID       int32
+	LanguageSlug string
 	SeriesSlug   string
 	SeriesPartID int32
 	Title        string
 	Description  string
 }
 
-func (s *Services) CreateLectures(ctx context.Context, opts CreateLecturesOptions) (db.Lecture, *ServiceError) {
+func (s *Services) CreateLectures(ctx context.Context, opts CreateLecturesOptions) (*db.Lecture, *ServiceError) {
 	log := s.log.WithGroup("services.lectures.CreateLectures").With("title", opts.Title)
 	log.InfoContext(ctx, "Creating lectures...")
 
 	servicePart, serviceErr := s.AssertSeriesPartOwnership(ctx, AssertSeriesPartOwnershipOptions{
 		UserID:       opts.UserID,
+		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
 		SeriesPartID: opts.SeriesPartID,
 	})
 	if serviceErr != nil {
-		return db.Lecture{}, serviceErr
+		return nil, serviceErr
 	}
 
 	lecture, err := s.database.CreateLecture(ctx, db.CreateLectureParams{
@@ -52,11 +54,11 @@ func (s *Services) CreateLectures(ctx context.Context, opts CreateLecturesOption
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to create lecture", "error", err)
-		return db.Lecture{}, FromDBError(err)
+		return nil, FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Lecture created successfully")
-	return lecture, nil
+	return &lecture, nil
 }
 
 func (s *Services) FindLecturesBySeriesPartID(ctx context.Context, seriesPartID int32) ([]db.Lecture, *ServiceError) {
@@ -74,6 +76,7 @@ func (s *Services) FindLecturesBySeriesPartID(ctx context.Context, seriesPartID 
 }
 
 type FindLectureOptions struct {
+	LanguageSlug string
 	SeriesSlug   string
 	SeriesPartID int32
 	LectureID    int32
@@ -87,6 +90,7 @@ func (s *Services) FindLecture(ctx context.Context, opts FindLectureOptions) (db
 	log.InfoContext(ctx, "Finding lecture...")
 
 	servicePart, serviceErr := s.FindSeriesPartBySlugAndID(ctx, FindSeriesPartBySlugsAndIDOptions{
+		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
 		SeriesPartID: opts.SeriesPartID,
 	})

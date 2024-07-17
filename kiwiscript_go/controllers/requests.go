@@ -105,3 +105,8 @@ type UpdateSeriesPartRequest struct {
 	Description string `json:"description" validate:"required,min=2"`
 	Position    int16  `json:"position" validate:"required,gte=1"`
 }
+
+type CreateLectureRequest struct {
+	Title       string `json:"title" validate:"required,min=2,max=250"`
+	Description string `json:"description" validate:"required,min=2"`
+}

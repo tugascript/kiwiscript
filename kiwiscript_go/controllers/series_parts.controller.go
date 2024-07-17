@@ -28,7 +28,7 @@ import (
 )
 
 func (c *Controllers) CreateSeriesPart(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.GetSingleSeries")
+	log := c.log.WithGroup("controllers.series.CreateSeriesPart")
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")

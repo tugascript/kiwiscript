@@ -8,4 +8,6 @@ const (
 	ReviewsPath    = "/reviews"
 	PartsPath      = "/parts"
 	LecturesPath   = "/lectures"
+	VideoPath      = "/video"
+	ArticlePath    = "/article"
 )
