@@ -82,6 +82,7 @@ type FindLectureOptions struct {
 	LectureID    int32
 }
 
+// Add article and video join
 func (s *Services) FindLecture(ctx context.Context, opts FindLectureOptions) (db.Lecture, *ServiceError) {
 	log := s.
 		log.
