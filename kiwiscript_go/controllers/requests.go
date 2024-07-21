@@ -19,10 +19,10 @@ package controllers
 
 type SignUpRequest struct {
 	Email     string `json:"email" validate:"required,email"`
-	FirstName string `json:"first_name" validate:"required,min=2,max=50"`
-	LastName  string `json:"last_name" validate:"required,min=2,max=50"`
+	FirstName string `json:"firstName" validate:"required,min=2,max=50"`
+	LastName  string `json:"lastName" validate:"required,min=2,max=50"`
 	Location  string `json:"location" validate:"required,min=3,max=3"`
-	BirthDate string `json:"birth_date" validate:"required"`
+	BirthDate string `json:"birthDate" validate:"required"`
 	Password1 string `json:"password" validate:"required,min=8,max=50"`
 	Password2 string `json:"password2" validate:"required,eqfield=Password1"`
 }
@@ -38,15 +38,15 @@ type ConfirmSignInRequest struct {
 }
 
 type SignOutRequest struct {
-	RefreshToken string `json:"refresh_token" validate:"required,jwt"`
+	RefreshToken string `json:"refreshToken" validate:"required,jwt"`
 }
 
 type RefreshRequest struct {
-	RefreshToken string `json:"refresh_token" validate:"required,jwt"`
+	RefreshToken string `json:"refreshToken" validate:"required,jwt"`
 }
 
 type ConfirmRequest struct {
-	ConfirmationToken string `json:"confirmation_token" validate:"required,jwt"`
+	ConfirmationToken string `json:"confirmationToken" validate:"required,jwt"`
 }
 
 type ForgotPasswordRequest struct {
@@ -54,13 +54,13 @@ type ForgotPasswordRequest struct {
 }
 
 type ResetPasswordRequest struct {
-	ResetToken string `json:"reset_token" validate:"required,jwt"`
+	ResetToken string `json:"resetToken" validate:"required,jwt"`
 	Password1  string `json:"password" validate:"required,min=8,max=50"`
 	Password2  string `json:"password2" validate:"required,eqfield=Password1"`
 }
 
 type UpdatePasswordRequest struct {
-	OldPassword string `json:"old_password" validate:"required,min=1"`
+	OldPassword string `json:"oldPassword" validate:"required,min=1"`
 	Password1   string `json:"password" validate:"required,min=8,max=50"`
 	Password2   string `json:"password2" validate:"required,eqfield=Password1"`
 }
@@ -107,6 +107,19 @@ type UpdateSeriesPartRequest struct {
 }
 
 type CreateLectureRequest struct {
-	Title       string `json:"title" validate:"required,min=2,max=250"`
-	Description string `json:"description" validate:"required,min=2"`
+	Title string `json:"title" validate:"required,min=2,max=250"`
+}
+
+type UpdateLectureRequest struct {
+	Title    string `json:"title" validate:"required,min=2,max=250"`
+	Position int16  `json:"position" validate:"required,gte=1"`
+}
+
+type LectureArticleRequest struct {
+	Content string `json:"content" validate:"required,min=1,markdown"`
+}
+
+type LectureVideoRequest struct {
+	URL       string `json:"url" validate:"required,url"`
+	WatchTime int32  `json:"watchTime" validate:"required,number,min=1"`
 }

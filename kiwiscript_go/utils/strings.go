@@ -26,9 +26,9 @@ import (
 	"golang.org/x/text/language"
 )
 
-var titleCaser cases.Caser = cases.Title(language.English)
-var lowerCaser cases.Caser = cases.Lower(language.English)
-var upperCaser cases.Caser = cases.Upper(language.English)
+var titleCaser = cases.Title(language.English)
+var lowerCaser = cases.Lower(language.English)
+var upperCaser = cases.Upper(language.English)
 
 func Capitalized(s string) string {
 	s = strings.TrimSpace(s)

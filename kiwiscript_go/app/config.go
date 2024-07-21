@@ -64,7 +64,7 @@ type ObjectStorageConfig struct {
 	Host      string
 }
 
-type AppConfig struct {
+type Config struct {
 	MaxProcs          int64
 	Port              string
 	RefreshCookieName string
@@ -123,7 +123,7 @@ var numerics = [6]string{
 	"LIMITER_EXP_SEC",
 }
 
-func NewConfig(log *slog.Logger, envPath string) *AppConfig {
+func NewConfig(log *slog.Logger, envPath string) *Config {
 	err := godotenv.Load(envPath)
 	if err != nil {
 		log.Error("Error loading .env file")
@@ -148,7 +148,7 @@ func NewConfig(log *slog.Logger, envPath string) *AppConfig {
 		}
 		intMap[numeric] = value
 	}
-	return &AppConfig{
+	return &Config{
 		MaxProcs:          intMap["MAX_PROCS"],
 		Port:              variablesMap["PORT"],
 		PostgresURL:       variablesMap["DATABASE_URL"],

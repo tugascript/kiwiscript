@@ -52,11 +52,15 @@ func (database *Database) BeginTx(ctx context.Context) (*Queries, pgx.Tx, error)
 
 func (database *Database) FinalizeTx(ctx context.Context, txn pgx.Tx, err error) {
 	if p := recover(); p != nil {
-		txn.Rollback(ctx)
+		if err := txn.Rollback(ctx); err != nil {
+			panic(err)
+		}
 		panic(p)
 	}
 	if err != nil {
-		txn.Rollback(ctx)
+		if err := txn.Rollback(ctx); err != nil {
+			panic(err)
+		}
 		return
 	}
 	if commitErr := txn.Commit(ctx); commitErr != nil {

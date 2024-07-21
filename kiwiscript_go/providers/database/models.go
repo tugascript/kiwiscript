@@ -62,25 +62,25 @@ type Lecture struct {
 	ID               int32
 	Title            string
 	Position         int16
-	Description      string
 	IsPublished      bool
 	CommentsCount    int32
 	WatchTimeSeconds int32
 	ReadTimeSeconds  int32
 	AuthorID         int32
+	LanguageSlug     string
+	SeriesSlug       string
 	SeriesPartID     int32
 	CreatedAt        pgtype.Timestamp
 	UpdatedAt        pgtype.Timestamp
 }
 
 type LectureArticle struct {
-	ID                 int32
-	LectureID          int32
-	AuthorID           int32
-	ReadingTimeSeconds int32
-	Content            string
-	CreatedAt          pgtype.Timestamp
-	UpdatedAt          pgtype.Timestamp
+	ID              int32
+	LectureID       int32
+	ReadTimeSeconds int32
+	Content         string
+	CreatedAt       pgtype.Timestamp
+	UpdatedAt       pgtype.Timestamp
 }
 
 type LectureComment struct {
@@ -120,8 +120,7 @@ type LectureProgress struct {
 type LectureVideo struct {
 	ID               int32
 	LectureID        int32
-	AuthorID         int32
-	Video            string
+	Url              string
 	WatchTimeSeconds int32
 	CreatedAt        pgtype.Timestamp
 	UpdatedAt        pgtype.Timestamp
@@ -139,20 +138,21 @@ type Payment struct {
 }
 
 type Series struct {
-	ID                   int32
-	Title                string
-	Slug                 string
-	Description          string
-	PartsCount           int16
-	LecturesCount        int16
-	TotalDurationSeconds int32
-	ReviewAvg            int16
-	ReviewCount          int32
-	IsPublished          bool
-	LanguageID           int32
-	AuthorID             int32
-	CreatedAt            pgtype.Timestamp
-	UpdatedAt            pgtype.Timestamp
+	ID               int32
+	Title            string
+	Slug             string
+	Description      string
+	PartsCount       int16
+	LecturesCount    int16
+	WatchTimeSeconds int32
+	ReadTimeSeconds  int32
+	ReviewAvg        int16
+	ReviewCount      int32
+	IsPublished      bool
+	LanguageSlug     string
+	AuthorID         int32
+	CreatedAt        pgtype.Timestamp
+	UpdatedAt        pgtype.Timestamp
 }
 
 type SeriesImage struct {
@@ -166,17 +166,19 @@ type SeriesImage struct {
 }
 
 type SeriesPart struct {
-	ID                   int32
-	Title                string
-	SeriesID             int32
-	Description          string
-	Position             int16
-	LecturesCount        int16
-	TotalDurationSeconds int32
-	IsPublished          bool
-	AuthorID             int32
-	CreatedAt            pgtype.Timestamp
-	UpdatedAt            pgtype.Timestamp
+	ID               int32
+	Title            string
+	LanguageSlug     string
+	SeriesSlug       string
+	Description      string
+	Position         int16
+	LecturesCount    int16
+	WatchTimeSeconds int32
+	ReadTimeSeconds  int32
+	IsPublished      bool
+	AuthorID         int32
+	CreatedAt        pgtype.Timestamp
+	UpdatedAt        pgtype.Timestamp
 }
 
 type SeriesPartProgress struct {

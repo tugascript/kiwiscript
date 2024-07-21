@@ -19,8 +19,30 @@ package routers
 
 import "github.com/kiwiscript/kiwiscript_go/paths"
 
-func (r *Router) HealthRoutes() {
-	health := r.router.Group(paths.HealthPath)
+const lectureArticlePath = paths.LanguagePathV1 +
+	"/:languageSlug" +
+	paths.SeriesPath +
+	"/:seriesSlug" +
+	paths.PartsPath +
+	"/:seriesPartID" +
+	paths.LecturesPath +
+	"/:lectureID" +
+	paths.ArticlePath
 
-	health.Get("/", r.controllers.HealthCheck)
+func (r *Router) LectureArticlePublicRoutes() {
+	lectureArticle := r.router.Group(lectureArticlePath)
+
+	lectureArticle.Get("/", r.controllers.GetLectureArticle)
+}
+
+func (r *Router) LectureArticlePrivateRoutes() {
+	lectureArticle := r.router.Group(
+		lectureArticlePath,
+		r.controllers.AccessClaimsMiddleware,
+		r.controllers.StaffUserMiddleware,
+	)
+
+	lectureArticle.Post("/", r.controllers.CreateLectureArticle)
+	lectureArticle.Put("/", r.controllers.UpdateLectureArticle)
+	lectureArticle.Delete("/", r.controllers.DeleteLectureArticle)
 }

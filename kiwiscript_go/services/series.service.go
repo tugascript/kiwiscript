@@ -39,15 +39,9 @@ func (s *Services) FindSeriesBySlugs(ctx context.Context, opts FindSeriesBySlugs
 		With("laguageSlug", opts.LanguageSlug, "slug", opts.SeriesSlug)
 	log.InfoContext(ctx, "Getting series by slug")
 
-	language, serviceErr := s.FindLanguageBySlug(ctx, opts.LanguageSlug)
-	if serviceErr != nil {
-		log.WarnContext(ctx, "Language not found", "error", serviceErr)
-		return nil, serviceErr
-	}
-
-	series, err := s.database.FindSeriesBySlugAndLanguageID(ctx, db.FindSeriesBySlugAndLanguageIDParams{
-		Slug:       opts.SeriesSlug,
-		LanguageID: language.ID,
+	series, err := s.database.FindSeriesBySlugAndLanguageSlug(ctx, db.FindSeriesBySlugAndLanguageSlugParams{
+		Slug:         opts.SeriesSlug,
+		LanguageSlug: opts.LanguageSlug,
 	})
 	if err != nil {
 		log.Warn("Error getting series by slug", "error", err)
@@ -108,11 +102,11 @@ func (s *Services) CreateSeries(ctx context.Context, options CreateSeriesOptions
 	}
 
 	slug := utils.Slugify(options.Title)
-	params := db.FindSeriesBySlugAndLanguageIDParams{
-		Slug:       slug,
-		LanguageID: language.ID,
+	params := db.FindSeriesBySlugAndLanguageSlugParams{
+		Slug:         slug,
+		LanguageSlug: options.LanguageSlug,
 	}
-	if _, err := s.database.FindSeriesBySlugAndLanguageID(ctx, params); err == nil {
+	if _, err := s.database.FindSeriesBySlugAndLanguageSlug(ctx, params); err == nil {
 		log.InfoContext(ctx, "series already exists", "slug", slug)
 		return nil, nil, NewDuplicateKeyError("Series already exists")
 
@@ -121,11 +115,11 @@ func (s *Services) CreateSeries(ctx context.Context, options CreateSeriesOptions
 	if options.Tags == nil || len(options.Tags) == 0 {
 		log.InfoContext(ctx, "create series without tags")
 		series, err := s.database.CreateSeries(ctx, db.CreateSeriesParams{
-			Title:       options.Title,
-			Description: options.Description,
-			AuthorID:    options.UserID,
-			LanguageID:  language.ID,
-			Slug:        slug,
+			Title:        options.Title,
+			Description:  options.Description,
+			AuthorID:     options.UserID,
+			LanguageSlug: language.Slug,
+			Slug:         slug,
 		})
 
 		if err != nil {
@@ -142,11 +136,11 @@ func (s *Services) CreateSeries(ctx context.Context, options CreateSeriesOptions
 	defer s.database.FinalizeTx(ctx, txn, err)
 
 	series, err := qrs.CreateSeries(ctx, db.CreateSeriesParams{
-		Title:       options.Title,
-		Description: options.Description,
-		AuthorID:    options.UserID,
-		LanguageID:  language.ID,
-		Slug:        slug,
+		Title:        options.Title,
+		Description:  options.Description,
+		AuthorID:     options.UserID,
+		LanguageSlug: language.Slug,
+		Slug:         slug,
 	})
 	if err != nil {
 		return nil, nil, FromDBError(err)
@@ -270,7 +264,7 @@ type findPaginatedSeriesRowsOptions struct {
 	Order       string
 }
 
-// FIX me this is wrong
+// FIX me this now is VERY WRONG
 func (s *Services) findPaginatedSeriesRows(ctx context.Context, options findPaginatedSeriesRowsOptions) ([]SeriesRow, int64, *ServiceError) {
 	log := s.log.WithGroup("service.series.GetSeries")
 	log.InfoContext(ctx, "Getting series...")
@@ -437,7 +431,7 @@ func (s *Services) FindPaginatedSeries(ctx context.Context, options FindPaginate
 	return mapSeriesRowsToDtos(rows), count, nil
 }
 
-func mapSingleSeriesRowsToDto(rows []db.FindSeriesBySlugAndLanguageIDWithJoinsRow) *SeriesDto {
+func mapSingleSeriesRowsToDto(rows []db.FindSeriesBySlugAndLanguageSlugWithTagsRow) *SeriesDto {
 	dto := SeriesDto{
 		ID:          rows[0].ID,
 		Title:       rows[0].Title,
@@ -477,15 +471,9 @@ func (s *Services) FindSeriesBySlugsWithJoins(ctx context.Context, opts FindSeri
 		With("SerieSlug", opts.SeriesSlug, "LanguageSlug", opts.LanguageSlug)
 	log.InfoContext(ctx, "Getting series by slug")
 
-	language, serviceErr := s.FindLanguageBySlug(ctx, opts.LanguageSlug)
-	if serviceErr != nil {
-		log.WarnContext(ctx, "Language not found", "error", serviceErr)
-		return nil, serviceErr
-	}
-
-	rows, err := s.database.FindSeriesBySlugAndLanguageIDWithJoins(ctx, db.FindSeriesBySlugAndLanguageIDWithJoinsParams{
-		Slug:       opts.SeriesSlug,
-		LanguageID: language.ID,
+	rows, err := s.database.FindSeriesBySlugAndLanguageSlugWithTags(ctx, db.FindSeriesBySlugAndLanguageSlugWithTagsParams{
+		Slug:         opts.SeriesSlug,
+		LanguageSlug: opts.LanguageSlug,
 	})
 	if err != nil {
 		log.WarnContext(ctx, "Error getting series by slug", "error", err)
@@ -544,7 +532,8 @@ func (s *Services) UpdateSeries(ctx context.Context, opts UpdateSeriesOptions) (
 		return nil, serviceErr
 	}
 
-	updatedSeries, err := s.database.UpdateSeries(ctx, db.UpdateSeriesParams{
+	var err error
+	*series, err = s.database.UpdateSeries(ctx, db.UpdateSeriesParams{
 		ID:          series.ID,
 		Title:       opts.Title,
 		Slug:        utils.Slugify(opts.Title),
@@ -556,7 +545,7 @@ func (s *Services) UpdateSeries(ctx context.Context, opts UpdateSeriesOptions) (
 	}
 
 	log.InfoContext(ctx, "Series updated")
-	return &updatedSeries, nil
+	return series, nil
 }
 
 type DeleteSeriesOptions struct {
@@ -625,7 +614,8 @@ func (s *Services) UpdateSeriesIsPublished(ctx context.Context, options UpdateSe
 
 	// TODO: add constraints to prevent unpublishing series with students
 
-	updateSeries, err := s.database.UpdateSeriesIsPublished(ctx, db.UpdateSeriesIsPublishedParams{
+	var err error
+	*series, err = s.database.UpdateSeriesIsPublished(ctx, db.UpdateSeriesIsPublishedParams{
 		ID:          series.ID,
 		IsPublished: options.IsPublished,
 	})
@@ -635,7 +625,7 @@ func (s *Services) UpdateSeriesIsPublished(ctx context.Context, options UpdateSe
 	}
 
 	log.InfoContext(ctx, "Series isPublished updated")
-	return &updateSeries, nil
+	return series, nil
 }
 
 type AddTagToSeriesOptions struct {

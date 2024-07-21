@@ -1,17 +1,17 @@
 // Copyright (C) 2024 Afonso Barracha
-// 
+//
 // This file is part of KiwiScript.
-// 
+//
 // KiwiScript is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // KiwiScript is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
@@ -19,6 +19,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -43,16 +44,17 @@ func (c *Controllers) validateErrorResponse(
 ) error {
 	log.WarnContext(userCtx, "Failed to validate request", "error", err, "errorType", fmt.Sprintf("%T", err))
 
-	errors, ok := err.(validator.ValidationErrors)
-	if ok {
+	var errs validator.ValidationErrors
+	ok := errors.As(err, &errs)
+	if !ok {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(RequestValidationErrorFromErr(&errors, location))
+			JSON(NewEmptyRequestValidationError(location))
 	}
 
 	return ctx.
 		Status(fiber.StatusBadRequest).
-		JSON(NewEmptyRequestValidationError(location))
+		JSON(RequestValidationErrorFromErr(&errs, location))
 }
 
 func (c *Controllers) validateRequestErrorResponse(log *slog.Logger, userCtx context.Context, err error, ctx *fiber.Ctx) error {

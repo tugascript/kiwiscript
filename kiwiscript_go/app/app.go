@@ -35,7 +35,7 @@ import (
 	cc "github.com/kiwiscript/kiwiscript_go/providers/cache"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/providers/email"
-	obj_stg "github.com/kiwiscript/kiwiscript_go/providers/object_storage"
+	stg "github.com/kiwiscript/kiwiscript_go/providers/object_storage"
 	"github.com/kiwiscript/kiwiscript_go/providers/tokens"
 	"github.com/kiwiscript/kiwiscript_go/routers"
 	"github.com/kiwiscript/kiwiscript_go/services"
@@ -56,6 +56,7 @@ func CreateApp(
 	cookieSecret string,
 ) *fiber.App {
 	// Build the app
+	log.Info("Building the app...")
 	app := fiber.New()
 
 	// Load common middlewares
@@ -76,7 +77,7 @@ func CreateApp(
 
 	database := db.NewDatabase(dbConnPool)
 	cache := cc.NewCache(storage)
-	objStg := obj_stg.NewObjectStorage(s3Client, s3Bucket)
+	objStg := stg.NewObjectStorage(s3Client, s3Bucket)
 	tokenProv := tokens.NewTokens(
 		tokens.NewTokenSecretData(tokensConfig.Access.PublicKey, tokensConfig.Access.PrivateKey, tokensConfig.Access.TtlSec),
 		tokens.NewTokenSecretData(tokensConfig.Refresh.PublicKey, tokensConfig.Refresh.PrivateKey, tokensConfig.Refresh.TtlSec),
@@ -93,31 +94,64 @@ func CreateApp(
 	)
 
 	// Validators
+	log.Info("Loading validators...")
 	vld := validator.New()
-	vld.RegisterValidation(svgValidatorTag, isValidSVG)
-	vld.RegisterValidation(extAlphaNumTag, isValidExtAlphaNum)
-	vld.RegisterValidation(slugValidatorTag, isValidSlug)
+	if err := vld.RegisterValidation(svgValidatorTag, isValidSVG); err != nil {
+		log.Error("Failed to register svg validator", err)
+		panic(err)
+	}
+	if err := vld.RegisterValidation(extAlphaNumTag, isValidExtAlphaNum); err != nil {
+		log.Error("Failed to register extalphanum validator", err)
+		panic(err)
+	}
+	if err := vld.RegisterValidation(slugValidatorTag, isValidSlug); err != nil {
+		log.Error("Failed to register slug validator", err)
+		panic(err)
+	}
+	if err := vld.RegisterValidation(markdownValidatorTag, isValidMarkdown); err != nil {
+		log.Error("Failed to register markdown validator", err)
+		panic(err)
+	}
+	log.Info("Successfully loaded validators")
 
 	// Build service
+	log.Info("Building services...")
 	srvs := services.NewServices(log, database, cache, objStg, mailer, tokenProv)
+	log.Info("Successfully built services")
+
 	// Build controllers
+	log.Info("Building controllers...")
 	ctrls := controllers.NewControllers(log, srvs, vld, frontendDomain, backendDomain, refreshCookieName)
+	log.Info("Successfully built controllers")
+
 	// Build router
+	log.Info("Building router...")
 	rtr := routers.NewRouter(app, ctrls)
+	log.Info("Successfully built router")
 
 	// Build routes, public routes need to be defined before private ones
-	// Public routes
+	log.Info("Loading public routes...")
 	rtr.HealthRoutes()
 	rtr.AuthPublicRoutes()
 	rtr.LanguagePublicRoutes()
 	rtr.SeriesPublicRoutes()
 	rtr.SeriesPartPublicRoutes()
+	rtr.LecturePublicRoutes()
+	rtr.LectureArticlePublicRoutes()
+	rtr.LectureVideoPublicRoutes()
+	log.Info("Successfully loaded public routes")
 
 	// Private routes
+	log.Info("Loading private routes...")
 	rtr.AuthPrivateRoutes()
 	rtr.LanguagePrivateRoutes()
 	rtr.SeriesPrivateRoutes()
 	rtr.SeriesPartPrivateRoutes()
+	rtr.LecturePrivateRoutes()
+	rtr.LectureArticlePrivateRoutes()
+	rtr.LectureVideoPrivateRoutes()
+	log.Info("Successfully loaded private routes")
 
+	log.Info("Successfully built the app")
 	return app
 }

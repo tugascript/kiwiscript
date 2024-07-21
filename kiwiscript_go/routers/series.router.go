@@ -2,7 +2,7 @@ package routers
 
 import "github.com/kiwiscript/kiwiscript_go/paths"
 
-const seriesPath = paths.LanguagePathV1 + ":languageSlug" + paths.SeriesPath
+const seriesPath = paths.LanguagePathV1 + "/:languageSlug" + paths.SeriesPath
 
 func (r *Router) SeriesPublicRoutes() {
 	series := r.router.Group(seriesPath)

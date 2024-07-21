@@ -60,7 +60,7 @@ func (c *Controllers) CreateSeries(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.Status(fiber.StatusCreated).JSON(c.NewSeriesResponse(&user, series, tags, params.LanguageSlug))
+	return ctx.Status(fiber.StatusCreated).JSON(c.NewSeriesResponse(&user, series, tags))
 }
 
 func (c *Controllers) GetSingleSeries(ctx *fiber.Ctx) error {
@@ -197,7 +197,7 @@ func (c *Controllers) UpdateSeries(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(c.NewSeriesResponse(&user, series, tags, languageSlug))
+	return ctx.JSON(c.NewSeriesResponse(&user, series, tags))
 }
 
 func (c *Controllers) UpdateSeriesIsPublished(ctx *fiber.Ctx) error {
@@ -244,7 +244,7 @@ func (c *Controllers) UpdateSeriesIsPublished(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(c.NewSeriesResponse(&user, series, tags, languageSlug))
+	return ctx.JSON(c.NewSeriesResponse(&user, series, tags))
 
 }
 
@@ -287,7 +287,7 @@ func (c *Controllers) AddTagToSeries(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(c.NewSeriesResponse(&user, series, tags, languageSlug))
+	return ctx.JSON(c.NewSeriesResponse(&user, series, tags))
 }
 
 func (c *Controllers) RemoveTagFromSeries(ctx *fiber.Ctx) error {
@@ -323,7 +323,7 @@ func (c *Controllers) RemoveTagFromSeries(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(c.NewSeriesResponse(&user, series, tags, languageSlug))
+	return ctx.JSON(c.NewSeriesResponse(&user, series, tags))
 }
 
 func (c *Controllers) DeleteSeries(ctx *fiber.Ctx) error {

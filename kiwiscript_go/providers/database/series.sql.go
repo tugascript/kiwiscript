@@ -14,17 +14,61 @@ import (
 const addSeriesPartsCount = `-- name: AddSeriesPartsCount :exec
 UPDATE "series" SET
   "series_parts_count" = "series_parts_count" + 1,
-  "lectures_count" = "lectures_count" + $2
-WHERE "id" = $1
+  "lectures_count" = "lectures_count" + $2,
+  "watch_time_seconds" = "watch_time_seconds" + $3,
+  "read_time_seconds" = "read_time_seconds" + $4,
+  "updated_at" = now()
+WHERE "slug" = $1
 `
 
 type AddSeriesPartsCountParams struct {
-	ID            int32
-	LecturesCount int16
+	Slug             string
+	LecturesCount    int16
+	WatchTimeSeconds int32
+	ReadTimeSeconds  int32
 }
 
 func (q *Queries) AddSeriesPartsCount(ctx context.Context, arg AddSeriesPartsCountParams) error {
-	_, err := q.db.Exec(ctx, addSeriesPartsCount, arg.ID, arg.LecturesCount)
+	_, err := q.db.Exec(ctx, addSeriesPartsCount,
+		arg.Slug,
+		arg.LecturesCount,
+		arg.WatchTimeSeconds,
+		arg.ReadTimeSeconds,
+	)
+	return err
+}
+
+const addSeriesReadTime = `-- name: AddSeriesReadTime :exec
+UPDATE "series" SET
+  "read_time_seconds" = "read_time_seconds" + $1,
+  "updated_at" = now()
+WHERE "slug" = $2
+`
+
+type AddSeriesReadTimeParams struct {
+	ReadTimeSeconds int32
+	Slug            string
+}
+
+func (q *Queries) AddSeriesReadTime(ctx context.Context, arg AddSeriesReadTimeParams) error {
+	_, err := q.db.Exec(ctx, addSeriesReadTime, arg.ReadTimeSeconds, arg.Slug)
+	return err
+}
+
+const addSeriesWatchTime = `-- name: AddSeriesWatchTime :exec
+UPDATE "series" SET
+  "watch_time_seconds" = "watch_time_seconds" + $1,
+  "updated_at" = now()
+WHERE "slug" = $2
+`
+
+type AddSeriesWatchTimeParams struct {
+	WatchTimeSeconds int32
+	Slug             string
+}
+
+func (q *Queries) AddSeriesWatchTime(ctx context.Context, arg AddSeriesWatchTimeParams) error {
+	_, err := q.db.Exec(ctx, addSeriesWatchTime, arg.WatchTimeSeconds, arg.Slug)
 	return err
 }
 
@@ -34,7 +78,7 @@ INSERT INTO "series" (
   "title",
   "slug",
   "description",
-  "language_id",
+  "language_slug",
   "author_id"
 ) VALUES (
   $1,
@@ -42,15 +86,15 @@ INSERT INTO "series" (
   $3,
   $4,
   $5
-) RETURNING id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, language_id, author_id, created_at, updated_at
+) RETURNING id, title, slug, description, parts_count, lectures_count, watch_time_seconds, read_time_seconds, review_avg, review_count, is_published, language_slug, author_id, created_at, updated_at
 `
 
 type CreateSeriesParams struct {
-	Title       string
-	Slug        string
-	Description string
-	LanguageID  int32
-	AuthorID    int32
+	Title        string
+	Slug         string
+	Description  string
+	LanguageSlug string
+	AuthorID     int32
 }
 
 // Copyright (C) 2024 Afonso Barracha
@@ -74,7 +118,7 @@ func (q *Queries) CreateSeries(ctx context.Context, arg CreateSeriesParams) (Ser
 		arg.Title,
 		arg.Slug,
 		arg.Description,
-		arg.LanguageID,
+		arg.LanguageSlug,
 		arg.AuthorID,
 	)
 	var i Series
@@ -85,11 +129,12 @@ func (q *Queries) CreateSeries(ctx context.Context, arg CreateSeriesParams) (Ser
 		&i.Description,
 		&i.PartsCount,
 		&i.LecturesCount,
-		&i.TotalDurationSeconds,
+		&i.WatchTimeSeconds,
+		&i.ReadTimeSeconds,
 		&i.ReviewAvg,
 		&i.ReviewCount,
 		&i.IsPublished,
-		&i.LanguageID,
+		&i.LanguageSlug,
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -99,29 +144,48 @@ func (q *Queries) CreateSeries(ctx context.Context, arg CreateSeriesParams) (Ser
 
 const decrementSeriesLecturesCount = `-- name: DecrementSeriesLecturesCount :exec
 UPDATE "series" SET
-  "lectures_count" = "lectures_count" - 1
-WHERE "id" = $1
+  "lectures_count" = "lectures_count" - 1,
+  "watch_time_seconds" = "watch_time_seconds" + $2,
+  "read_time_seconds" = "read_time_seconds" + $3,
+  "updated_at" = now()
+WHERE "slug" = $1
 `
 
-func (q *Queries) DecrementSeriesLecturesCount(ctx context.Context, id int32) error {
-	_, err := q.db.Exec(ctx, decrementSeriesLecturesCount, id)
+type DecrementSeriesLecturesCountParams struct {
+	Slug             string
+	WatchTimeSeconds int32
+	ReadTimeSeconds  int32
+}
+
+func (q *Queries) DecrementSeriesLecturesCount(ctx context.Context, arg DecrementSeriesLecturesCountParams) error {
+	_, err := q.db.Exec(ctx, decrementSeriesLecturesCount, arg.Slug, arg.WatchTimeSeconds, arg.ReadTimeSeconds)
 	return err
 }
 
 const decrementSeriesPartsCount = `-- name: DecrementSeriesPartsCount :exec
 UPDATE "series" SET
   "series_parts_count" = "series_parts_count" - 1,
-  "lectures_count" = "lectures_count" - $2
-WHERE "id" = $1
+  "lectures_count" = "lectures_count" - $2,
+  "watch_time_seconds" = "watch_time_seconds" - $3,
+  "read_time_seconds" = "read_time_seconds" - $4,
+  "updated_at" = now()
+WHERE "slug" = $1
 `
 
 type DecrementSeriesPartsCountParams struct {
-	ID            int32
-	LecturesCount int16
+	Slug             string
+	LecturesCount    int16
+	WatchTimeSeconds int32
+	ReadTimeSeconds  int32
 }
 
 func (q *Queries) DecrementSeriesPartsCount(ctx context.Context, arg DecrementSeriesPartsCountParams) error {
-	_, err := q.db.Exec(ctx, decrementSeriesPartsCount, arg.ID, arg.LecturesCount)
+	_, err := q.db.Exec(ctx, decrementSeriesPartsCount,
+		arg.Slug,
+		arg.LecturesCount,
+		arg.WatchTimeSeconds,
+		arg.ReadTimeSeconds,
+	)
 	return err
 }
 
@@ -136,7 +200,7 @@ func (q *Queries) DeleteSeriesById(ctx context.Context, id int32) error {
 }
 
 const findSeriesById = `-- name: FindSeriesById :one
-SELECT id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, language_id, author_id, created_at, updated_at FROM "series"
+SELECT id, title, slug, description, parts_count, lectures_count, watch_time_seconds, read_time_seconds, review_avg, review_count, is_published, language_slug, author_id, created_at, updated_at FROM "series"
 WHERE "id" = $1 LIMIT 1
 `
 
@@ -150,11 +214,12 @@ func (q *Queries) FindSeriesById(ctx context.Context, id int32) (Series, error) 
 		&i.Description,
 		&i.PartsCount,
 		&i.LecturesCount,
-		&i.TotalDurationSeconds,
+		&i.WatchTimeSeconds,
+		&i.ReadTimeSeconds,
 		&i.ReviewAvg,
 		&i.ReviewCount,
 		&i.IsPublished,
-		&i.LanguageID,
+		&i.LanguageSlug,
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -162,19 +227,19 @@ func (q *Queries) FindSeriesById(ctx context.Context, id int32) (Series, error) 
 	return i, err
 }
 
-const findSeriesBySlugAndLanguageID = `-- name: FindSeriesBySlugAndLanguageID :one
-SELECT id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, language_id, author_id, created_at, updated_at FROM "series"
-WHERE "slug" = $1 AND "language_id" = $2
+const findSeriesBySlugAndLanguageSlug = `-- name: FindSeriesBySlugAndLanguageSlug :one
+SELECT id, title, slug, description, parts_count, lectures_count, watch_time_seconds, read_time_seconds, review_avg, review_count, is_published, language_slug, author_id, created_at, updated_at FROM "series"
+WHERE "slug" = $1 AND "language_slug" = $2
 LIMIT 1
 `
 
-type FindSeriesBySlugAndLanguageIDParams struct {
-	Slug       string
-	LanguageID int32
+type FindSeriesBySlugAndLanguageSlugParams struct {
+	Slug         string
+	LanguageSlug string
 }
 
-func (q *Queries) FindSeriesBySlugAndLanguageID(ctx context.Context, arg FindSeriesBySlugAndLanguageIDParams) (Series, error) {
-	row := q.db.QueryRow(ctx, findSeriesBySlugAndLanguageID, arg.Slug, arg.LanguageID)
+func (q *Queries) FindSeriesBySlugAndLanguageSlug(ctx context.Context, arg FindSeriesBySlugAndLanguageSlugParams) (Series, error) {
+	row := q.db.QueryRow(ctx, findSeriesBySlugAndLanguageSlug, arg.Slug, arg.LanguageSlug)
 	var i Series
 	err := row.Scan(
 		&i.ID,
@@ -183,11 +248,12 @@ func (q *Queries) FindSeriesBySlugAndLanguageID(ctx context.Context, arg FindSer
 		&i.Description,
 		&i.PartsCount,
 		&i.LecturesCount,
-		&i.TotalDurationSeconds,
+		&i.WatchTimeSeconds,
+		&i.ReadTimeSeconds,
 		&i.ReviewAvg,
 		&i.ReviewCount,
 		&i.IsPublished,
-		&i.LanguageID,
+		&i.LanguageSlug,
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -195,9 +261,9 @@ func (q *Queries) FindSeriesBySlugAndLanguageID(ctx context.Context, arg FindSer
 	return i, err
 }
 
-const findSeriesBySlugAndLanguageIDWithJoins = `-- name: FindSeriesBySlugAndLanguageIDWithJoins :many
+const findSeriesBySlugAndLanguageSlugWithTags = `-- name: FindSeriesBySlugAndLanguageSlugWithTags :many
 SELECT 
-  series.id, series.title, series.slug, series.description, series.parts_count, series.lectures_count, series.total_duration_seconds, series.review_avg, series.review_count, series.is_published, series.language_id, series.author_id, series.created_at, series.updated_at,
+  series.id, series.title, series.slug, series.description, series.parts_count, series.lectures_count, series.watch_time_seconds, series.read_time_seconds, series.review_avg, series.review_count, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "tags"."name" AS "tag_name",
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name"
@@ -207,44 +273,45 @@ LEFT JOIN "series_tags" ON "series"."id" = "series_tags"."series_id"
   LEFT JOIN "tags" ON "series_tags"."tag_id" = "tags"."id"
 WHERE 
   "series"."slug" = $1 AND
-  "series"."language_id" = $2
+  "series"."language_slug" = $2
 ORDER BY "tags"."name" ASC
 `
 
-type FindSeriesBySlugAndLanguageIDWithJoinsParams struct {
-	Slug       string
-	LanguageID int32
+type FindSeriesBySlugAndLanguageSlugWithTagsParams struct {
+	Slug         string
+	LanguageSlug string
 }
 
-type FindSeriesBySlugAndLanguageIDWithJoinsRow struct {
-	ID                   int32
-	Title                string
-	Slug                 string
-	Description          string
-	PartsCount           int16
-	LecturesCount        int16
-	TotalDurationSeconds int32
-	ReviewAvg            int16
-	ReviewCount          int32
-	IsPublished          bool
-	LanguageID           int32
-	AuthorID             int32
-	CreatedAt            pgtype.Timestamp
-	UpdatedAt            pgtype.Timestamp
-	TagName              pgtype.Text
-	AuthorFirstName      pgtype.Text
-	AuthorLastName       pgtype.Text
+type FindSeriesBySlugAndLanguageSlugWithTagsRow struct {
+	ID               int32
+	Title            string
+	Slug             string
+	Description      string
+	PartsCount       int16
+	LecturesCount    int16
+	WatchTimeSeconds int32
+	ReadTimeSeconds  int32
+	ReviewAvg        int16
+	ReviewCount      int32
+	IsPublished      bool
+	LanguageSlug     string
+	AuthorID         int32
+	CreatedAt        pgtype.Timestamp
+	UpdatedAt        pgtype.Timestamp
+	TagName          pgtype.Text
+	AuthorFirstName  pgtype.Text
+	AuthorLastName   pgtype.Text
 }
 
-func (q *Queries) FindSeriesBySlugAndLanguageIDWithJoins(ctx context.Context, arg FindSeriesBySlugAndLanguageIDWithJoinsParams) ([]FindSeriesBySlugAndLanguageIDWithJoinsRow, error) {
-	rows, err := q.db.Query(ctx, findSeriesBySlugAndLanguageIDWithJoins, arg.Slug, arg.LanguageID)
+func (q *Queries) FindSeriesBySlugAndLanguageSlugWithTags(ctx context.Context, arg FindSeriesBySlugAndLanguageSlugWithTagsParams) ([]FindSeriesBySlugAndLanguageSlugWithTagsRow, error) {
+	rows, err := q.db.Query(ctx, findSeriesBySlugAndLanguageSlugWithTags, arg.Slug, arg.LanguageSlug)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []FindSeriesBySlugAndLanguageIDWithJoinsRow{}
+	items := []FindSeriesBySlugAndLanguageSlugWithTagsRow{}
 	for rows.Next() {
-		var i FindSeriesBySlugAndLanguageIDWithJoinsRow
+		var i FindSeriesBySlugAndLanguageSlugWithTagsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,
@@ -252,11 +319,12 @@ func (q *Queries) FindSeriesBySlugAndLanguageIDWithJoins(ctx context.Context, ar
 			&i.Description,
 			&i.PartsCount,
 			&i.LecturesCount,
-			&i.TotalDurationSeconds,
+			&i.WatchTimeSeconds,
+			&i.ReadTimeSeconds,
 			&i.ReviewAvg,
 			&i.ReviewCount,
 			&i.IsPublished,
-			&i.LanguageID,
+			&i.LanguageSlug,
 			&i.AuthorID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -276,18 +344,28 @@ func (q *Queries) FindSeriesBySlugAndLanguageIDWithJoins(ctx context.Context, ar
 
 const incrementSeriesLecturesCount = `-- name: IncrementSeriesLecturesCount :exec
 UPDATE "series" SET
-  "lectures_count" = "lectures_count" + 1
-WHERE "id" = $1
+  "lectures_count" = "lectures_count" + 1,
+  "watch_time_seconds" = "watch_time_seconds" + $2,
+  "read_time_seconds" = "read_time_seconds" + $3,
+  "updated_at" = now()
+WHERE "slug" = $1
 `
 
-func (q *Queries) IncrementSeriesLecturesCount(ctx context.Context, id int32) error {
-	_, err := q.db.Exec(ctx, incrementSeriesLecturesCount, id)
+type IncrementSeriesLecturesCountParams struct {
+	Slug             string
+	WatchTimeSeconds int32
+	ReadTimeSeconds  int32
+}
+
+func (q *Queries) IncrementSeriesLecturesCount(ctx context.Context, arg IncrementSeriesLecturesCountParams) error {
+	_, err := q.db.Exec(ctx, incrementSeriesLecturesCount, arg.Slug, arg.WatchTimeSeconds, arg.ReadTimeSeconds)
 	return err
 }
 
 const incrementSeriesReviewCount = `-- name: IncrementSeriesReviewCount :exec
 UPDATE "series" SET
-  "review_count" = "review_count" + 1
+  "review_count" = "review_count" + 1,
+  "updated_at" = now()
 WHERE "id" = $1
 `
 
@@ -300,9 +378,10 @@ const updateSeries = `-- name: UpdateSeries :one
 UPDATE "series" SET
   "title" = $1,
   "slug" = $2,
-  "description" = $3
+  "description" = $3,
+  "updated_at" = now()
 WHERE "id" = $4
-RETURNING id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, language_id, author_id, created_at, updated_at
+RETURNING id, title, slug, description, parts_count, lectures_count, watch_time_seconds, read_time_seconds, review_avg, review_count, is_published, language_slug, author_id, created_at, updated_at
 `
 
 type UpdateSeriesParams struct {
@@ -327,11 +406,12 @@ func (q *Queries) UpdateSeries(ctx context.Context, arg UpdateSeriesParams) (Ser
 		&i.Description,
 		&i.PartsCount,
 		&i.LecturesCount,
-		&i.TotalDurationSeconds,
+		&i.WatchTimeSeconds,
+		&i.ReadTimeSeconds,
 		&i.ReviewAvg,
 		&i.ReviewCount,
 		&i.IsPublished,
-		&i.LanguageID,
+		&i.LanguageSlug,
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -341,9 +421,10 @@ func (q *Queries) UpdateSeries(ctx context.Context, arg UpdateSeriesParams) (Ser
 
 const updateSeriesIsPublished = `-- name: UpdateSeriesIsPublished :one
 UPDATE "series" SET
-  "is_published" = $1
+  "is_published" = $1,
+  "updated_at" = now()
 WHERE "id" = $2
-RETURNING id, title, slug, description, parts_count, lectures_count, total_duration_seconds, review_avg, review_count, is_published, language_id, author_id, created_at, updated_at
+RETURNING id, title, slug, description, parts_count, lectures_count, watch_time_seconds, read_time_seconds, review_avg, review_count, is_published, language_slug, author_id, created_at, updated_at
 `
 
 type UpdateSeriesIsPublishedParams struct {
@@ -361,11 +442,12 @@ func (q *Queries) UpdateSeriesIsPublished(ctx context.Context, arg UpdateSeriesI
 		&i.Description,
 		&i.PartsCount,
 		&i.LecturesCount,
-		&i.TotalDurationSeconds,
+		&i.WatchTimeSeconds,
+		&i.ReadTimeSeconds,
 		&i.ReviewAvg,
 		&i.ReviewCount,
 		&i.IsPublished,
-		&i.LanguageID,
+		&i.LanguageSlug,
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -375,7 +457,8 @@ func (q *Queries) UpdateSeriesIsPublished(ctx context.Context, arg UpdateSeriesI
 
 const updateSeriesReviewAvg = `-- name: UpdateSeriesReviewAvg :exec
 UPDATE "series" SET
-  "review_avg" = $1
+  "review_avg" = $1,
+  "updated_at" = now()
 WHERE "id" = $2
 `
 

@@ -1,6 +1,7 @@
 package paths
 
 const (
+	HealthPath     = "/health"
 	AuthPath       = "/auth"
 	UsersPathV1    = "/v1/users"
 	LanguagePathV1 = "/v1/languages"
@@ -10,4 +11,5 @@ const (
 	LecturesPath   = "/lectures"
 	VideoPath      = "/video"
 	ArticlePath    = "/article"
+	CommentsPath   = "/comments"
 )

@@ -41,13 +41,13 @@ import (
 	cc "github.com/kiwiscript/kiwiscript_go/providers/cache"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/providers/email"
-	obj_stg "github.com/kiwiscript/kiwiscript_go/providers/object_storage"
+	stg "github.com/kiwiscript/kiwiscript_go/providers/object_storage"
 	"github.com/kiwiscript/kiwiscript_go/providers/tokens"
 	"github.com/kiwiscript/kiwiscript_go/services"
 	"github.com/kiwiscript/kiwiscript_go/utils"
 )
 
-var testConfig *app.AppConfig
+var testConfig *app.Config
 var testServices *services.Services
 var testApp *fiber.App
 var testTokens *tokens.Tokens
@@ -116,7 +116,7 @@ func initTestServicesAndApp(t *testing.T) {
 	)
 	testDatabase = db.NewDatabase(dbConnPool)
 	testCache = cc.NewCache(storage)
-	testObjectStorage := obj_stg.NewObjectStorage(s3Client, testConfig.ObjectStorage.Bucket)
+	testObjectStorage := stg.NewObjectStorage(s3Client, testConfig.ObjectStorage.Bucket)
 	testServices = services.NewServices(
 		log,
 		testDatabase,
@@ -141,7 +141,7 @@ func initTestServicesAndApp(t *testing.T) {
 	)
 }
 
-func GetTestConfig(t *testing.T) *app.AppConfig {
+func GetTestConfig(t *testing.T) *app.Config {
 	if testConfig == nil {
 		initTestServicesAndApp(t)
 	}
@@ -364,11 +364,15 @@ func PerformTestRequestCase[R any](t *testing.T, method, path string, tc TestReq
 	// Arrange
 	reqBody, accessToken := tc.ReqFn(t)
 	jsonBody := CreateTestJSONRequestBody(t, reqBody)
-	app := GetTestApp(t)
+	fiberApp := GetTestApp(t)
 
 	// Act
-	resp := PerformTestRequest(t, app, tc.DelayMs, method, path, accessToken, jsonBody)
-	defer resp.Body.Close()
+	resp := PerformTestRequest(t, fiberApp, tc.DelayMs, method, path, accessToken, jsonBody)
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
 
 	// Assert
 	AssertTestStatusCode(t, resp, tc.ExpStatus)

@@ -68,12 +68,7 @@ func (c *Controllers) CreateSeriesPart(ctx *fiber.Ctx) error {
 	}
 
 	return ctx.Status(fiber.StatusCreated).JSON(
-		c.NewSeriesPartResponse(
-			seriesPart,
-			make([]db.Lecture, 0),
-			params.LanguageSlug,
-			params.SeriesSlug,
-		),
+		c.NewSeriesPartResponse(seriesPart, make([]db.Lecture, 0)),
 	)
 }
 
@@ -254,15 +249,7 @@ func (c *Controllers) UpdateSeriesPart(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.
-		JSON(
-			c.NewSeriesPartResponse(
-				seriesPart,
-				lectures,
-				params.LanguageSlug,
-				params.SeriesSlug,
-			),
-		)
+	return ctx.JSON(c.NewSeriesPartResponse(seriesPart, lectures))
 }
 
 func (c *Controllers) UpdateSeriesPartIsPublished(ctx *fiber.Ctx) error {
@@ -332,15 +319,7 @@ func (c *Controllers) UpdateSeriesPartIsPublished(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.
-		JSON(
-			c.NewSeriesPartResponse(
-				seriesPart,
-				lectures,
-				params.LanguageSlug,
-				params.SeriesSlug,
-			),
-		)
+	return ctx.JSON(c.NewSeriesPartResponse(seriesPart, lectures))
 }
 
 func (c *Controllers) DeleteSeriesPart(ctx *fiber.Ctx) error {

@@ -563,7 +563,11 @@ func TestLogout(t *testing.T) {
 			app := GetTestApp(t)
 
 			resp := performCookieRequest(t, app, logoutPath, accessToken, refreshToken)
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					t.Fatal(err)
+				}
+			}()
 
 			AssertTestStatusCode(t, resp, tc.ExpStatus)
 			tc.AssertFn(t, resp)
@@ -730,7 +734,11 @@ func TestRefresh(t *testing.T) {
 			app := GetTestApp(t)
 
 			resp := performCookieRequest(t, app, refreshPath, accessToken, refreshToken)
-			defer resp.Body.Close()
+			defer func() {
+				if err := resp.Body.Close(); err != nil {
+					t.Fatal(err)
+				}
+			}()
 
 			AssertTestStatusCode(t, resp, tc.ExpStatus)
 			tc.AssertFn(t, resp)

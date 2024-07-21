@@ -15,30 +15,4 @@
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
-package tests
-
-import (
-	"net/http/httptest"
-	"testing"
-)
-
-func TestHealth(t *testing.T) {
-	app := GetTestApp(t)
-	req := httptest.NewRequest("GET", "/api/health", nil)
-
-	resp, err := app.Test(req)
-
-	if err != nil {
-		t.Error(err)
-	}
-
-	if resp.StatusCode != 200 {
-		t.Fatalf("Expected status code 200, but got %d", resp.StatusCode)
-	}
-
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			t.Fatal(err)
-		}
-	}()
-}
+package services

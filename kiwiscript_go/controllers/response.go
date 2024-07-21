@@ -89,7 +89,7 @@ func newPaginatedNavigationURL(frontendDomain, path string, params QueryStr, lim
 	}
 
 	var href string
-	if params != QueryStr("") {
+	if params != "" {
 		href = fmt.Sprintf("https://%s/api/%s?%s&limit=%d&offset=%d", frontendDomain, path, params, limit, offset)
 	} else {
 		href = fmt.Sprintf("https://%s/api/%s?limit=%d&offset=%d", frontendDomain, path, limit, offset)
@@ -265,7 +265,7 @@ type SeriesResponse struct {
 	Links       SeriesLinks    `json:"_links"`
 }
 
-func (c *Controllers) NewSeriesResponse(user *tokens.AccessUserClaims, series *db.Series, tags []db.Tag, languageSlug string) *SeriesResponse {
+func (c *Controllers) NewSeriesResponse(user *tokens.AccessUserClaims, series *db.Series, tags []db.Tag) *SeriesResponse {
 	strTags := make([]string, len(tags))
 
 	for i, t := range tags {
@@ -283,8 +283,8 @@ func (c *Controllers) NewSeriesResponse(user *tokens.AccessUserClaims, series *d
 		ReviewCount: series.ReviewCount,
 		IsPublished: series.IsPublished,
 		Tags:        strTags,
-		Embedded:    c.newSeriesEmbeded(user.ID, user.FirstName, user.LastName, strTags, languageSlug),
-		Links:       c.newSeriesLinks(languageSlug, series.Slug, series.AuthorID),
+		Embedded:    c.newSeriesEmbeded(user.ID, user.FirstName, user.LastName, strTags, series.LanguageSlug),
+		Links:       c.newSeriesLinks(series.LanguageSlug, series.Slug, series.AuthorID),
 	}
 }
 
@@ -426,42 +426,45 @@ func (c *Controllers) newSeriesPartEmbeddedFromDto(
 }
 
 type SeriesPartResponse struct {
-	ID            int32              `json:"id"`
-	Title         string             `json:"title"`
-	Description   string             `json:"description"`
-	Position      int16              `json:"position"`
-	Lectures      int16              `json:"lectures"`
-	TotalDuration int32              `json:"totalDuration"`
-	IsPublished   bool               `json:"isPublished"`
-	Embedded      SeriesPartEmbedded `json:"_embedded"`
-	Links         SeriesPartLinks    `json:"_links"`
+	ID          int32              `json:"id"`
+	Title       string             `json:"title"`
+	Description string             `json:"description"`
+	Position    int16              `json:"position"`
+	Lectures    int16              `json:"lectures"`
+	ReadTime    int32              `json:"readTime"`
+	WatchTime   int32              `json:"watchTime"`
+	IsPublished bool               `json:"isPublished"`
+	Embedded    SeriesPartEmbedded `json:"_embedded"`
+	Links       SeriesPartLinks    `json:"_links"`
 }
 
-func (c *Controllers) NewSeriesPartResponse(part *db.SeriesPart, lectures []db.Lecture, languageSlug, seriesSlug string) *SeriesPartResponse {
+func (c *Controllers) NewSeriesPartResponse(part *db.SeriesPart, lectures []db.Lecture) *SeriesPartResponse {
 	return &SeriesPartResponse{
-		ID:            part.ID,
-		Title:         part.Title,
-		Description:   part.Description,
-		Position:      part.Position,
-		Lectures:      part.LecturesCount,
-		TotalDuration: part.TotalDurationSeconds,
-		IsPublished:   part.IsPublished,
-		Links:         c.newSeriesPartLinks(languageSlug, seriesSlug, part.ID),
-		Embedded:      c.newSeriesPartEmbedded(languageSlug, seriesSlug, part.ID, lectures),
+		ID:          part.ID,
+		Title:       part.Title,
+		Description: part.Description,
+		Position:    part.Position,
+		Lectures:    part.LecturesCount,
+		ReadTime:    part.ReadTimeSeconds,
+		WatchTime:   part.WatchTimeSeconds,
+		IsPublished: part.IsPublished,
+		Links:       c.newSeriesPartLinks(part.LanguageSlug, part.SeriesSlug, part.ID),
+		Embedded:    c.newSeriesPartEmbedded(part.LanguageSlug, part.SeriesSlug, part.ID, lectures),
 	}
 }
 
 func (c *Controllers) NewSeriesPartResponseFromDTO(dto *services.SeriesPartDto, languageSlug, seriesSlug string) *SeriesPartResponse {
 	return &SeriesPartResponse{
-		ID:            dto.ID,
-		Title:         dto.Title,
-		Description:   dto.Description,
-		Position:      dto.Position,
-		Lectures:      dto.LecturesCount,
-		TotalDuration: dto.TotalDurationSeconds,
-		IsPublished:   dto.IsPublished,
-		Links:         c.newSeriesPartLinks(languageSlug, seriesSlug, dto.ID),
-		Embedded:      c.newSeriesPartEmbeddedFromDto(languageSlug, seriesSlug, dto.ID, dto.Lectures),
+		ID:          dto.ID,
+		Title:       dto.Title,
+		Description: dto.Description,
+		Position:    dto.Position,
+		Lectures:    dto.LecturesCount,
+		ReadTime:    dto.ReadTimeSeconds,
+		WatchTime:   dto.WatchTimeSeconds,
+		IsPublished: dto.IsPublished,
+		Links:       c.newSeriesPartLinks(languageSlug, seriesSlug, dto.ID),
+		Embedded:    c.newSeriesPartEmbeddedFromDto(languageSlug, seriesSlug, dto.ID, dto.Lectures),
 	}
 }
 
@@ -499,101 +502,112 @@ func (c *Controllers) newLectureLinks(languageSlug, seriesSlug string, partID, l
 	}
 }
 
-type LectureArticleResponse struct {
+type EmbeddedLectureArticle struct {
 	ID          int32            `json:"id"`
 	ReadingTime int32            `json:"readingTime"`
 	Content     string           `json:"content"`
 	Links       SelfLinkResponse `json:"_links"`
 }
 
-type LectureVideoResponse struct {
+func (c *Controllers) newLectureArticleResponse(
+	articleID,
+	readingTime,
+	lectureID int32,
+	content string,
+	seriesPartID int32,
+	languageSlug,
+	seriesSlug string,
+) *EmbeddedLectureArticle {
+	return &EmbeddedLectureArticle{
+		ID:          articleID,
+		ReadingTime: readingTime,
+		Content:     content,
+		Links: SelfLinkResponse{
+			LinkResponse{
+				fmt.Sprintf(
+					"https://%s%s/%s%s/%s%s/%d%s/%d%s",
+					c.backendDomain,
+					paths.LanguagePathV1,
+					languageSlug,
+					paths.SeriesPath,
+					seriesSlug,
+					paths.PartsPath,
+					seriesPartID,
+					paths.LecturesPath,
+					lectureID,
+					paths.ArticlePath,
+				),
+			},
+		},
+	}
+}
+
+type EmbeddedLectureVideo struct {
 	ID        int32            `json:"id"`
 	WatchTime int32            `json:"watchTime"`
-	Uri       string           `json:"uri"`
+	Url       string           `json:"url"`
 	Links     SelfLinkResponse `json:"_links"`
 }
 
+func (c *Controllers) newLectureVideoResponse(
+	videoID,
+	watchTime int32,
+	lectureID int32,
+	url string,
+	seriesPartID int32,
+	languageSlug,
+	seriesSlug string,
+) *EmbeddedLectureVideo {
+	return &EmbeddedLectureVideo{
+		ID:        videoID,
+		WatchTime: watchTime,
+		Url:       url,
+		Links: SelfLinkResponse{
+			LinkResponse{
+				fmt.Sprintf(
+					"https://%s%s/%s%s/%s%s/%d%s/%d%s",
+					c.backendDomain,
+					paths.LanguagePathV1,
+					languageSlug,
+					paths.SeriesPath,
+					seriesSlug,
+					paths.PartsPath,
+					seriesPartID,
+					paths.LecturesPath,
+					lectureID,
+					paths.VideoPath,
+				),
+			},
+		},
+	}
+}
+
 type LectureEmbedded struct {
-	Article *LectureArticleResponse `json:"article,omitempty"`
-	Video   *LectureVideoResponse   `json:"video,omitempty"`
+	Article *EmbeddedLectureArticle `json:"article,omitempty"`
+	Video   *EmbeddedLectureVideo   `json:"video,omitempty"`
 }
 
 func (c *Controllers) newLectureEmbedded(
-	article *db.LectureArticle,
-	video *db.LectureVideo, languageSlug,
-	seriesSlug string,
-	seriesPartID,
-	lectureID int32,
+	article *EmbeddedLectureArticle,
+	video *EmbeddedLectureVideo,
 ) *LectureEmbedded {
 	if article == nil && video == nil {
 		return nil
 	}
 
-	var articleResponse *LectureArticleResponse = nil
-	if article != nil {
-		articleResponse = &LectureArticleResponse{
-			ID:          article.ID,
-			ReadingTime: article.ReadingTimeSeconds,
-			Content:     article.Content,
-			Links: SelfLinkResponse{
-				LinkResponse{
-					fmt.Sprintf(
-						"https://%s%s/%s%s/%s%s/%d%s/%d%s",
-						c.backendDomain,
-						paths.LanguagePathV1,
-						languageSlug,
-						paths.SeriesPath,
-						seriesSlug,
-						paths.PartsPath,
-						seriesPartID,
-						paths.LecturesPath,
-						lectureID,
-						paths.ArticlePath,
-					),
-				},
-			},
-		}
-	}
-
-	var videoResponse *LectureVideoResponse = nil
-	if video != nil {
-		videoResponse = &LectureVideoResponse{
-			ID:        video.ID,
-			WatchTime: video.WatchTimeSeconds,
-			Uri:       video.Video,
-			Links: SelfLinkResponse{
-				LinkResponse{
-					fmt.Sprintf(
-						"https://%s%s/%s%s/%s%s/%d%s/%d%s",
-						c.backendDomain,
-						paths.LanguagePathV1,
-						languageSlug,
-						paths.SeriesPath,
-						seriesSlug,
-						paths.PartsPath,
-						seriesPartID,
-						paths.LecturesPath,
-						lectureID,
-						paths.VideoPath,
-					),
-				},
-			},
-		}
-	}
-
 	return &LectureEmbedded{
-		Article: articleResponse,
-		Video:   videoResponse,
+		Article: article,
+		Video:   video,
 	}
 }
 
 type LectureResponse struct {
-	ID          int32            `json:"id"`
-	Title       string           `json:"title"`
-	Description string           `json:"description"`
-	Position    int16            `json:"position"`
-	Embedded    *LectureEmbedded `json:"_embedded,omitempty"`
-	Links       LectureLinks     `json:"_links"`
+	ID       int32            `json:"id"`
+	Title    string           `json:"title"`
+	Position int16            `json:"position"`
+	Comments int32            `json:"comments"`
+	Embedded *LectureEmbedded `json:"_embedded,omitempty"`
+	Links    LectureLinks     `json:"_links"`
 }
 
 func (c *Controllers) NewLectureResponse(
@@ -605,27 +619,40 @@ func (c *Controllers) NewLectureResponse(
 	seriesPartID int32,
 ) *LectureResponse {
 	var articleID, videoID int32
+	var lecArt *EmbeddedLectureArticle
+	var lecVid *EmbeddedLectureVideo
 
 	if article != nil {
 		articleID = article.ID
+		lecArt = c.newLectureArticleResponse(
+			article.ID,
+			article.ReadTimeSeconds,
+			article.LectureID,
+			article.Content,
+			seriesPartID,
+			languageSlug,
+			seriesSlug,
+		)
 	}
 	if video != nil {
 		videoID = video.ID
+		lecVid = c.newLectureVideoResponse(
+			video.ID,
+			video.WatchTimeSeconds,
+			video.LectureID,
+			video.Url,
+			seriesPartID,
+			languageSlug,
+			seriesSlug,
+		)
 	}
 
 	return &LectureResponse{
-		ID:          lecture.ID,
-		Title:       lecture.Title,
-		Description: lecture.Description,
-		Position:    lecture.Position,
-		Embedded: c.newLectureEmbedded(
-			article,
-			video,
-			languageSlug,
-			seriesSlug,
-			seriesPartID,
-			lecture.ID,
-		),
+		ID:       lecture.ID,
+		Title:    lecture.Title,
+		Position: lecture.Position,
+		Comments: lecture.CommentsCount,
+		Embedded: c.newLectureEmbedded(lecArt, lecVid),
 		Links: c.newLectureLinks(
 			languageSlug,
 			seriesSlug,
@@ -633,6 +660,185 @@ func (c *Controllers) NewLectureResponse(
 			lecture.ID,
 			articleID,
 			videoID,
+		),
+	}
+}
+
+func (c *Controllers) NewLectureResponseFromJoinedRow(
+	lecture *db.FindPaginatedPublishedLecturesBySeriesPartIDWithArticleAndVideoRow,
+) *LectureResponse {
+	var articleID, videoID int32
+	var lecArt *EmbeddedLectureArticle
+	var lecVid *EmbeddedLectureVideo
+
+	if lecture.ArticleID.Valid {
+		articleID = lecture.ArticleID.Int32
+		lecArt = c.newLectureArticleResponse(
+			articleID,
+			lecture.ReadTimeSeconds,
+			lecture.ID,
+			lecture.ArticleContent.String,
+			lecture.SeriesPartID,
+			lecture.LanguageSlug,
+			lecture.SeriesSlug,
+		)
+	}
+
+	if lecture.VideoID.Valid {
+		videoID = lecture.VideoID.Int32
+		lecVid = c.newLectureVideoResponse(
+			videoID,
+			lecture.WatchTimeSeconds,
+			lecture.ID,
+			lecture.VideoUrl.String,
+			lecture.SeriesPartID,
+			lecture.LanguageSlug,
+			lecture.SeriesSlug,
+		)
+	}
+
+	return &LectureResponse{
+		ID:       lecture.ID,
+		Title:    lecture.Title,
+		Position: lecture.Position,
+		Embedded: c.newLectureEmbedded(lecArt, lecVid),
+		Links: c.newLectureLinks(
+			lecture.LanguageSlug,
+			lecture.SeriesSlug,
+			lecture.SeriesPartID,
+			lecture.ID,
+			articleID,
+			videoID,
+		),
+	}
+}
+
+type LectureArticleLinks struct {
+	Self    LinkResponse `json:"self"`
+	Lecture LinkResponse `json:"lecture"`
+}
+
+func (c *Controllers) newLectureArticleLinks(languageSlug, seriesSlug string, partID, lectureID int32) LectureArticleLinks {
+	return LectureArticleLinks{
+		Self: LinkResponse{
+			fmt.Sprintf(
+				"https://%s%s/%s%s/%s%s/%d%s/%d%s",
+				c.backendDomain,
+				paths.LanguagePathV1,
+				languageSlug,
+				paths.SeriesPath,
+				seriesSlug,
+				paths.PartsPath,
+				partID,
+				paths.LecturesPath,
+				lectureID,
+				paths.ArticlePath,
+			),
+		},
+		Lecture: LinkResponse{
+			fmt.Sprintf(
+				"https://%s%s/%s%s/%s%s/%d%s/%d",
+				c.backendDomain,
+				paths.LanguagePathV1,
+				languageSlug,
+				paths.SeriesPath,
+				seriesSlug,
+				paths.PartsPath,
+				partID,
+				paths.LecturesPath,
+				lectureID,
+			),
+		},
+	}
+}
+
+type LectureArticleResponse struct {
+	ID          int32               `json:"id"`
+	ReadingTime int32               `json:"readingTime"`
+	Content     string              `json:"content"`
+	Links       LectureArticleLinks `json:"_links"`
+}
+
+func (c *Controllers) NewLectureArticleResponse(
+	article *db.LectureArticle,
+	languageSlug,
+	seriesSlug string,
+	seriesPartID int32,
+) *LectureArticleResponse {
+	return &LectureArticleResponse{
+		ID:          article.ID,
+		ReadingTime: article.ReadTimeSeconds,
+		Content:     article.Content,
+		Links: c.newLectureArticleLinks(
+			languageSlug,
+			seriesSlug,
+			seriesPartID,
+			article.LectureID,
+		),
+	}
+}
+
+type LectureVideoLinks struct {
+	Self    LinkResponse `json:"self"`
+	Lecture LinkResponse `json:"lecture"`
+}
+
+func (c *Controllers) newLectureVideoLinks(languageSlug, seriesSlug string, partID, lectureID int32) LectureVideoLinks {
+	return LectureVideoLinks{
+		Self: LinkResponse{
+			fmt.Sprintf(
+				"https://%s%s/%s%s/%s%s/%d%s/%d%s",
+				c.backendDomain,
+				paths.LanguagePathV1,
+				languageSlug,
+				paths.SeriesPath,
+				seriesSlug,
+				paths.PartsPath,
+				partID,
+				paths.LecturesPath,
+				lectureID,
+				paths.VideoPath,
+			),
+		},
+		Lecture: LinkResponse{
+			fmt.Sprintf(
+				"https://%s%s/%s%s/%s%s/%d%s/%d",
+				c.backendDomain,
+				paths.LanguagePathV1,
+				languageSlug,
+				paths.SeriesPath,
+				seriesSlug,
+				paths.PartsPath,
+				partID,
+				paths.LecturesPath,
+				lectureID,
+			),
+		},
+	}
+}
+
+type LectureVideoResponse struct {
+	ID        int32             `json:"id"`
+	WatchTime int32             `json:"watchTime"`
+	Url       string            `json:"url"`
+	Links     LectureVideoLinks `json:"_links"`
+}
+
+func (c *Controllers) NewLectureVideoResponse(
+	video *db.LectureVideo,
+	languageSlug,
+	seriesSlug string,
+	seriesPartID int32,
+) *LectureVideoResponse {
+	return &LectureVideoResponse{
+		ID:        video.ID,
+		WatchTime: video.WatchTimeSeconds,
+		Url:       video.Url,
+		Links: c.newLectureVideoLinks(
+			languageSlug,
+			seriesSlug,
+			seriesPartID,
+			video.LectureID,
 		),
 	}
 }

@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const countLecturesBySeriesPartID = `-- name: CountLecturesBySeriesPartID :one
@@ -22,31 +24,47 @@ func (q *Queries) CountLecturesBySeriesPartID(ctx context.Context, seriesPartID 
 	return count, err
 }
 
+const countPublishedLecturesBySeriesPartID = `-- name: CountPublishedLecturesBySeriesPartID :one
+SELECT COUNT("id") FROM "lectures"
+WHERE "series_part_id" = $1 AND "is_published" = true
+LIMIT 1
+`
+
+func (q *Queries) CountPublishedLecturesBySeriesPartID(ctx context.Context, seriesPartID int32) (int64, error) {
+	row := q.db.QueryRow(ctx, countPublishedLecturesBySeriesPartID, seriesPartID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createLecture = `-- name: CreateLecture :one
 
 INSERT INTO "lectures" (
   "title",
-  "description",
   "author_id",
   "series_part_id",
+  "language_slug",
+  "series_slug",
   "position"
 ) VALUES (
   $1,
   $2,
   $3,
   $4,
+  $5,
   (
     SELECT COUNT("id") + 1 FROM "lectures"
-    WHERE "series_part_id" = $4
+    WHERE "series_part_id" = $3
   )
-) RETURNING id, title, position, description, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, series_part_id, created_at, updated_at
+) RETURNING id, title, position, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at
 `
 
 type CreateLectureParams struct {
 	Title        string
-	Description  string
 	AuthorID     int32
 	SeriesPartID int32
+	LanguageSlug string
+	SeriesSlug   string
 }
 
 // Copyright (C) 2024 Afonso Barracha
@@ -68,21 +86,23 @@ type CreateLectureParams struct {
 func (q *Queries) CreateLecture(ctx context.Context, arg CreateLectureParams) (Lecture, error) {
 	row := q.db.QueryRow(ctx, createLecture,
 		arg.Title,
-		arg.Description,
 		arg.AuthorID,
 		arg.SeriesPartID,
+		arg.LanguageSlug,
+		arg.SeriesSlug,
 	)
 	var i Lecture
 	err := row.Scan(
 		&i.ID,
 		&i.Title,
 		&i.Position,
-		&i.Description,
 		&i.IsPublished,
 		&i.CommentsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.AuthorID,
+		&i.LanguageSlug,
+		&i.SeriesSlug,
 		&i.SeriesPartID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -131,32 +151,42 @@ func (q *Queries) DeleteLectureByID(ctx context.Context, id int32) error {
 	return err
 }
 
-const findLectureByIDs = `-- name: FindLectureByIDs :one
-SELECT id, title, position, description, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, series_part_id, created_at, updated_at FROM "lectures"
+const findLectureBySlugsAndIDs = `-- name: FindLectureBySlugsAndIDs :one
+SELECT id, title, position, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at FROM "lectures"
 WHERE
-  "series_part_id" = $1 AND
-  "id" = $2
+  "language_slug" = $1 AND
+  "series_slug" = $2 AND
+  "series_part_id" = $3 AND
+  "id" = $4
 LIMIT 1
 `
 
-type FindLectureByIDsParams struct {
+type FindLectureBySlugsAndIDsParams struct {
+	LanguageSlug string
+	SeriesSlug   string
 	SeriesPartID int32
 	ID           int32
 }
 
-func (q *Queries) FindLectureByIDs(ctx context.Context, arg FindLectureByIDsParams) (Lecture, error) {
-	row := q.db.QueryRow(ctx, findLectureByIDs, arg.SeriesPartID, arg.ID)
+func (q *Queries) FindLectureBySlugsAndIDs(ctx context.Context, arg FindLectureBySlugsAndIDsParams) (Lecture, error) {
+	row := q.db.QueryRow(ctx, findLectureBySlugsAndIDs,
+		arg.LanguageSlug,
+		arg.SeriesSlug,
+		arg.SeriesPartID,
+		arg.ID,
+	)
 	var i Lecture
 	err := row.Scan(
 		&i.ID,
 		&i.Title,
 		&i.Position,
-		&i.Description,
 		&i.IsPublished,
 		&i.CommentsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.AuthorID,
+		&i.LanguageSlug,
+		&i.SeriesSlug,
 		&i.SeriesPartID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -164,8 +194,83 @@ func (q *Queries) FindLectureByIDs(ctx context.Context, arg FindLectureByIDsPara
 	return i, err
 }
 
+const findLectureBySlugsAndIDsWithArticleAndVideo = `-- name: FindLectureBySlugsAndIDsWithArticleAndVideo :one
+SELECT 
+  lectures.id, lectures.title, lectures.position, lectures.is_published, lectures.comments_count, lectures.watch_time_seconds, lectures.read_time_seconds, lectures.author_id, lectures.language_slug, lectures.series_slug, lectures.series_part_id, lectures.created_at, lectures.updated_at,
+  "lecture_articles"."id" AS "article_id",
+  "lecture_articles"."content" AS "article_content",
+  "lecture_videos"."id" AS "video_id",
+  "lecture_videos"."url" AS "video_url"
+FROM "lectures"
+LEFT JOIN "lecture_articles" ON "lecture_articles"."lecture_id" = "lectures"."id"
+LEFT JOIN "lecture_videos" ON "lecture_videos"."lecture_id" = "lectures"."id"
+WHERE
+  "lectures"."language_slug" = $1 AND
+  "lectures"."series_slug" = $2 AND
+  "lectures"."series_part_id" = $3 AND
+  "lectures"."id" = $4
+LIMIT 1
+`
+
+type FindLectureBySlugsAndIDsWithArticleAndVideoParams struct {
+	LanguageSlug string
+	SeriesSlug   string
+	SeriesPartID int32
+	ID           int32
+}
+
+type FindLectureBySlugsAndIDsWithArticleAndVideoRow struct {
+	ID               int32
+	Title            string
+	Position         int16
+	IsPublished      bool
+	CommentsCount    int32
+	WatchTimeSeconds int32
+	ReadTimeSeconds  int32
+	AuthorID         int32
+	LanguageSlug     string
+	SeriesSlug       string
+	SeriesPartID     int32
+	CreatedAt        pgtype.Timestamp
+	UpdatedAt        pgtype.Timestamp
+	ArticleID        pgtype.Int4
+	ArticleContent   pgtype.Text
+	VideoID          pgtype.Int4
+	VideoUrl         pgtype.Text
+}
+
+func (q *Queries) FindLectureBySlugsAndIDsWithArticleAndVideo(ctx context.Context, arg FindLectureBySlugsAndIDsWithArticleAndVideoParams) (FindLectureBySlugsAndIDsWithArticleAndVideoRow, error) {
+	row := q.db.QueryRow(ctx, findLectureBySlugsAndIDsWithArticleAndVideo,
+		arg.LanguageSlug,
+		arg.SeriesSlug,
+		arg.SeriesPartID,
+		arg.ID,
+	)
+	var i FindLectureBySlugsAndIDsWithArticleAndVideoRow
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Position,
+		&i.IsPublished,
+		&i.CommentsCount,
+		&i.WatchTimeSeconds,
+		&i.ReadTimeSeconds,
+		&i.AuthorID,
+		&i.LanguageSlug,
+		&i.SeriesSlug,
+		&i.SeriesPartID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ArticleID,
+		&i.ArticleContent,
+		&i.VideoID,
+		&i.VideoUrl,
+	)
+	return i, err
+}
+
 const findLecturesBySeriesPartID = `-- name: FindLecturesBySeriesPartID :many
-SELECT id, title, position, description, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, series_part_id, created_at, updated_at FROM "lectures"
+SELECT id, title, position, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at FROM "lectures"
 WHERE "series_part_id" = $1
 ORDER BY "position" ASC
 `
@@ -183,12 +288,13 @@ func (q *Queries) FindLecturesBySeriesPartID(ctx context.Context, seriesPartID i
 			&i.ID,
 			&i.Title,
 			&i.Position,
-			&i.Description,
 			&i.IsPublished,
 			&i.CommentsCount,
 			&i.WatchTimeSeconds,
 			&i.ReadTimeSeconds,
 			&i.AuthorID,
+			&i.LanguageSlug,
+			&i.SeriesSlug,
 			&i.SeriesPartID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -203,41 +309,85 @@ func (q *Queries) FindLecturesBySeriesPartID(ctx context.Context, seriesPartID i
 	return items, nil
 }
 
-const findPaginatedLecturesBySeriesPartID = `-- name: FindPaginatedLecturesBySeriesPartID :many
-SELECT id, title, position, description, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, series_part_id, created_at, updated_at FROM "lectures"
-WHERE "series_part_id" = $1
+const findPaginatedLecturesBySeriesPartIDWithArticleAndVideo = `-- name: FindPaginatedLecturesBySeriesPartIDWithArticleAndVideo :many
+SELECT 
+  lectures.id, lectures.title, lectures.position, lectures.is_published, lectures.comments_count, lectures.watch_time_seconds, lectures.read_time_seconds, lectures.author_id, lectures.language_slug, lectures.series_slug, lectures.series_part_id, lectures.created_at, lectures.updated_at,
+  "lecture_articles"."id" AS "article_id",
+  "lecture_articles"."content" AS "article_content",
+  "lecture_videos"."id" AS "video_id",
+  "lecture_videos"."url" AS "video_url"
+FROM "lectures"
+LEFT JOIN "lecture_articles" ON "lecture_articles"."lecture_id" = "lectures"."id"
+LEFT JOIN "lecture_videos" ON "lecture_videos"."lecture_id" = "lectures"."id"
+WHERE
+  "lectures"."language_slug" = $1 AND
+  "lectures"."series_slug" = $2 AND
+  "lectures"."series_part_id" = $3
 ORDER BY "position" ASC
-LIMIT $2 OFFSET $3
+LIMIT $4 OFFSET $5
 `
 
-type FindPaginatedLecturesBySeriesPartIDParams struct {
+type FindPaginatedLecturesBySeriesPartIDWithArticleAndVideoParams struct {
+	LanguageSlug string
+	SeriesSlug   string
 	SeriesPartID int32
 	Limit        int32
 	Offset       int32
 }
 
-func (q *Queries) FindPaginatedLecturesBySeriesPartID(ctx context.Context, arg FindPaginatedLecturesBySeriesPartIDParams) ([]Lecture, error) {
-	rows, err := q.db.Query(ctx, findPaginatedLecturesBySeriesPartID, arg.SeriesPartID, arg.Limit, arg.Offset)
+type FindPaginatedLecturesBySeriesPartIDWithArticleAndVideoRow struct {
+	ID               int32
+	Title            string
+	Position         int16
+	IsPublished      bool
+	CommentsCount    int32
+	WatchTimeSeconds int32
+	ReadTimeSeconds  int32
+	AuthorID         int32
+	LanguageSlug     string
+	SeriesSlug       string
+	SeriesPartID     int32
+	CreatedAt        pgtype.Timestamp
+	UpdatedAt        pgtype.Timestamp
+	ArticleID        pgtype.Int4
+	ArticleContent   pgtype.Text
+	VideoID          pgtype.Int4
+	VideoUrl         pgtype.Text
+}
+
+func (q *Queries) FindPaginatedLecturesBySeriesPartIDWithArticleAndVideo(ctx context.Context, arg FindPaginatedLecturesBySeriesPartIDWithArticleAndVideoParams) ([]FindPaginatedLecturesBySeriesPartIDWithArticleAndVideoRow, error) {
+	rows, err := q.db.Query(ctx, findPaginatedLecturesBySeriesPartIDWithArticleAndVideo,
+		arg.LanguageSlug,
+		arg.SeriesSlug,
+		arg.SeriesPartID,
+		arg.Limit,
+		arg.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []Lecture{}
+	items := []FindPaginatedLecturesBySeriesPartIDWithArticleAndVideoRow{}
 	for rows.Next() {
-		var i Lecture
+		var i FindPaginatedLecturesBySeriesPartIDWithArticleAndVideoRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,
 			&i.Position,
-			&i.Description,
 			&i.IsPublished,
 			&i.CommentsCount,
 			&i.WatchTimeSeconds,
 			&i.ReadTimeSeconds,
 			&i.AuthorID,
+			&i.LanguageSlug,
+			&i.SeriesSlug,
 			&i.SeriesPartID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ArticleID,
+			&i.ArticleContent,
+			&i.VideoID,
+			&i.VideoUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -249,38 +399,95 @@ func (q *Queries) FindPaginatedLecturesBySeriesPartID(ctx context.Context, arg F
 	return items, nil
 }
 
-const findPublishedLectureByIDs = `-- name: FindPublishedLectureByIDs :one
-SELECT id, title, position, description, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, series_part_id, created_at, updated_at FROM "lectures"
-WHERE 
-  "is_published" = true AND 
-  "series_part_id" = $1 AND
-  "id" = $2
-LIMIT 1
+const findPaginatedPublishedLecturesBySeriesPartIDWithArticleAndVideo = `-- name: FindPaginatedPublishedLecturesBySeriesPartIDWithArticleAndVideo :many
+SELECT 
+  lectures.id, lectures.title, lectures.position, lectures.is_published, lectures.comments_count, lectures.watch_time_seconds, lectures.read_time_seconds, lectures.author_id, lectures.language_slug, lectures.series_slug, lectures.series_part_id, lectures.created_at, lectures.updated_at,
+  "lecture_articles"."id" AS "article_id",
+  "lecture_articles"."content" AS "article_content",
+  "lecture_videos"."id" AS "video_id",
+  "lecture_videos"."url" AS "video_url"
+FROM "lectures"
+LEFT JOIN "lecture_articles" ON "lecture_articles"."lecture_id" = "lectures"."id"
+LEFT JOIN "lecture_videos" ON "lecture_videos"."lecture_id" = "lectures"."id"
+WHERE
+  "lectures"."language_slug" = $1 AND
+  "lectures"."series_slug" = $2 AND
+  "lectures"."series_part_id" = $3 AND
+  "lectures"."is_published" = true
+ORDER BY "position" ASC
+LIMIT $4 OFFSET $5
 `
 
-type FindPublishedLectureByIDsParams struct {
+type FindPaginatedPublishedLecturesBySeriesPartIDWithArticleAndVideoParams struct {
+	LanguageSlug string
+	SeriesSlug   string
 	SeriesPartID int32
-	ID           int32
+	Limit        int32
+	Offset       int32
 }
 
-func (q *Queries) FindPublishedLectureByIDs(ctx context.Context, arg FindPublishedLectureByIDsParams) (Lecture, error) {
-	row := q.db.QueryRow(ctx, findPublishedLectureByIDs, arg.SeriesPartID, arg.ID)
-	var i Lecture
-	err := row.Scan(
-		&i.ID,
-		&i.Title,
-		&i.Position,
-		&i.Description,
-		&i.IsPublished,
-		&i.CommentsCount,
-		&i.WatchTimeSeconds,
-		&i.ReadTimeSeconds,
-		&i.AuthorID,
-		&i.SeriesPartID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+type FindPaginatedPublishedLecturesBySeriesPartIDWithArticleAndVideoRow struct {
+	ID               int32
+	Title            string
+	Position         int16
+	IsPublished      bool
+	CommentsCount    int32
+	WatchTimeSeconds int32
+	ReadTimeSeconds  int32
+	AuthorID         int32
+	LanguageSlug     string
+	SeriesSlug       string
+	SeriesPartID     int32
+	CreatedAt        pgtype.Timestamp
+	UpdatedAt        pgtype.Timestamp
+	ArticleID        pgtype.Int4
+	ArticleContent   pgtype.Text
+	VideoID          pgtype.Int4
+	VideoUrl         pgtype.Text
+}
+
+func (q *Queries) FindPaginatedPublishedLecturesBySeriesPartIDWithArticleAndVideo(ctx context.Context, arg FindPaginatedPublishedLecturesBySeriesPartIDWithArticleAndVideoParams) ([]FindPaginatedPublishedLecturesBySeriesPartIDWithArticleAndVideoRow, error) {
+	rows, err := q.db.Query(ctx, findPaginatedPublishedLecturesBySeriesPartIDWithArticleAndVideo,
+		arg.LanguageSlug,
+		arg.SeriesSlug,
+		arg.SeriesPartID,
+		arg.Limit,
+		arg.Offset,
 	)
-	return i, err
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FindPaginatedPublishedLecturesBySeriesPartIDWithArticleAndVideoRow{}
+	for rows.Next() {
+		var i FindPaginatedPublishedLecturesBySeriesPartIDWithArticleAndVideoRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Position,
+			&i.IsPublished,
+			&i.CommentsCount,
+			&i.WatchTimeSeconds,
+			&i.ReadTimeSeconds,
+			&i.AuthorID,
+			&i.LanguageSlug,
+			&i.SeriesSlug,
+			&i.SeriesPartID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ArticleID,
+			&i.ArticleContent,
+			&i.VideoID,
+			&i.VideoUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const incrementLectureCommentsCount = `-- name: IncrementLectureCommentsCount :exec
@@ -316,31 +523,30 @@ func (q *Queries) IncrementLecturePosition(ctx context.Context, arg IncrementLec
 
 const updateLecture = `-- name: UpdateLecture :one
 UPDATE "lectures" SET
-  "title" = $1,
-  "description" = $2
-WHERE "id" = $3
-RETURNING id, title, position, description, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, series_part_id, created_at, updated_at
+  "title" = $1
+WHERE "id" = $2
+RETURNING id, title, position, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at
 `
 
 type UpdateLectureParams struct {
-	Title       string
-	Description string
-	ID          int32
+	Title string
+	ID    int32
 }
 
 func (q *Queries) UpdateLecture(ctx context.Context, arg UpdateLectureParams) (Lecture, error) {
-	row := q.db.QueryRow(ctx, updateLecture, arg.Title, arg.Description, arg.ID)
+	row := q.db.QueryRow(ctx, updateLecture, arg.Title, arg.ID)
 	var i Lecture
 	err := row.Scan(
 		&i.ID,
 		&i.Title,
 		&i.Position,
-		&i.Description,
 		&i.IsPublished,
 		&i.CommentsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.AuthorID,
+		&i.LanguageSlug,
+		&i.SeriesSlug,
 		&i.SeriesPartID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -352,7 +558,7 @@ const updateLectureIsPublished = `-- name: UpdateLectureIsPublished :one
 UPDATE "lectures" SET
   "is_published" = $1
 WHERE "id" = $2
-RETURNING id, title, position, description, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, series_part_id, created_at, updated_at
+RETURNING id, title, position, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at
 `
 
 type UpdateLectureIsPublishedParams struct {
@@ -367,12 +573,13 @@ func (q *Queries) UpdateLectureIsPublished(ctx context.Context, arg UpdateLectur
 		&i.ID,
 		&i.Title,
 		&i.Position,
-		&i.Description,
 		&i.IsPublished,
 		&i.CommentsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.AuthorID,
+		&i.LanguageSlug,
+		&i.SeriesSlug,
 		&i.SeriesPartID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -384,7 +591,7 @@ const updateLecturePosition = `-- name: UpdateLecturePosition :one
 UPDATE "lectures" SET
   "position" = $1
 WHERE "id" = $2
-RETURNING id, title, position, description, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, series_part_id, created_at, updated_at
+RETURNING id, title, position, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at
 `
 
 type UpdateLecturePositionParams struct {
@@ -399,12 +606,13 @@ func (q *Queries) UpdateLecturePosition(ctx context.Context, arg UpdateLecturePo
 		&i.ID,
 		&i.Title,
 		&i.Position,
-		&i.Description,
 		&i.IsPublished,
 		&i.CommentsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.AuthorID,
+		&i.LanguageSlug,
+		&i.SeriesSlug,
 		&i.SeriesPartID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -412,40 +620,66 @@ func (q *Queries) UpdateLecturePosition(ctx context.Context, arg UpdateLecturePo
 	return i, err
 }
 
+const updateLectureReadTimeSeconds = `-- name: UpdateLectureReadTimeSeconds :exec
+UPDATE "lectures" SET
+  "read_time_seconds" = $1
+WHERE "id" = $2
+`
+
+type UpdateLectureReadTimeSecondsParams struct {
+	ReadTimeSeconds int32
+	ID              int32
+}
+
+func (q *Queries) UpdateLectureReadTimeSeconds(ctx context.Context, arg UpdateLectureReadTimeSecondsParams) error {
+	_, err := q.db.Exec(ctx, updateLectureReadTimeSeconds, arg.ReadTimeSeconds, arg.ID)
+	return err
+}
+
+const updateLectureWatchTimeSeconds = `-- name: UpdateLectureWatchTimeSeconds :exec
+UPDATE "lectures" SET
+  "watch_time_seconds" = $1
+WHERE "id" = $2
+`
+
+type UpdateLectureWatchTimeSecondsParams struct {
+	WatchTimeSeconds int32
+	ID               int32
+}
+
+func (q *Queries) UpdateLectureWatchTimeSeconds(ctx context.Context, arg UpdateLectureWatchTimeSecondsParams) error {
+	_, err := q.db.Exec(ctx, updateLectureWatchTimeSeconds, arg.WatchTimeSeconds, arg.ID)
+	return err
+}
+
 const updateLectureWithPosition = `-- name: UpdateLectureWithPosition :one
 UPDATE "lectures" SET
   "title" = $1,
-  "description" = $2,
-  "position" = $3
-WHERE "id" = $4
-RETURNING id, title, position, description, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, series_part_id, created_at, updated_at
+  "position" = $2
+WHERE "id" = $3
+RETURNING id, title, position, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at
 `
 
 type UpdateLectureWithPositionParams struct {
-	Title       string
-	Description string
-	Position    int16
-	ID          int32
+	Title    string
+	Position int16
+	ID       int32
 }
 
 func (q *Queries) UpdateLectureWithPosition(ctx context.Context, arg UpdateLectureWithPositionParams) (Lecture, error) {
-	row := q.db.QueryRow(ctx, updateLectureWithPosition,
-		arg.Title,
-		arg.Description,
-		arg.Position,
-		arg.ID,
-	)
+	row := q.db.QueryRow(ctx, updateLectureWithPosition, arg.Title, arg.Position, arg.ID)
 	var i Lecture
 	err := row.Scan(
 		&i.ID,
 		&i.Title,
 		&i.Position,
-		&i.Description,
 		&i.IsPublished,
 		&i.CommentsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.AuthorID,
+		&i.LanguageSlug,
+		&i.SeriesSlug,
 		&i.SeriesPartID,
 		&i.CreatedAt,
 		&i.UpdatedAt,

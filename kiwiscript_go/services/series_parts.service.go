@@ -48,10 +48,11 @@ func (s *Services) CreateSeriesPart(ctx context.Context, opts CreateSeriesPartOp
 	}
 
 	seriesPart, err := s.database.CreateSeriesPart(ctx, db.CreateSeriesPartParams{
-		SeriesID:    series.ID,
-		Title:       opts.Title,
-		Description: opts.Description,
-		AuthorID:    opts.UserID,
+		LanguageSlug: opts.LanguageSlug,
+		SeriesSlug:   series.Slug,
+		Title:        opts.Title,
+		Description:  opts.Description,
+		AuthorID:     opts.UserID,
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to create series part", "error", err)
@@ -60,31 +61,6 @@ func (s *Services) CreateSeriesPart(ctx context.Context, opts CreateSeriesPartOp
 
 	log.InfoContext(ctx, "Series part created", "id", seriesPart.ID)
 	return &seriesPart, nil
-}
-
-type FindSeriesPartByIDsOptions struct {
-	SeriesID     int32
-	SeriesPartID int32
-}
-
-func (s *Services) FindSeriesPartByIDs(ctx context.Context, opts FindSeriesPartByIDsOptions) (db.SeriesPart, *ServiceError) {
-	log := s.
-		log.
-		WithGroup("services.series_parts.FindSeriesPart").
-		With("series_id", opts.SeriesID, "series_part_id", opts.SeriesPartID)
-	log.InfoContext(ctx, "Finding series part...")
-
-	seriesPart, err := s.database.FindSeriesPartBySeriesIDAndID(ctx, db.FindSeriesPartBySeriesIDAndIDParams{
-		SeriesID: opts.SeriesID,
-		ID:       opts.SeriesPartID,
-	})
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to find series part", "error", err)
-		return seriesPart, FromDBError(err)
-	}
-
-	log.InfoContext(ctx, "Series part found", "id", seriesPart.ID)
-	return seriesPart, nil
 }
 
 type SeriesPartLecture struct {
@@ -96,26 +72,28 @@ type SeriesPartLecture struct {
 }
 
 type SeriesPartDto struct {
-	ID                   int32
-	Title                string
-	Description          string
-	Position             int16
-	LecturesCount        int16
-	TotalDurationSeconds int32
-	IsPublished          bool
-	Lectures             []SeriesPartLecture
+	ID               int32
+	Title            string
+	Description      string
+	Position         int16
+	LecturesCount    int16
+	ReadTimeSeconds  int32
+	WatchTimeSeconds int32
+	IsPublished      bool
+	Lectures         []SeriesPartLecture
 }
 
-func mapSingleSeriesPartToDto(parts []db.FindPublishedSeriesPartBySeriesIDAndIDWithLecturesRow) *SeriesPartDto {
+func mapSingleSeriesPartToDto(parts []db.FindPublishedSeriesPartByLanguageSlugSeriesSlugAndIDWithLecturesRow) *SeriesPartDto {
 	dto := SeriesPartDto{
-		ID:                   parts[0].ID,
-		Title:                parts[0].Title,
-		Description:          parts[0].Description,
-		Position:             parts[0].Position,
-		LecturesCount:        parts[0].LecturesCount,
-		TotalDurationSeconds: parts[0].TotalDurationSeconds,
-		IsPublished:          parts[0].IsPublished,
-		Lectures:             make([]SeriesPartLecture, len(parts)),
+		ID:               parts[0].ID,
+		Title:            parts[0].Title,
+		Description:      parts[0].Description,
+		Position:         parts[0].Position,
+		LecturesCount:    parts[0].LecturesCount,
+		ReadTimeSeconds:  parts[0].ReadTimeSeconds,
+		WatchTimeSeconds: parts[0].WatchTimeSeconds,
+		IsPublished:      parts[0].IsPublished,
+		Lectures:         make([]SeriesPartLecture, len(parts)),
 	}
 
 	for i, part := range parts {
@@ -145,39 +123,32 @@ func (s *Services) FindSeriesPartBySlugAndID(ctx context.Context, opts FindSerie
 		With("series_slug", opts.SeriesSlug, "series_part_id", opts.SeriesPartID)
 	log.InfoContext(ctx, "Finding series part...")
 
-	series, serviceErr := s.FindSeriesBySlugs(ctx, FindSeriesBySlugsOptions{
-		LanguageSlug: opts.LanguageSlug,
-		SeriesSlug:   opts.SeriesSlug,
-	})
-	if serviceErr != nil {
-		log.WarnContext(ctx, "Series not found", "error", serviceErr)
-		return nil, serviceErr
-	}
-
-	var parts []db.FindPublishedSeriesPartBySeriesIDAndIDWithLecturesRow
+	var parts []db.FindPublishedSeriesPartByLanguageSlugSeriesSlugAndIDWithLecturesRow
 	if opts.IsPublished {
 		var err error
-		parts, err = s.database.FindPublishedSeriesPartBySeriesIDAndIDWithLectures(ctx, db.FindPublishedSeriesPartBySeriesIDAndIDWithLecturesParams{
-			SeriesID: series.ID,
-			ID:       opts.SeriesPartID,
+		parts, err = s.database.FindPublishedSeriesPartByLanguageSlugSeriesSlugAndIDWithLectures(ctx, db.FindPublishedSeriesPartByLanguageSlugSeriesSlugAndIDWithLecturesParams{
+			LanguageSlug: opts.LanguageSlug,
+			SeriesSlug:   opts.SeriesSlug,
+			ID:           opts.SeriesPartID,
 		})
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to find published series part", "error", err)
 			return nil, FromDBError(err)
 		}
 	} else {
-		notPublishedParts, err := s.database.FindSeriesPartBySeriesIDAndIDWithLectures(ctx, db.FindSeriesPartBySeriesIDAndIDWithLecturesParams{
-			SeriesID: series.ID,
-			ID:       opts.SeriesPartID,
+		notPublishedParts, err := s.database.FindSeriesPartByLanguageSlugSeriesSlugAndIDWithLectures(ctx, db.FindSeriesPartByLanguageSlugSeriesSlugAndIDWithLecturesParams{
+			LanguageSlug: opts.LanguageSlug,
+			SeriesSlug:   opts.SeriesSlug,
+			ID:           opts.SeriesPartID,
 		})
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to find series part", "error", err)
 			return nil, FromDBError(err)
 		}
 
-		parts = make([]db.FindPublishedSeriesPartBySeriesIDAndIDWithLecturesRow, len(notPublishedParts))
+		parts = make([]db.FindPublishedSeriesPartByLanguageSlugSeriesSlugAndIDWithLecturesRow, len(notPublishedParts))
 		for i, part := range notPublishedParts {
-			parts[i] = db.FindPublishedSeriesPartBySeriesIDAndIDWithLecturesRow(part)
+			parts[i] = db.FindPublishedSeriesPartByLanguageSlugSeriesSlugAndIDWithLecturesRow(part)
 		}
 	}
 
@@ -195,7 +166,7 @@ type seriesPartMapper struct {
 	idx int
 }
 
-func mapSeriesPartsToDtos(rows []db.FindPublishedPaginatedSeriesPartsBySeriesIdWithLecturesRow) []SeriesPartDto {
+func mapSeriesPartsToDtos(rows []db.FindPaginatedPublishedSeriesPartsByLanguageSlugAndSeriesSlugWithLecturesRow) []SeriesPartDto {
 	rowMapper := make(map[int32]seriesPartMapper)
 	for i, row := range rows {
 		var dto SeriesPartDto
@@ -205,14 +176,15 @@ func mapSeriesPartsToDtos(rows []db.FindPublishedPaginatedSeriesPartsBySeriesIdW
 			idx = m.idx
 		} else {
 			dto = SeriesPartDto{
-				ID:                   row.ID,
-				Title:                row.Title,
-				Description:          row.Description,
-				Position:             row.Position,
-				LecturesCount:        row.LecturesCount,
-				TotalDurationSeconds: row.TotalDurationSeconds,
-				IsPublished:          row.IsPublished,
-				Lectures:             make([]SeriesPartLecture, 0),
+				ID:               row.ID,
+				Title:            row.Title,
+				Description:      row.Description,
+				Position:         row.Position,
+				LecturesCount:    row.LecturesCount,
+				ReadTimeSeconds:  row.ReadTimeSeconds,
+				WatchTimeSeconds: row.WatchTimeSeconds,
+				IsPublished:      row.IsPublished,
+				Lectures:         make([]SeriesPartLecture, 0),
 			}
 		}
 
@@ -257,24 +229,16 @@ func (s *Services) FindPaginatedSeriesPartsBySlugsAndID(ctx context.Context, opt
 		With("seriesSlug", opts.SeriesSlug)
 	log.InfoContext(ctx, "Finding series parts...")
 
-	series, serviceErr := s.FindSeriesBySlugs(ctx, FindSeriesBySlugsOptions{
-		LanguageSlug: opts.LanguageSlug,
+	params := db.FindPaginatedPublishedSeriesPartsByLanguageSlugAndSeriesSlugWithLecturesParams{
 		SeriesSlug:   opts.SeriesSlug,
-	})
-	if serviceErr != nil {
-		log.WarnContext(ctx, "Series not found", "error", serviceErr)
-		return nil, 0, serviceErr
+		LanguageSlug: opts.LanguageSlug,
+		Limit:        opts.Limit,
+		Offset:       opts.Offset,
 	}
-
-	params := db.FindPublishedPaginatedSeriesPartsBySeriesIdWithLecturesParams{
-		SeriesID: series.ID,
-		Limit:    opts.Limit,
-		Offset:   opts.Offset,
-	}
-	var parts []db.FindPublishedPaginatedSeriesPartsBySeriesIdWithLecturesRow
+	var parts []db.FindPaginatedPublishedSeriesPartsByLanguageSlugAndSeriesSlugWithLecturesRow
 	if opts.IsPublished {
 		var err error
-		parts, err = s.database.FindPublishedPaginatedSeriesPartsBySeriesIdWithLectures(
+		parts, err = s.database.FindPaginatedPublishedSeriesPartsByLanguageSlugAndSeriesSlugWithLectures(
 			ctx,
 			params,
 		)
@@ -285,9 +249,9 @@ func (s *Services) FindPaginatedSeriesPartsBySlugsAndID(ctx context.Context, opt
 		}
 	} else {
 		if opts.PublishedLectures {
-			notPublishedParts, err := s.database.FindPaginatedSeriesPartsBySeriesIdWithPublishedLectures(
+			notPublishedParts, err := s.database.FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithPublishedLectures(
 				ctx,
-				db.FindPaginatedSeriesPartsBySeriesIdWithPublishedLecturesParams(params),
+				db.FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithPublishedLecturesParams(params),
 			)
 
 			if err != nil {
@@ -295,14 +259,14 @@ func (s *Services) FindPaginatedSeriesPartsBySlugsAndID(ctx context.Context, opt
 				return nil, 0, FromDBError(err)
 			}
 
-			parts = make([]db.FindPublishedPaginatedSeriesPartsBySeriesIdWithLecturesRow, len(notPublishedParts))
+			parts = make([]db.FindPaginatedPublishedSeriesPartsByLanguageSlugAndSeriesSlugWithLecturesRow, len(notPublishedParts))
 			for i, part := range notPublishedParts {
-				parts[i] = db.FindPublishedPaginatedSeriesPartsBySeriesIdWithLecturesRow(part)
+				parts[i] = db.FindPaginatedPublishedSeriesPartsByLanguageSlugAndSeriesSlugWithLecturesRow(part)
 			}
 		} else {
-			notPublishedParts, err := s.database.FindPaginatedSeriesPartsBySeriesIdWithLectures(
+			notPublishedParts, err := s.database.FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithLectures(
 				ctx,
-				db.FindPaginatedSeriesPartsBySeriesIdWithLecturesParams(params),
+				db.FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithLecturesParams(params),
 			)
 
 			if err != nil {
@@ -310,14 +274,14 @@ func (s *Services) FindPaginatedSeriesPartsBySlugsAndID(ctx context.Context, opt
 				return nil, 0, FromDBError(err)
 			}
 
-			parts = make([]db.FindPublishedPaginatedSeriesPartsBySeriesIdWithLecturesRow, len(notPublishedParts))
+			parts = make([]db.FindPaginatedPublishedSeriesPartsByLanguageSlugAndSeriesSlugWithLecturesRow, len(notPublishedParts))
 			for i, part := range notPublishedParts {
-				parts[i] = db.FindPublishedPaginatedSeriesPartsBySeriesIdWithLecturesRow(part)
+				parts[i] = db.FindPaginatedPublishedSeriesPartsByLanguageSlugAndSeriesSlugWithLecturesRow(part)
 			}
 		}
 	}
 
-	count, err := s.database.CountSeriesPartsBySeriesId(ctx, series.ID)
+	count, err := s.database.CountSeriesPartsBySeriesSlug(ctx, opts.SeriesSlug)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to count series parts", "error", err)
 		return nil, 0, FromDBError(err)
@@ -334,40 +298,30 @@ type AssertSeriesPartOwnershipOptions struct {
 	SeriesPartID int32
 }
 
-func (s *Services) AssertSeriesPartOwnership(ctx context.Context, opts AssertSeriesPartOwnershipOptions) (db.SeriesPart, *ServiceError) {
+func (s *Services) AssertSeriesPartOwnership(ctx context.Context, opts AssertSeriesPartOwnershipOptions) (*db.SeriesPart, *ServiceError) {
 	log := s.
 		log.
 		WithGroup("services.series_parts.AssertSeriesOwnership").
 		With("series_slug", opts.SeriesSlug, "series_part_id", opts.SeriesPartID)
 	log.InfoContext(ctx, "Asserting series part ownership...")
 
-	log.InfoContext(ctx, "Finding series...")
-	series, serviceErr := s.FindSeriesBySlugs(ctx, FindSeriesBySlugsOptions{
+	seriesPart, err := s.database.FindSeriesPartByLanguageSlugSeriesSlugAndID(ctx, db.FindSeriesPartByLanguageSlugSeriesSlugAndIDParams{
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
+		ID:           opts.SeriesPartID,
 	})
-	var seriesPart db.SeriesPart
-
-	if serviceErr != nil {
-		log.WarnContext(ctx, "Series not found", "error", serviceErr)
-		return seriesPart, serviceErr
+	if err != nil {
+		log.WarnContext(ctx, "Series part not found", "error", err)
+		return nil, FromDBError(err)
 	}
-	if series.AuthorID != opts.UserID {
+
+	if seriesPart.AuthorID != opts.UserID {
 		log.WarnContext(ctx, "User is not the author of the series", "user_id", opts.UserID)
-		return seriesPart, NewForbiddenError()
-	}
-
-	seriesPart, serviceErr = s.FindSeriesPartByIDs(ctx, FindSeriesPartByIDsOptions{
-		SeriesID:     series.ID,
-		SeriesPartID: opts.SeriesPartID,
-	})
-	if serviceErr != nil {
-		log.WarnContext(ctx, "Series part not found", "error", serviceErr)
-		return db.SeriesPart{}, serviceErr
+		return nil, NewForbiddenError()
 	}
 
 	log.InfoContext(ctx, "Series part ownership asserted", "id", seriesPart.ID)
-	return seriesPart, nil
+	return &seriesPart, nil
 }
 
 type UpdateSeriesPartOptions struct {
@@ -413,7 +367,7 @@ func (s *Services) UpdateSeriesPart(ctx context.Context, opts UpdateSeriesPartOp
 		return &seriesPart, nil
 	}
 
-	count, err := s.database.CountSeriesPartsBySeriesId(ctx, seriesPart.SeriesID)
+	count, err := s.database.CountSeriesPartsBySeriesSlug(ctx, opts.SeriesSlug)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to count series parts", "error", err)
 		return nil, FromDBError(err)
@@ -431,7 +385,7 @@ func (s *Services) UpdateSeriesPart(ctx context.Context, opts UpdateSeriesPartOp
 	defer s.database.FinalizeTx(ctx, txn, err)
 
 	oldPosition := seriesPart.Position
-	seriesPart, err = qrs.UpdateSeriesPartWithPosition(ctx, db.UpdateSeriesPartWithPositionParams{
+	*seriesPart, err = qrs.UpdateSeriesPartWithPosition(ctx, db.UpdateSeriesPartWithPositionParams{
 		ID:          seriesPart.ID,
 		Title:       opts.Title,
 		Description: opts.Description,
@@ -444,7 +398,7 @@ func (s *Services) UpdateSeriesPart(ctx context.Context, opts UpdateSeriesPartOp
 
 	if oldPosition < opts.Position {
 		params := db.DecrementSeriesPartPositionParams{
-			SeriesID:   seriesPart.SeriesID,
+			SeriesSlug: opts.SeriesSlug,
 			Position:   oldPosition,
 			Position_2: opts.Position,
 		}
@@ -454,7 +408,7 @@ func (s *Services) UpdateSeriesPart(ctx context.Context, opts UpdateSeriesPartOp
 		}
 	} else {
 		params := db.IncrementSeriesPartPositionParams{
-			SeriesID:   seriesPart.SeriesID,
+			SeriesSlug: opts.SeriesSlug,
 			Position:   oldPosition,
 			Position_2: opts.Position,
 		}
@@ -465,7 +419,7 @@ func (s *Services) UpdateSeriesPart(ctx context.Context, opts UpdateSeriesPartOp
 	}
 
 	log.InfoContext(ctx, "Series part updated", "id", seriesPart.ID)
-	return &seriesPart, nil
+	return seriesPart, nil
 }
 
 type UpdateSeriesPartIsPublishedOptions struct {
@@ -495,7 +449,7 @@ func (s *Services) UpdateSeriesPartIsPublished(ctx context.Context, opts UpdateS
 
 	if seriesPart.IsPublished == opts.IsPublished {
 		log.InfoContext(ctx, "Series part is already published", "is_published", opts.IsPublished)
-		return &seriesPart, nil
+		return seriesPart, nil
 	}
 	if opts.IsPublished && seriesPart.LecturesCount == 0 {
 		log.WarnContext(ctx, "Cannot publish series part without lectures", "lectures_count", seriesPart.LecturesCount)
@@ -509,7 +463,7 @@ func (s *Services) UpdateSeriesPartIsPublished(ctx context.Context, opts UpdateS
 	}
 	defer s.database.FinalizeTx(ctx, txn, err)
 
-	seriesPart, err = qrs.UpdateSeriesPartIsPublished(ctx, db.UpdateSeriesPartIsPublishedParams{
+	*seriesPart, err = qrs.UpdateSeriesPartIsPublished(ctx, db.UpdateSeriesPartIsPublishedParams{
 		ID:          seriesPart.ID,
 		IsPublished: opts.IsPublished,
 	})
@@ -519,8 +473,10 @@ func (s *Services) UpdateSeriesPartIsPublished(ctx context.Context, opts UpdateS
 	}
 	if opts.IsPublished {
 		params := db.AddSeriesPartsCountParams{
-			ID:            seriesPart.SeriesID,
-			LecturesCount: seriesPart.LecturesCount,
+			Slug:             opts.SeriesSlug,
+			LecturesCount:    seriesPart.LecturesCount,
+			ReadTimeSeconds:  seriesPart.ReadTimeSeconds,
+			WatchTimeSeconds: seriesPart.WatchTimeSeconds,
 		}
 		if err := qrs.AddSeriesPartsCount(ctx, params); err != nil {
 			log.ErrorContext(ctx, "Failed to add series parts count", "error", err)
@@ -529,8 +485,10 @@ func (s *Services) UpdateSeriesPartIsPublished(ctx context.Context, opts UpdateS
 	} else {
 		// TODO: add constraints
 		params := db.DecrementSeriesPartsCountParams{
-			ID:            seriesPart.SeriesID,
-			LecturesCount: seriesPart.LecturesCount,
+			Slug:             opts.SeriesSlug,
+			LecturesCount:    seriesPart.LecturesCount,
+			ReadTimeSeconds:  seriesPart.ReadTimeSeconds,
+			WatchTimeSeconds: seriesPart.WatchTimeSeconds,
 		}
 		if err := qrs.DecrementSeriesPartsCount(ctx, params); err != nil {
 			log.ErrorContext(ctx, "Failed to decrement series parts count", "error", err)
@@ -539,7 +497,7 @@ func (s *Services) UpdateSeriesPartIsPublished(ctx context.Context, opts UpdateS
 	}
 
 	log.InfoContext(ctx, "Series part is published updated", "id", seriesPart.ID)
-	return &seriesPart, nil
+	return seriesPart, nil
 }
 
 type DeleteSeriesPartOptions struct {
@@ -573,13 +531,24 @@ func (s *Services) DeleteSeriesPart(ctx context.Context, opts DeleteSeriesPartOp
 		return FromDBError(err)
 	}
 
-	params := db.DecrementSeriesPartPositionParams{
-		SeriesID:   seriesPart.SeriesID,
+	posParams := db.DecrementSeriesPartPositionParams{
+		SeriesSlug: opts.SeriesSlug,
 		Position:   seriesPart.Position,
 		Position_2: 1,
 	}
-	if err := qrs.DecrementSeriesPartPosition(ctx, params); err != nil {
+	if err := qrs.DecrementSeriesPartPosition(ctx, posParams); err != nil {
 		log.ErrorContext(ctx, "Failed to decrement series part position", "error", err)
+		return FromDBError(err)
+	}
+
+	countParams := db.DecrementSeriesPartsCountParams{
+		Slug:             opts.SeriesSlug,
+		LecturesCount:    seriesPart.LecturesCount,
+		ReadTimeSeconds:  seriesPart.ReadTimeSeconds,
+		WatchTimeSeconds: seriesPart.WatchTimeSeconds,
+	}
+	if err := qrs.DecrementSeriesPartsCount(ctx, countParams); err != nil {
+		log.ErrorContext(ctx, "Failed to decrement series parts count", "error", err)
 		return FromDBError(err)
 	}
 

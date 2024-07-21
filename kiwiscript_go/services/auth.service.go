@@ -1,17 +1,17 @@
 // Copyright (C) 2024 Afonso Barracha
-// 
+//
 // This file is part of KiwiScript.
-// 
+//
 // KiwiScript is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // KiwiScript is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
@@ -289,7 +289,7 @@ func (s *Services) Refresh(ctx context.Context, token string) (AuthResponse, *Se
 		return authResponse, NewUnauthorizedError()
 	}
 
-	isBl, err := s.cache.IsBlackListed(ctx, id)
+	isBl, err := s.cache.IsBlackListed(id)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to check black list", "error", err)
 		return authResponse, NewServerError("Failed to check black list")
@@ -398,20 +398,7 @@ func (s *Services) UpdatePassword(ctx context.Context, options UpdatePasswordOpt
 		return authResponse, FromDBError(err)
 	}
 
-	defer func() {
-		if p := recover(); p != nil {
-			txn.Rollback(ctx)
-			panic(p)
-		}
-		if err != nil || serviceErr != nil {
-			txn.Rollback(ctx)
-			return
-		}
-		if commitErr := txn.Commit(ctx); commitErr != nil {
-			panic(commitErr)
-		}
-	}()
-
+	defer s.database.FinalizeTx(ctx, txn, err)
 	err = qrs.CreateAuthProvider(ctx, db.CreateAuthProviderParams{
 		Email:    user.Email,
 		Provider: utils.ProviderEmail,
@@ -588,19 +575,7 @@ func (s *Services) UpdateEmail(ctx context.Context, options UpdateEmailOptions) 
 		return authResponse, FromDBError(err)
 	}
 
-	defer func() {
-		if p := recover(); p != nil {
-			txn.Rollback(ctx)
-			panic(p)
-		}
-		if err != nil || serviceErr != nil {
-			txn.Rollback(ctx)
-			return
-		}
-		if commitErr := txn.Commit(ctx); commitErr != nil {
-			panic(commitErr)
-		}
-	}()
+	defer s.database.FinalizeTx(ctx, txn, err)
 
 	user, err = qrs.UpdateUserEmail(ctx, db.UpdateUserEmailParams{
 		ID:    user.ID,

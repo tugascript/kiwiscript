@@ -19,8 +19,30 @@ package routers
 
 import "github.com/kiwiscript/kiwiscript_go/paths"
 
-func (r *Router) HealthRoutes() {
-	health := r.router.Group(paths.HealthPath)
+const lectureVideoPath = paths.LanguagePathV1 +
+	"/:languageSlug" +
+	paths.SeriesPath +
+	"/:seriesSlug" +
+	paths.PartsPath +
+	"/:seriesPartID" +
+	paths.LecturesPath +
+	"/:lectureID" +
+	paths.VideoPath
 
-	health.Get("/", r.controllers.HealthCheck)
+func (r *Router) LectureVideoPublicRoutes() {
+	lectureVideo := r.router.Group(lectureVideoPath)
+
+	lectureVideo.Get("/", r.controllers.GetLectureVideo)
+}
+
+func (r *Router) LectureVideoPrivateRoutes() {
+	lectureVideo := r.router.Group(
+		lectureVideoPath,
+		r.controllers.AccessClaimsMiddleware,
+		r.controllers.StaffUserMiddleware,
+	)
+
+	lectureVideo.Post("/", r.controllers.CreateLectureVideo)
+	lectureVideo.Put("/", r.controllers.UpdateLectureVideo)
+	lectureVideo.Delete("/", r.controllers.DeleteLectureVideo)
 }

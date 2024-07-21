@@ -83,9 +83,9 @@ func main() {
 	})
 	log.Info("Finished building s3 client")
 
-	// Build the app
-	log.Info("Building the app...")
-	app := app.CreateApp(
+	// Build the fiberApp
+	log.Info("Building the fiberApp...")
+	fiberApp := app.CreateApp(
 		log,
 		storage,
 		dbConnPool,
@@ -99,10 +99,10 @@ func main() {
 		cfg.RefreshCookieName,
 		cfg.CookieSecret,
 	)
-	log.Info("Finished building the app")
+	log.Info("Finished building the fiberApp")
 
-	// Start the app
-	log.Info("Starting the app...")
-	err = app.Listen(":" + cfg.Port)
-	log.ErrorContext(ctx, "Failed to start the app", "error", err)
+	// Start the fiberApp
+	log.Info("Starting the fiberApp...")
+	err = fiberApp.Listen(":" + cfg.Port)
+	log.ErrorContext(ctx, "Failed to start the fiberApp", "error", err)
 }

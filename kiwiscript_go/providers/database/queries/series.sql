@@ -20,7 +20,7 @@ INSERT INTO "series" (
   "title",
   "slug",
   "description",
-  "language_id",
+  "language_slug",
   "author_id"
 ) VALUES (
   $1,
@@ -34,62 +34,90 @@ INSERT INTO "series" (
 UPDATE "series" SET
   "title" = $1,
   "slug" = $2,
-  "description" = $3
+  "description" = $3,
+  "updated_at" = now()
 WHERE "id" = $4
 RETURNING *;
 
 -- name: UpdateSeriesIsPublished :one
 UPDATE "series" SET
-  "is_published" = $1
+  "is_published" = $1,
+  "updated_at" = now()
 WHERE "id" = $2
 RETURNING *;
 
 -- name: UpdateSeriesReviewAvg :exec
 UPDATE "series" SET
-  "review_avg" = $1
+  "review_avg" = $1,
+  "updated_at" = now()
 WHERE "id" = $2;
 
 -- name: IncrementSeriesReviewCount :exec
 UPDATE "series" SET
-  "review_count" = "review_count" + 1
+  "review_count" = "review_count" + 1,
+  "updated_at" = now()
 WHERE "id" = $1;
 
 -- name: AddSeriesPartsCount :exec
 UPDATE "series" SET
   "series_parts_count" = "series_parts_count" + 1,
-  "lectures_count" = "lectures_count" + $2
-WHERE "id" = $1;
+  "lectures_count" = "lectures_count" + $2,
+  "watch_time_seconds" = "watch_time_seconds" + $3,
+  "read_time_seconds" = "read_time_seconds" + $4,
+  "updated_at" = now()
+WHERE "slug" = $1;
 
 -- name: DecrementSeriesPartsCount :exec
 UPDATE "series" SET
   "series_parts_count" = "series_parts_count" - 1,
-  "lectures_count" = "lectures_count" - $2
-WHERE "id" = $1;
+  "lectures_count" = "lectures_count" - $2,
+  "watch_time_seconds" = "watch_time_seconds" - $3,
+  "read_time_seconds" = "read_time_seconds" - $4,
+  "updated_at" = now()
+WHERE "slug" = $1;
 
 -- name: IncrementSeriesLecturesCount :exec
 UPDATE "series" SET
-  "lectures_count" = "lectures_count" + 1
-WHERE "id" = $1;
+  "lectures_count" = "lectures_count" + 1,
+  "watch_time_seconds" = "watch_time_seconds" + $2,
+  "read_time_seconds" = "read_time_seconds" + $3,
+  "updated_at" = now()
+WHERE "slug" = $1;
 
 -- name: DecrementSeriesLecturesCount :exec
 UPDATE "series" SET
-  "lectures_count" = "lectures_count" - 1
-WHERE "id" = $1;
+  "lectures_count" = "lectures_count" - 1,
+  "watch_time_seconds" = "watch_time_seconds" + $2,
+  "read_time_seconds" = "read_time_seconds" + $3,
+  "updated_at" = now()
+WHERE "slug" = $1;
+
+-- name: AddSeriesWatchTime :exec
+UPDATE "series" SET
+  "watch_time_seconds" = "watch_time_seconds" + $1,
+  "updated_at" = now()
+WHERE "slug" = $2;
+
+-- name: AddSeriesReadTime :exec
+UPDATE "series" SET
+  "read_time_seconds" = "read_time_seconds" + $1,
+  "updated_at" = now()
+WHERE "slug" = $2;
 
 -- name: FindSeriesById :one
 SELECT * FROM "series"
 WHERE "id" = $1 LIMIT 1;
 
--- name: FindSeriesBySlugAndLanguageID :one
+-- name: FindSeriesBySlugAndLanguageSlug :one
 SELECT * FROM "series"
-WHERE "slug" = $1 AND "language_id" = $2
+WHERE "slug" = $1 AND "language_slug" = $2
 LIMIT 1;
 
 -- name: DeleteSeriesById :exec
 DELETE FROM "series"
 WHERE "id" = $1;
 
--- name: FindSeriesBySlugAndLanguageIDWithJoins :many
+-- name: FindSeriesBySlugAndLanguageSlugWithTags :many
 SELECT 
   "series".*,
   "tags"."name" AS "tag_name",
@@ -101,5 +129,5 @@ LEFT JOIN "series_tags" ON "series"."id" = "series_tags"."series_id"
   LEFT JOIN "tags" ON "series_tags"."tag_id" = "tags"."id"
 WHERE 
   "series"."slug" = $1 AND
-  "series"."language_id" = $2
+  "series"."language_slug" = $2
 ORDER BY "tags"."name" ASC;
