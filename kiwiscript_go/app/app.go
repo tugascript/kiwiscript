@@ -77,7 +77,7 @@ func CreateApp(
 
 	database := db.NewDatabase(dbConnPool)
 	cache := cc.NewCache(storage)
-	objStg := stg.NewObjectStorage(s3Client, s3Bucket)
+	objStg := stg.NewObjectStorage(log, s3Client, s3Bucket)
 	tokenProv := tokens.NewTokens(
 		tokens.NewTokenSecretData(tokensConfig.Access.PublicKey, tokensConfig.Access.PrivateKey, tokensConfig.Access.TtlSec),
 		tokens.NewTokenSecretData(tokensConfig.Refresh.PublicKey, tokensConfig.Refresh.PrivateKey, tokensConfig.Refresh.TtlSec),

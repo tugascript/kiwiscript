@@ -68,7 +68,7 @@ func (q *Queries) DeleteLectureArticle(ctx context.Context, id int32) error {
 	return err
 }
 
-const getLectureArticleByLectureID = `-- name: FindLectureArticleByLectureID :one
+const getLectureArticleByLectureID = `-- name: GetLectureArticleByLectureID :one
 SELECT id, lecture_id, read_time_seconds, content, created_at, updated_at FROM "lecture_articles"
 WHERE "lecture_id" = $1
 LIMIT 1

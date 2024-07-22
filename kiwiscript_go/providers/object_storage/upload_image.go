@@ -1,4 +1,4 @@
-package obj_stg
+package objStg
 
 import (
 	"bytes"

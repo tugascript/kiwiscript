@@ -68,7 +68,7 @@ func (q *Queries) DeleteLectureVideo(ctx context.Context, id int32) error {
 	return err
 }
 
-const getLectureVideoByLectureID = `-- name: FindLectureVideoByLectureID :one
+const getLectureVideoByLectureID = `-- name: GetLectureVideoByLectureID :one
 SELECT id, lecture_id, url, watch_time_seconds, created_at, updated_at FROM "lecture_videos"
 WHERE "lecture_id" = $1
 LIMIT 1

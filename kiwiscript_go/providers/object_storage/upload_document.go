@@ -1,4 +1,4 @@
-package obj_stg
+package objStg
 
 import (
 	"context"
@@ -48,8 +48,18 @@ func selectDocExt(mimeType string) string {
 	}
 }
 
-func (o *ObjectStorage) UploadDocument(ctx context.Context, userId int32, f multipart.File) (uuid.UUID, string, error) {
+func (o *ObjectStorage) UploadDocument(ctx context.Context, userId int32, fh *multipart.FileHeader) (uuid.UUID, string, error) {
+	log := o.log.WithGroup("providers.object_storage.UploadDocument").With("userId", userId)
+	log.InfoContext(ctx, "Uploading document...")
 	fileId := uuid.UUID{}
+
+	f, err := fh.Open()
+	if err != nil {
+		log.ErrorContext(ctx, "Error opening file", "error", err)
+		return uuid.UUID{}, "", fmt.Errorf("error opening file")
+	}
+	defer o.closeFile(f)
+
 	mimeType, err := readMimeType(f)
 	if err != nil {
 		return fileId, "", err
