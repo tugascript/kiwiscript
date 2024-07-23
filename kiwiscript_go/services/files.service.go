@@ -14,7 +14,7 @@ type FindFileURLOptions struct {
 	FileExt string
 }
 
-func (s *Services) FindFileURL(ctx context.Context, opts FindFileURLOptions) (string, error) {
+func (s *Services) FindFileURL(ctx context.Context, opts FindFileURLOptions) (string, *ServiceError) {
 	log := s.log.WithGroup("services.files.FindFileURL").With(
 		"userId", opts.UserID,
 		"fileId", opts.FileID,
@@ -37,7 +37,7 @@ func (s *Services) FindFileURL(ctx context.Context, opts FindFileURLOptions) (st
 	})
 	if err != nil {
 		log.Error("Error getting file URL", "error", err)
-		return "", err
+		return "", NewServerError("Error getting file URL")
 	}
 
 	return url, nil
@@ -61,12 +61,12 @@ func (c *FileURLsContainer) Get(fileID uuid.UUID) (string, bool) {
 	return url, ok
 }
 
-func (s *Services) FindFileURLs(ctx context.Context, opts []FindFileURLOptions) (*FileURLsContainer, error) {
+func (s *Services) FindFileURLs(ctx context.Context, opts []FindFileURLOptions) (*FileURLsContainer, *ServiceError) {
 	var wg sync.WaitGroup
 	container := FileURLsContainer{
 		urls: make(map[uuid.UUID]string),
 	}
-	errChan := make(chan error)
+	errChan := make(chan *ServiceError)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 

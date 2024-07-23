@@ -23,7 +23,7 @@ import (
 	cc "github.com/kiwiscript/kiwiscript_go/providers/cache"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/providers/email"
-	stg "github.com/kiwiscript/kiwiscript_go/providers/object_storage"
+	objstg "github.com/kiwiscript/kiwiscript_go/providers/object_storage"
 	"github.com/kiwiscript/kiwiscript_go/providers/tokens"
 )
 
@@ -33,14 +33,14 @@ type Services struct {
 	cache    *cc.Cache
 	mail     *email.Mail
 	jwt      *tokens.Tokens
-	objStg   *stg.ObjectStorage
+	objStg   *objstg.ObjectStorage
 }
 
 func NewServices(
 	log *slog.Logger,
 	database *db.Database,
 	cache *cc.Cache,
-	objStg *stg.ObjectStorage,
+	objStg *objstg.ObjectStorage,
 	mail *email.Mail,
 	jwt *tokens.Tokens,
 ) *Services {

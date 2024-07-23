@@ -134,6 +134,7 @@ const (
 	strFieldErrExtAlphaNum string = "extalphanum"
 	strFieldErrSlug        string = "slug"
 	strFieldNumber         string = "number"
+	strFieldUUID           string = "uuid"
 
 	intFieldErrTagGte string = "gte"
 	intFieldErrTagLte string = "lte"
@@ -151,6 +152,7 @@ const (
 	StrFieldErrMessageExtAlphaNum string = "must only contain letters, numbers, spaces, plus and hashtags"
 	StrFieldErrMessageSlug        string = "must be a valid slug"
 	StrFieldErrMessageNumber      string = "must be a number"
+	StrFieldErrMessageUUID        string = "must be a valid UUID"
 
 	IntFieldErrMessageLte string = "must be less"
 	IntFieldErrMessageGte string = "must be greater"
@@ -180,6 +182,8 @@ func selectStrErrMessage(tag string) string {
 		return StrFieldErrMessageSlug
 	case strFieldNumber:
 		return StrFieldErrMessageNumber
+	case strFieldUUID:
+		return StrFieldErrMessageUUID
 	default:
 		return FieldErrMessageInvalid
 	}

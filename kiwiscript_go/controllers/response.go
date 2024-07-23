@@ -582,22 +582,79 @@ func (c *Controllers) newLectureVideoResponse(
 	}
 }
 
+type EmbeddedLectureFile struct {
+	ID    uuid.UUID        `json:"id"`
+	Name  string           `json:"name"`
+	Url   string           `json:"url"`
+	Links SelfLinkResponse `json:"_links"`
+}
+
+func (c *Controllers) newEmbeddedLectureFiles(
+	files []db.LectureFile,
+	fileUrlsContainer *services.FileURLsContainer,
+	languageSlug,
+	seriesSlug string,
+	seriesPartID int32,
+) []EmbeddedLectureFile {
+	filesLen := len(files)
+	if filesLen == 0 || fileUrlsContainer == nil {
+		return []EmbeddedLectureFile{}
+	}
+
+	embeddedFiles := make([]EmbeddedLectureFile, 0, filesLen)
+	for _, f := range files {
+		url, ok := fileUrlsContainer.Get(f.File)
+		if !ok {
+			continue
+		}
+
+		embeddedFiles = append(embeddedFiles, EmbeddedLectureFile{
+			ID:   f.File,
+			Name: f.Filename,
+			Url:  url,
+			Links: SelfLinkResponse{
+				LinkResponse{
+					fmt.Sprintf(
+						"https://%s%s/%s%s/%s%s/%d%s/%d%s/%s",
+						c.backendDomain,
+						paths.LanguagePathV1,
+						languageSlug,
+						paths.SeriesPath,
+						seriesSlug,
+						paths.PartsPath,
+						seriesPartID,
+						paths.LecturesPath,
+						f.LectureID,
+						paths.FilesPath,
+						f.File.String(),
+					),
+				},
+			},
+		})
+	}
+
+	return embeddedFiles
+}
+
 type LectureEmbedded struct {
 	Article *EmbeddedLectureArticle `json:"article,omitempty"`
 	Video   *EmbeddedLectureVideo   `json:"video,omitempty"`
+	Files   []EmbeddedLectureFile   `json:"files,omitempty"`
 }
 
 func (c *Controllers) newLectureEmbedded(
 	article *EmbeddedLectureArticle,
 	video *EmbeddedLectureVideo,
+	files []EmbeddedLectureFile,
 ) *LectureEmbedded {
-	if article == nil && video == nil {
+	if article == nil && video == nil && files == nil {
 		return nil
 	}
 
 	return &LectureEmbedded{
 		Article: article,
 		Video:   video,
+		Files:   files,
 	}
 }
 
@@ -614,13 +671,13 @@ func (c *Controllers) NewLectureResponse(
 	lecture *db.Lecture,
 	article *db.LectureArticle,
 	video *db.LectureVideo,
-	languageSlug,
-	seriesSlug string,
-	seriesPartID int32,
+	files []db.LectureFile,
+	fileUrlsContainer *services.FileURLsContainer,
 ) *LectureResponse {
 	var articleID, videoID int32
 	var lecArt *EmbeddedLectureArticle
 	var lecVid *EmbeddedLectureVideo
+	var lecFs []EmbeddedLectureFile
 
 	if article != nil {
 		articleID = article.ID
@@ -629,9 +686,9 @@ func (c *Controllers) NewLectureResponse(
 			article.ReadTimeSeconds,
 			article.LectureID,
 			article.Content,
-			seriesPartID,
-			languageSlug,
-			seriesSlug,
+			lecture.SeriesPartID,
+			lecture.LanguageSlug,
+			lecture.SeriesSlug,
 		)
 	}
 	if video != nil {
@@ -641,9 +698,18 @@ func (c *Controllers) NewLectureResponse(
 			video.WatchTimeSeconds,
 			video.LectureID,
 			video.Url,
-			seriesPartID,
-			languageSlug,
-			seriesSlug,
+			lecture.SeriesPartID,
+			lecture.LanguageSlug,
+			lecture.SeriesSlug,
+		)
+	}
+	if files != nil {
+		lecFs = c.newEmbeddedLectureFiles(
+			files,
+			fileUrlsContainer,
+			lecture.LanguageSlug,
+			lecture.SeriesSlug,
+			lecture.SeriesPartID,
 		)
 	}
 
@@ -652,11 +718,11 @@ func (c *Controllers) NewLectureResponse(
 		Title:    lecture.Title,
 		Position: lecture.Position,
 		Comments: lecture.CommentsCount,
-		Embedded: c.newLectureEmbedded(lecArt, lecVid),
+		Embedded: c.newLectureEmbedded(lecArt, lecVid, lecFs),
 		Links: c.newLectureLinks(
-			languageSlug,
-			seriesSlug,
-			seriesPartID,
+			lecture.LanguageSlug,
+			lecture.SeriesSlug,
+			lecture.SeriesPartID,
 			lecture.ID,
 			articleID,
 			videoID,
@@ -666,10 +732,13 @@ func (c *Controllers) NewLectureResponse(
 
 func (c *Controllers) NewLectureResponseFromJoinedRow(
 	lecture *db.FindPaginatedPublishedLecturesBySeriesPartIDWithArticleAndVideoRow,
+	files []db.LectureFile,
+	fileUrlsContainer *services.FileURLsContainer,
 ) *LectureResponse {
 	var articleID, videoID int32
 	var lecArt *EmbeddedLectureArticle
 	var lecVid *EmbeddedLectureVideo
+	var lecFs []EmbeddedLectureFile
 
 	if lecture.ArticleID.Valid {
 		articleID = lecture.ArticleID.Int32
@@ -697,11 +766,21 @@ func (c *Controllers) NewLectureResponseFromJoinedRow(
 		)
 	}
 
+	if files != nil && fileUrlsContainer != nil {
+		lecFs = c.newEmbeddedLectureFiles(
+			files,
+			fileUrlsContainer,
+			lecture.LanguageSlug,
+			lecture.SeriesSlug,
+			lecture.SeriesPartID,
+		)
+	}
+
 	return &LectureResponse{
 		ID:       lecture.ID,
 		Title:    lecture.Title,
 		Position: lecture.Position,
-		Embedded: c.newLectureEmbedded(lecArt, lecVid),
+		Embedded: c.newLectureEmbedded(lecArt, lecVid, lecFs),
 		Links: c.newLectureLinks(
 			lecture.LanguageSlug,
 			lecture.SeriesSlug,
@@ -839,6 +918,83 @@ func (c *Controllers) NewLectureVideoResponse(
 			seriesSlug,
 			seriesPartID,
 			video.LectureID,
+		),
+	}
+}
+
+type LectureFileLinks struct {
+	Self         LinkResponse `json:"self"`
+	LectureFiles LinkResponse `json:"lectureFiles"`
+}
+
+func (c *Controllers) newLectureFileLinks(
+	languageSlug,
+	seriesSlug string,
+	partID,
+	lectureID int32,
+	fileID uuid.UUID,
+) LectureFileLinks {
+	return LectureFileLinks{
+		Self: LinkResponse{
+			fmt.Sprintf(
+				"https://%s%s/%s%s/%s%s/%d%s/%d%s/%s",
+				c.backendDomain,
+				paths.LanguagePathV1,
+				languageSlug,
+				paths.SeriesPath,
+				seriesSlug,
+				paths.PartsPath,
+				partID,
+				paths.LecturesPath,
+				lectureID,
+				paths.FilesPath,
+				fileID.String(),
+			),
+		},
+		LectureFiles: LinkResponse{
+			fmt.Sprintf(
+				"https://%s%s/%s%s/%s%s/%d%s/%d%s",
+				c.backendDomain,
+				paths.LanguagePathV1,
+				languageSlug,
+				paths.SeriesPath,
+				seriesSlug,
+				paths.PartsPath,
+				partID,
+				paths.LecturesPath,
+				lectureID,
+				paths.FilesPath,
+			),
+		},
+	}
+}
+
+type LectureFileResponse struct {
+	ID    int32            `json:"id"`
+	Name  string           `json:"name"`
+	Ext   string           `json:"ext"`
+	URL   string           `json:"url"`
+	Links LectureFileLinks `json:"_links"`
+}
+
+func (c *Controllers) NewLectureFileResponse(
+	file *db.LectureFile,
+	fileUrl,
+	languageSlug,
+	seriesSlug string,
+	partID int32,
+) *LectureFileResponse {
+	return &LectureFileResponse{
+		ID:   file.ID,
+		Name: file.Filename,
+		Ext:  file.Ext,
+		URL:  fileUrl,
+		Links: c.newLectureFileLinks(
+			languageSlug,
+			seriesSlug,
+			partID,
+			file.LectureID,
+			file.File,
 		),
 	}
 }

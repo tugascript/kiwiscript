@@ -36,9 +36,16 @@ WHERE "id" = $1;
 
 -- name: FindLectureFilesByLectureID :many
 SELECT * FROM "lecture_files"
-WHERE "lecture_id" = $1;
+WHERE "lecture_id" = $1
+ORDER BY "id" ASC;
 
 -- name: FindLectureFileByFileAndLectureID :one
 SELECT * FROM "lecture_files"
 WHERE "file" = $1 AND "lecture_id" = $2
 LIMIT 1;
+
+-- name: UpdateLectureFile :one
+UPDATE "lecture_files" SET
+    "filename" = $1
+WHERE "id" = $2
+RETURNING *;

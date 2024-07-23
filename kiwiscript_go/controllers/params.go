@@ -44,3 +44,11 @@ type LectureParams struct {
 	SeriesPartID string `validate:"required,number,min=1"`
 	LectureID    string `validate:"required,number,min=1"`
 }
+
+type LectureFileParams struct {
+	LanguageSlug string `validate:"required,min=2,max=50,slug"`
+	SeriesSlug   string `validate:"required,min=2,max=100,slug"`
+	SeriesPartID string `validate:"required,number,min=1"`
+	LectureID    string `validate:"required,number,min=1"`
+	FileID       string `validate:"required,uuid"`
+}

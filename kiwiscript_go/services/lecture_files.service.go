@@ -185,7 +185,6 @@ type FindLectureFilesOptions struct {
 	SeriesSlug   string
 	SeriesPartID int32
 	LectureID    int32
-	File         uuid.UUID
 	IsPublished  bool
 }
 
@@ -224,4 +223,56 @@ func (s *Services) FindLectureFiles(
 
 	log.InfoContext(ctx, "Lecture files found")
 	return lectureFiles, nil
+}
+
+type UpdateLectureFileOptions struct {
+	UserID       int32
+	LanguageSlug string
+	SeriesSlug   string
+	SeriesPartID int32
+	LectureID    int32
+	File         uuid.UUID
+	Name         string
+}
+
+func (s *Services) UpdateLectureFile(
+	ctx context.Context,
+	opts UpdateLectureFileOptions,
+) (*db.LectureFile, *ServiceError) {
+	log := s.
+		log.
+		WithGroup("services.lecture_files.UpdateLectureFile").
+		With("file", opts.File.String())
+	log.InfoContext(ctx, "Updating lecture file...")
+
+	lecOpts := AssertLectureOwnershipOptions{
+		UserID:       opts.UserID,
+		LanguageSlug: opts.LanguageSlug,
+		SeriesSlug:   opts.SeriesSlug,
+		SeriesPartID: opts.SeriesPartID,
+		LectureID:    opts.LectureID,
+	}
+	if _, serviceErr := s.AssertLectureOwnership(ctx, lecOpts); serviceErr != nil {
+		return nil, serviceErr
+	}
+
+	lectureFile, err := s.database.FindLectureFileByFileAndLectureID(ctx, db.FindLectureFileByFileAndLectureIDParams{
+		File:      opts.File,
+		LectureID: opts.LectureID,
+	})
+	if err != nil {
+		log.WarnContext(ctx, "Error finding lecture file", "error", err)
+		return nil, FromDBError(err)
+	}
+
+	lectureFile, err = s.database.UpdateLectureFile(ctx, db.UpdateLectureFileParams{
+		ID:       lectureFile.ID,
+		Filename: opts.Name,
+	})
+	if err != nil {
+		log.ErrorContext(ctx, "Error updating lecture file", "error", err)
+		return nil, FromDBError(err)
+	}
+
+	return &lectureFile, nil
 }

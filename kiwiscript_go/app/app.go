@@ -139,6 +139,7 @@ func CreateApp(
 	rtr.LecturePublicRoutes()
 	rtr.LectureArticlePublicRoutes()
 	rtr.LectureVideoPublicRoutes()
+	rtr.LectureFilesPublicRoutes()
 	log.Info("Successfully loaded public routes")
 
 	// Private routes
@@ -150,6 +151,7 @@ func CreateApp(
 	rtr.LecturePrivateRoutes()
 	rtr.LectureArticlePrivateRoutes()
 	rtr.LectureVideoPrivateRoutes()
+	rtr.LectureFilesPrivateRoutes()
 	log.Info("Successfully loaded private routes")
 
 	log.Info("Successfully built the app")

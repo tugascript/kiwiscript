@@ -114,6 +114,7 @@ func (q *Queries) FindLectureFileByFileAndLectureID(ctx context.Context, arg Fin
 const findLectureFilesByLectureID = `-- name: FindLectureFilesByLectureID :many
 SELECT id, lecture_id, author_id, file, ext, filename, created_at, updated_at FROM "lecture_files"
 WHERE "lecture_id" = $1
+ORDER BY "id" ASC
 `
 
 func (q *Queries) FindLectureFilesByLectureID(ctx context.Context, lectureID int32) ([]LectureFile, error) {
@@ -143,4 +144,32 @@ func (q *Queries) FindLectureFilesByLectureID(ctx context.Context, lectureID int
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateLectureFile = `-- name: UpdateLectureFile :one
+UPDATE "lecture_files" SET
+    "filename" = $1
+WHERE "id" = $2
+RETURNING id, lecture_id, author_id, file, ext, filename, created_at, updated_at
+`
+
+type UpdateLectureFileParams struct {
+	Filename string
+	ID       int32
+}
+
+func (q *Queries) UpdateLectureFile(ctx context.Context, arg UpdateLectureFileParams) (LectureFile, error) {
+	row := q.db.QueryRow(ctx, updateLectureFile, arg.Filename, arg.ID)
+	var i LectureFile
+	err := row.Scan(
+		&i.ID,
+		&i.LectureID,
+		&i.AuthorID,
+		&i.File,
+		&i.Ext,
+		&i.Filename,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

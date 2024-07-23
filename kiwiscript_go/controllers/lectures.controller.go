@@ -18,7 +18,9 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
+	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -92,11 +94,47 @@ func (c *Controllers) CreateLecture(ctx *fiber.Ctx) error {
 			c.NewLectureResponse(
 				lecture,
 				nil, nil,
-				params.LanguageSlug,
-				params.SeriesSlug,
-				seriesPartIDi32,
+				nil, nil,
 			),
 		)
+}
+
+func (c *Controllers) findLectureFiles(
+	userCtx context.Context,
+	params *LectureParams,
+	seriesPartID,
+	lectureID int32,
+) ([]db.LectureFile, *services.FileURLsContainer, *services.ServiceError) {
+	lectureFiles, serviceErr := c.services.FindLectureFiles(userCtx, services.FindLectureFilesOptions{
+		LanguageSlug: params.LanguageSlug,
+		SeriesSlug:   params.SeriesSlug,
+		SeriesPartID: seriesPartID,
+		LectureID:    lectureID,
+		IsPublished:  false,
+	})
+	if serviceErr != nil {
+		return nil, nil, serviceErr
+	}
+
+	filesLen := len(lectureFiles)
+	var fileUrls *services.FileURLsContainer
+	if filesLen > 0 {
+		optsList := make([]services.FindFileURLOptions, 0, filesLen)
+		for _, lectureFile := range lectureFiles {
+			optsList = append(optsList, services.FindFileURLOptions{
+				UserID:  lectureFile.AuthorID,
+				FileID:  lectureFile.File,
+				FileExt: lectureFile.Ext,
+			})
+		}
+		var serviceErr *services.ServiceError
+		fileUrls, serviceErr = c.services.FindFileURLs(userCtx, optsList)
+		if serviceErr != nil {
+			return nil, nil, serviceErr
+		}
+	}
+
+	return lectureFiles, fileUrls, nil
 }
 
 func (c *Controllers) GetLecture(ctx *fiber.Ctx) error {
@@ -163,7 +201,12 @@ func (c *Controllers) GetLecture(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(services.NewNotFoundError(), ctx)
 	}
 
-	return ctx.JSON(c.NewLectureResponseFromJoinedRow(lecture))
+	files, fileUrls, serviceErr := c.findLectureFiles(userCtx, &params, seriesPartIDi32, lectureIDi32)
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	return ctx.JSON(c.NewLectureResponseFromJoinedRow(lecture, files, fileUrls))
 }
 
 func (c *Controllers) GetLectures(ctx *fiber.Ctx) error {
@@ -244,7 +287,9 @@ func (c *Controllers) GetLectures(ctx *fiber.Ctx) error {
 			&queryParams,
 			count,
 			lectures,
-			c.NewLectureResponseFromJoinedRow,
+			func(l *db.FindPaginatedPublishedLecturesBySeriesPartIDWithArticleAndVideoRow) *LectureResponse {
+				return c.NewLectureResponseFromJoinedRow(l, nil, nil)
+			},
 		),
 	)
 }
@@ -336,14 +381,18 @@ func (c *Controllers) UpdateLecture(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
+	files, fileUrls, serviceErr := c.findLectureFiles(userCtx, &params, seriesPartIDi32, lectureIDi32)
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
 	return ctx.JSON(
 		c.NewLectureResponse(
 			lecture,
 			article,
 			video,
-			params.LanguageSlug,
-			params.SeriesSlug,
-			seriesPartIDi32,
+			files,
+			fileUrls,
 		),
 	)
 }
@@ -434,14 +483,18 @@ func (c *Controllers) UpdateLectureIsPublished(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
+	files, fileUrls, serviceErr := c.findLectureFiles(userCtx, &params, seriesPartIDi32, lectureIDi32)
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
 	return ctx.JSON(
 		c.NewLectureResponse(
 			lecture,
 			article,
 			video,
-			params.LanguageSlug,
-			params.SeriesSlug,
-			seriesPartIDi32,
+			files,
+			fileUrls,
 		),
 	)
 }

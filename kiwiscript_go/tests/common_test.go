@@ -116,7 +116,7 @@ func initTestServicesAndApp(t *testing.T) {
 	)
 	testDatabase = db.NewDatabase(dbConnPool)
 	testCache = cc.NewCache(storage)
-	testObjectStorage := stg.NewObjectStorage(s3Client, testConfig.ObjectStorage.Bucket)
+	testObjectStorage := stg.NewObjectStorage(log, s3Client, testConfig.ObjectStorage.Bucket)
 	testServices = services.NewServices(
 		log,
 		testDatabase,

@@ -123,3 +123,7 @@ type LectureVideoRequest struct {
 	URL       string `json:"url" validate:"required,url"`
 	WatchTime int32  `json:"watchTime" validate:"required,number,min=1"`
 }
+
+type LectureFileRequest struct {
+	Name string `validate:"required,min=2,max=250,extalphanum"`
+}

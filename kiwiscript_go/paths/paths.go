@@ -12,4 +12,5 @@ const (
 	VideoPath      = "/video"
 	ArticlePath    = "/article"
 	CommentsPath   = "/comments"
+	FilesPath      = "/files"
 )

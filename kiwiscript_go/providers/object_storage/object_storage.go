@@ -1,4 +1,4 @@
-package objStg
+package objstg
 
 import (
 	"context"
