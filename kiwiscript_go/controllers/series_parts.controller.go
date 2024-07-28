@@ -19,11 +19,11 @@ package controllers
 
 import (
 	"fmt"
+	"github.com/kiwiscript/kiwiscript_go/paths"
+	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/kiwiscript/kiwiscript_go/paths"
-	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/services"
 )
 
@@ -67,9 +67,7 @@ func (c *Controllers) CreateSeriesPart(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.Status(fiber.StatusCreated).JSON(
-		c.NewSeriesPartResponse(seriesPart, make([]db.Lecture, 0)),
-	)
+	return ctx.Status(fiber.StatusCreated).JSON(c.NewSeriesPartResponse(seriesPart.ToSeriesPartDTO()))
 }
 
 func (c *Controllers) GetSeriesPart(ctx *fiber.Ctx) error {
@@ -100,23 +98,47 @@ func (c *Controllers) GetSeriesPart(ctx *fiber.Ctx) error {
 			}}))
 	}
 
-	isPublished := false
-	user, serviceErr := c.GetUserClaims(ctx)
-	if serviceErr != nil || !user.IsStaff {
-		isPublished = true
+	parsedSeriesPartIDi32 := int32(parsedSeriesPartID)
+	if user, serviceErr := c.GetUserClaims(ctx); serviceErr == nil {
+		if user.IsStaff {
+			seriesPart, serviceErr := c.services.FindSeriesPartBySlugsAndID(userCtx, services.FindSeriesPartBySlugsAndIDOptions{
+				LanguageSlug: params.LanguageSlug,
+				SeriesSlug:   params.SeriesSlug,
+				SeriesPartID: parsedSeriesPartIDi32,
+			})
+			if serviceErr != nil {
+				return c.serviceErrorResponse(serviceErr, ctx)
+			}
+
+			return ctx.JSON(c.NewSeriesPartResponse(seriesPart.ToSeriesPartDTO()))
+		}
+
+		servicePart, serviceErr := c.services.FindPublishedSeriesPartBySlugsAndIDWithProgress(
+			userCtx,
+			services.FindPublishedSeriesPartBySlugsAndIDWithProgressOptions{
+				UserID:       user.ID,
+				LanguageSlug: params.LanguageSlug,
+				SeriesSlug:   params.SeriesSlug,
+				SeriesPartID: parsedSeriesPartIDi32,
+			},
+		)
+		if serviceErr != nil {
+			return c.serviceErrorResponse(serviceErr, ctx)
+		}
+
+		return ctx.JSON(c.NewSeriesPartResponse(servicePart.ToSeriesPartDTO()))
 	}
 
-	seriesPart, serviceErr := c.services.FindSeriesPartBySlugsAndID(userCtx, services.FindSeriesPartBySlugsAndIDOptions{
+	seriesPart, serviceErr := c.services.FindPublishedSeriesPartBySlugsAndID(userCtx, services.FindSeriesPartBySlugsAndIDOptions{
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
-		IsPublished:  isPublished,
 		SeriesPartID: int32(parsedSeriesPartID),
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(c.NewSeriesPartResponseFromDTO(seriesPart, params.LanguageSlug, params.SeriesSlug))
+	return ctx.JSON(c.NewSeriesPartResponse(seriesPart.ToSeriesPartDTO()))
 }
 
 func (c *Controllers) GetSeriesParts(ctx *fiber.Ctx) error {
@@ -134,27 +156,92 @@ func (c *Controllers) GetSeriesParts(ctx *fiber.Ctx) error {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}
 
-	queryParams := SeriesPartsQueryParams{
-		IsPublished:       ctx.QueryBool("isPublished", false),
-		PublishedLectures: ctx.QueryBool("publishedLectures", false),
-		Offset:            int32(ctx.QueryInt("offset", OffsetDefault)),
-		Limit:             int32(ctx.QueryInt("limit", LimitDefault)),
+	queryParams := PaginationQueryParams{
+		Offset: int32(ctx.QueryInt("offset", OffsetDefault)),
+		Limit:  int32(ctx.QueryInt("limit", LimitDefault)),
 	}
 	if err := c.validate.StructCtx(userCtx, queryParams); err != nil {
 		return c.validateQueryErrorResponse(log, userCtx, err, ctx)
 	}
 
-	user, serviceErr := c.GetUserClaims(ctx)
-	if serviceErr != nil || !user.IsStaff {
-		queryParams.IsPublished = true
+	if user, serviceErr := c.GetUserClaims(ctx); serviceErr == nil {
+		if user.IsStaff {
+			seriesParts, count, serviceErr := c.services.FindPaginatedSeriesPartsBySlugs(
+				userCtx,
+				services.FindPaginatedSeriesPartsBySlugsOptions{
+					LanguageSlug: params.LanguageSlug,
+					SeriesSlug:   params.SeriesSlug,
+					Offset:       queryParams.Offset,
+					Limit:        queryParams.Limit,
+				},
+			)
+			if serviceErr != nil {
+				return c.serviceErrorResponse(serviceErr, ctx)
+			}
+
+			return ctx.JSON(
+				NewPaginatedResponse(
+					c.backendDomain,
+					fmt.Sprintf(
+						"%s/%s%s/%s%s",
+						paths.LanguagePathV1,
+						languageSlug,
+						paths.SeriesPath,
+						seriesSlug,
+						paths.PartsPath,
+					),
+					queryParams,
+					count,
+					seriesParts,
+					func(s *db.SeriesPart) *SeriesPartResponse {
+						return c.NewSeriesPartResponse(s.ToSeriesPartDTO())
+					},
+				),
+			)
+		}
+
+		seriesParts, count, serviceErr := c.services.FindPaginatedPublishedSeriesPartsBySlugsWithProgress(
+			userCtx,
+			services.FindSeriesPartBySlugsAndIDWithProgressOptions{
+				UserID:       user.ID,
+				LanguageSlug: params.LanguageSlug,
+				SeriesSlug:   params.SeriesSlug,
+			},
+		)
+		if serviceErr != nil {
+			return c.serviceErrorResponse(serviceErr, ctx)
+		}
+
+		return ctx.JSON(
+			NewPaginatedResponse(
+				c.backendDomain,
+				fmt.Sprintf(
+					"%s/%s%s/%s%s",
+					paths.LanguagePathV1,
+					languageSlug,
+					paths.SeriesPath,
+					seriesSlug,
+					paths.PartsPath,
+				),
+				queryParams,
+				count,
+				seriesParts,
+				func(s *db.FindPaginatedPublishedSeriesPartsBySlugsWithProgressRow) *SeriesPartResponse {
+					return c.NewSeriesPartResponse(s.ToSeriesPartDTO())
+				},
+			),
+		)
 	}
 
-	seriesParts, count, serviceErr := c.services.FindPaginatedSeriesPartsBySlugsAndID(userCtx, services.FindSeriesPartsBySlugsAndIDOptions{
-		LanguageSlug:      params.LanguageSlug,
-		SeriesSlug:        params.SeriesSlug,
-		IsPublished:       queryParams.IsPublished,
-		PublishedLectures: queryParams.PublishedLectures,
-	})
+	seriesParts, count, serviceErr := c.services.FindPaginatedPublishedSeriesPartsBySlugs(
+		userCtx,
+		services.FindPaginatedSeriesPartsBySlugsOptions{
+			LanguageSlug: params.LanguageSlug,
+			SeriesSlug:   params.SeriesSlug,
+			Offset:       queryParams.Offset,
+			Limit:        queryParams.Limit,
+		},
+	)
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
@@ -173,8 +260,8 @@ func (c *Controllers) GetSeriesParts(ctx *fiber.Ctx) error {
 			queryParams,
 			count,
 			seriesParts,
-			func(dto *services.SeriesPartDto) *SeriesPartResponse {
-				return c.NewSeriesPartResponseFromDTO(dto, languageSlug, seriesSlug)
+			func(s *db.SeriesPart) *SeriesPartResponse {
+				return c.NewSeriesPartResponse(s.ToSeriesPartDTO())
 			},
 		),
 	)
@@ -244,12 +331,7 @@ func (c *Controllers) UpdateSeriesPart(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	lectures, serviceErr := c.services.FindLecturesBySeriesPartID(userCtx, seriesPart.ID)
-	if serviceErr != nil {
-		return c.serviceErrorResponse(serviceErr, ctx)
-	}
-
-	return ctx.JSON(c.NewSeriesPartResponse(seriesPart, lectures))
+	return ctx.JSON(c.NewSeriesPartResponse(seriesPart.ToSeriesPartDTO()))
 }
 
 func (c *Controllers) UpdateSeriesPartIsPublished(ctx *fiber.Ctx) error {
@@ -314,12 +396,7 @@ func (c *Controllers) UpdateSeriesPartIsPublished(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	lectures, serviceErr := c.services.FindLecturesBySeriesPartID(userCtx, seriesPart.ID)
-	if serviceErr != nil {
-		return c.serviceErrorResponse(serviceErr, ctx)
-	}
-
-	return ctx.JSON(c.NewSeriesPartResponse(seriesPart, lectures))
+	return ctx.JSON(c.NewSeriesPartResponse(seriesPart.ToSeriesPartDTO()))
 }
 
 func (c *Controllers) DeleteSeriesPart(ctx *fiber.Ctx) error {

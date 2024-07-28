@@ -92,34 +92,3 @@ func (p SeriesQueryParams) GetLimit() int32 {
 func (p SeriesQueryParams) GetOffset() int32 {
 	return p.Offset
 }
-
-type SeriesPartsQueryParams struct {
-	Limit  int32 `validate:"omitempty,gte=1,lte=100"`
-	Offset int32 `validate:"omitempty,gte=0"`
-}
-
-func (p SeriesPartsQueryParams) ToQueryString() string {
-	return ""
-}
-func (p SeriesPartsQueryParams) GetLimit() int32 {
-	return p.Limit
-}
-func (p SeriesPartsQueryParams) GetOffset() int32 {
-	return p.Offset
-}
-
-type LecturesQueryParams struct {
-	IsPublished bool  `validate:"omitempty"`
-	Limit       int32 `validate:"omitempty,gte=1,lte=100"`
-	Offset      int32 `validate:"omitempty,gte=0"`
-}
-
-func (p *LecturesQueryParams) ToQueryString() string {
-	return ""
-}
-func (p *LecturesQueryParams) GetLimit() int32 {
-	return p.Limit
-}
-func (p *LecturesQueryParams) GetOffset() int32 {
-	return p.Offset
-}

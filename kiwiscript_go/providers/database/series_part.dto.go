@@ -28,6 +28,7 @@ type SeriesPartDTO struct {
 	CompletedLectures  int16
 	TotalLectures      int16
 	IsCurrent          bool
+	Completed          bool
 	WatchTimeSeconds   int32
 	ReadTimeSeconds    int32
 	IsPublished        bool
@@ -54,6 +55,7 @@ func (sp *SeriesPart) ToSeriesPartDTO() *SeriesPartDTO {
 		CompletedLectures:  0,
 		TotalLectures:      sp.LecturesCount,
 		IsCurrent:          false,
+		Completed:          false,
 		WatchTimeSeconds:   sp.WatchTimeSeconds,
 		ReadTimeSeconds:    sp.ReadTimeSeconds,
 		IsPublished:        sp.IsPublished,
@@ -72,6 +74,45 @@ func (sp *SeriesPart) ToSeriesPartDTOWithProgress(progress *SeriesProgress) *Ser
 		CompletedLectures:  progress.CompletedLectures,
 		TotalLectures:      sp.LecturesCount,
 		IsCurrent:          progress.IsCurrent,
+		Completed:          progress.CompletedAt.Valid,
+		WatchTimeSeconds:   sp.WatchTimeSeconds,
+		ReadTimeSeconds:    sp.ReadTimeSeconds,
+		IsPublished:        sp.IsPublished,
+	}
+}
+
+func (sp *FindPublishedSeriesPartBySlugsAndIDWithProgressRow) ToSeriesPartDTO() *SeriesPartDTO {
+	return &SeriesPartDTO{
+		ID:                 sp.ID,
+		Title:              sp.Title,
+		LanguageSlug:       sp.LanguageSlug,
+		SeriesSlug:         sp.SeriesSlug,
+		Description:        sp.Description,
+		Position:           sp.Position,
+		InProgressLectures: sp.SeriesPartProgressInProgressLectures.Int16,
+		CompletedLectures:  sp.SeriesPartProgressCompletedLectures.Int16,
+		TotalLectures:      sp.LecturesCount,
+		IsCurrent:          sp.SeriesPartProgressIsCurrent.Bool,
+		Completed:          sp.SeriesPartProgressCompletedAt.Valid,
+		WatchTimeSeconds:   sp.WatchTimeSeconds,
+		ReadTimeSeconds:    sp.ReadTimeSeconds,
+		IsPublished:        sp.IsPublished,
+	}
+}
+
+func (sp *FindPaginatedPublishedSeriesPartsBySlugsWithProgressRow) ToSeriesPartDTO() *SeriesPartDTO {
+	return &SeriesPartDTO{
+		ID:                 sp.ID,
+		Title:              sp.Title,
+		LanguageSlug:       sp.LanguageSlug,
+		SeriesSlug:         sp.SeriesSlug,
+		Description:        sp.Description,
+		Position:           sp.Position,
+		InProgressLectures: sp.SeriesPartProgressInProgressLectures.Int16,
+		CompletedLectures:  sp.SeriesPartProgressCompletedLectures.Int16,
+		TotalLectures:      sp.LecturesCount,
+		IsCurrent:          sp.SeriesPartProgressIsCurrent.Bool,
+		Completed:          sp.SeriesPartProgressCompletedAt.Valid,
 		WatchTimeSeconds:   sp.WatchTimeSeconds,
 		ReadTimeSeconds:    sp.ReadTimeSeconds,
 		IsPublished:        sp.IsPublished,
