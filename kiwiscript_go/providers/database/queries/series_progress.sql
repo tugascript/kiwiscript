@@ -17,41 +17,70 @@
 
 -- name: CreateSeriesProgress :one
 INSERT INTO "series_progress" (
+  "language_slug",
+  "series_slug",
+  "language_progress_id",
   "user_id",
-  "series_id",
-  "language_id"
+  "is_current"
 ) VALUES (
   $1,
   $2,
-  $3
+  $3,
+  $4,
+  true
 ) RETURNING *;
 
--- name: IncrementSeriesProgressLecturesCount :exec
+-- name: SetSeriesProgressIsCurrentFalse :exec
 UPDATE "series_progress" SET
-  "lectures_count" = "lectures_count" + 1
+  "is_current" = false
+WHERE "user_id" = $1 AND "language_slug" = $2 AND "series_slug" <> $3;
+
+-- name: SetSeriesProgressIsCurrentTrue :one
+UPDATE "series_progress" SET
+  "is_current" = true
+WHERE "id" = $1
+RETURNING *;
+
+-- name: FindSeriesProgressBySlugAndUserID :one
+SELECT * FROM "series_progress"
+WHERE
+    "language_slug" = $1 AND
+    "series_slug" = $2 AND
+    "user_id" = $3
+LIMIT 1;
+
+-- name: FindSeriesProgressByLanguageProgressID :many
+SELECT * FROM "series_progress"
+WHERE "language_progress_id" = $1
+ORDER BY "id" DESC;
+
+-- name: DeleteSeriesProgress :exec
+DELETE FROM "series_progress"
 WHERE "id" = $1;
 
--- name: DecrementSeriesProgressLecturesCount :exec
+-- name: IncrementSeriesProgressInProgressParts :exec
 UPDATE "series_progress" SET
-  "lectures_count" = "lectures_count" - 1
+  "in_progress_parts" = "in_progress_parts" + 1
 WHERE "id" = $1;
 
--- name: IncrementSeriesProgressPartAndLecturesCount :exec
+-- name: DecrementSeriesProgressInProgressParts :exec
 UPDATE "series_progress" SET
-  "part" = "part" + 1,
-  "lectures_count" = "lectures_count" + 1
+  "in_progress_parts" = "in_progress_parts" - 1
 WHERE "id" = $1;
 
--- name: DecrementSeriesProgressPartAndLecturesCount :exec
+-- name: AddSeriesProgressCompletedParts :exec
 UPDATE "series_progress" SET
-  "part" = "part" - 1,
-  "lectures_count" = "lectures_count" - 1
+  "completed_parts" = "completed_parts" + 1,
+  "in_progress_parts" = "in_progress_parts" - 1
 WHERE "id" = $1;
 
--- name: CompleteAndIncrementSeriesProgressPartAndLecturesSeriesProgress :exec
+-- name: RemoveSeriesProgressCompletedParts :exec
 UPDATE "series_progress" SET
-  "is_completed" = true,
-  "part" = "part" + 1,
-  "lectures_count" = "lectures_count" + 1,
-  "completed_at" = NOW()
+  "completed_parts" = "completed_parts" - 1,
+  "in_progress_parts" = "in_progress_parts" + 1
+WHERE "id" = $1;
+
+-- name: DecrementSeriesProgressCompletedParts :exec
+UPDATE "series_progress" SET
+  "completed_parts" = "completed_parts" - 1
 WHERE "id" = $1;

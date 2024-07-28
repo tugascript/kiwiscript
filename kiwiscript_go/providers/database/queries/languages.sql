@@ -44,6 +44,20 @@ WHERE "id" = $1 LIMIT 1;
 SELECT * FROM "languages"
 WHERE "slug" = $1 LIMIT 1;
 
+-- name: FindLanguageBySlugWithLanguageProgress :one
+SELECT
+    "languages".*,
+    "language_progress"."in_progress_series" AS "in_progress_series",
+    "language_progress"."completed_series" AS "completed_series",
+    "language_progress"."is_current" AS "is_current"
+FROM "languages"
+LEFT JOIN "language_progress" ON (
+    "languages"."slug" = "language_progress"."language_slug" AND
+    "language_progress"."user_id" = $1
+)
+WHERE "languages"."slug" = $2
+LIMIT 1;
+
 -- name: FindAllLanguages :many
 SELECT * FROM "languages"
 ORDER BY "slug" ASC;
@@ -62,6 +76,32 @@ WHERE "name" ILIKE $1
 ORDER BY "slug" ASC
 LIMIT $2 OFFSET $3;
 
+-- name: FindPaginatedLanguagesWithLanguageProgress :many
+SELECT
+    "languages".*,
+    "language_progress"."in_progress_series" AS "in_progress_series",
+    "language_progress"."completed_series" AS "completed_series",
+    "language_progress"."is_current" AS "is_current"
+FROM "languages"
+LEFT JOIN "language_progress" ON (
+    "languages"."slug" = "language_progress"."language_slug" AND
+    "language_progress"."user_id" = $1
+)
+ORDER BY "languages"."slug" ASC
+LIMIT $2 OFFSET $3;
+
+-- name: FindFilteredPaginatedLanguagesWithLanguageProgress :many
+SELECT
+    "languages".*,
+    "language_progress"."in_progress_series" AS "in_progress_series",
+    "language_progress"."completed_series" AS "completed_series",
+    "language_progress"."is_current" AS "is_current"
+FROM "languages"
+LEFT JOIN "language_progress" ON "languages"."slug" = "language_progress"."language_slug"
+WHERE "language_progress"."user_id" = $1 AND "languages"."name" ILIKE $2
+ORDER BY "languages"."slug" ASC
+LIMIT $3 OFFSET $4;
+
 -- name: CountFilteredLanguages :one
 SELECT COUNT("id") FROM "languages"
 WHERE "name" ILIKE $1;
@@ -72,3 +112,13 @@ WHERE "id" = $1;
 
 -- name: DeleteAllLanguages :exec
 DELETE FROM "languages";
+
+-- name: IncrementLanguageSeriesCount :exec
+UPDATE "languages" SET
+  "series_count" = "series_count" + 1
+WHERE "slug" = $1;
+
+-- name: DecrementLanguageSeriesCount :exec
+UPDATE "languages" SET
+  "series_count" = "series_count" - 1
+WHERE "slug" = $1;

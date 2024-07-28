@@ -78,7 +78,7 @@ WHERE
 SELECT * FROM "series_parts"
 WHERE "id" = $1 LIMIT 1;
 
--- name: FindSeriesPartByLanguageSlugSeriesSlugAndID :one
+-- name: FindSeriesPartBySlugsAndID :one
 SELECT * FROM "series_parts"
 WHERE
     "language_slug" = $1 AND
@@ -86,114 +86,70 @@ WHERE
     "id" = $3 
 LIMIT 1;
 
--- name: FindPublishedSeriesPartByLanguageSlugSeriesSlugAndIDWithLectures :many
-SELECT 
-    "series_parts".*, 
-    "lectures"."id" AS "lecture_id", 
-    "lectures"."title" AS "lecture_title",
-    "lectures"."watch_time_seconds" AS "lecture_watch_time_seconds",
-    "lectures"."read_time_seconds" AS "lecture_read_time_seconds",
-    "lectures"."is_published" AS "lecture_is_published"
+-- name: FindPublishedSeriesPartBySlugsAndID :one
+SELECT * FROM "series_parts"
+WHERE
+    "language_slug" = $1 AND
+    "series_slug" = $2 AND
+    "id" = $3 AND
+    "is_published" = true
+LIMIT 1;
+
+-- name: FindPublishedSeriesPartBySlugsAndIDWithProgress :one
+SELECT
+    "series_parts".*,
+    "series_part_progress"."in_progress_lectures" AS "series_part_progress_in_progress_lectures",
+    "series_part_progress"."completed_lectures" AS "series_part_progress_completed_lectures",
+    "series_part_progress"."completed_at" AS "series_part_progress_completed_at",
+    "series_part_progress"."is_current" AS "series_part_progress_is_current"
 FROM "series_parts"
-LEFT JOIN "lectures" ON (
-    "series_parts"."id" = "lectures"."series_part_id" AND 
-    "lectures"."is_published" = true
+LEFT JOIN "series_part_progress" ON (
+    "series_parts"."id" = "series_part_progress"."series_part_id" AND
+    "series_part_progress"."user_id" = $1
 )
 WHERE
-    "series_parts"."language_slug" = $1 AND
-    "series_parts"."series_slug" = $2 AND 
-    "series_parts"."id" = $3 AND
+    "series_parts"."language_slug" = $2 AND
+    "series_parts"."series_slug" = $3 AND
+    "series_parts"."id" = $4 AND
     "series_parts"."is_published" = true
-ORDER BY "lectures"."position" ASC;
+LIMIT 1;
 
--- name: FindSeriesPartByLanguageSlugSeriesSlugAndIDWithLectures :many
-SELECT 
-    "series_parts".*, 
-    "lectures"."id" AS "lecture_id", 
-    "lectures"."title" AS "lecture_title",
-    "lectures"."watch_time_seconds" AS "lecture_watch_time_seconds",
-    "lectures"."read_time_seconds" AS "lecture_read_time_seconds",
-    "lectures"."is_published" AS "lecture_is_published"
-FROM "series_parts"
-LEFT JOIN "lectures" ON ("series_parts"."id" = "lectures"."series_part_id")
-WHERE 
+
+-- name: FindPaginatedPublishedSeriesPartsBySlugs :many
+SELECT * FROM "series_parts"
+WHERE
     "series_parts"."language_slug" = $1 AND
-    "series_parts"."series_slug" = $2 AND 
-    "series_parts"."id" = $3
-ORDER BY "lectures"."position" ASC;
+    "series_parts"."series_slug" = $2 AND
+    "series_parts"."is_published" = true
+ORDER BY "series_parts"."position" ASC
+LIMIT $3 OFFSET $4;
 
--- name: FindPaginatedPublishedSeriesPartsByLanguageSlugAndSeriesSlugWithLectures :many
-WITH "series_parts" AS (
-    SELECT * FROM "series_parts"
-    WHERE 
-        "series_parts"."language_slug" = $1 AND
-        "series_parts"."series_slug" = $2 AND 
-        "series_parts"."is_published" = true
-    ORDER BY "series_parts"."position" ASC
-    LIMIT $3 OFFSET $4
-)
-SELECT 
-    "series_parts".*, 
-    "lectures"."id" AS "lecture_id", 
-    "lectures"."title" AS "lecture_title",
-    "lectures"."watch_time_seconds" AS "lecture_watch_time_seconds",
-    "lectures"."read_time_seconds" AS "lecture_read_time_seconds",
-    "lectures"."is_published" AS "lecture_is_published"
-FROM "series_parts"
-LEFT JOIN "lectures" ON (
-    "series_parts"."id" = "lectures"."series_part_id" AND 
-    "lectures"."is_published" = true
-)
-ORDER BY 
-    "series_parts"."position" ASC,
-    "lectures"."position" ASC;
+-- name: FindPaginatedSeriesPartsBySlugs :many
+SELECT * FROM "series_parts"
+WHERE
+    "series_parts"."language_slug" = $1 AND
+    "series_parts"."series_slug" = $2
+ORDER BY "series_parts"."position" ASC
+LIMIT $3 OFFSET $4;
 
--- name: FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithLectures :many
-WITH "series_parts" AS (
-    SELECT * FROM "series_parts"
-    WHERE 
-        "series_parts"."language_slug" = $1 AND
-        "series_parts"."series_slug" = $2
-    ORDER BY "series_parts"."position" ASC
-    LIMIT $3 OFFSET $4
-)
-SELECT 
-    "series_parts".*, 
-    "lectures"."id" AS "lecture_id", 
-    "lectures"."title" AS "lecture_title",
-    "lectures"."watch_time_seconds" AS "lecture_watch_time_seconds",
-    "lectures"."read_time_seconds" AS "lecture_read_time_seconds",
-    "lectures"."is_published" AS "lecture_is_published"
+-- name: FindPaginatedPublishedSeriesPartsBySlugsWithProgress :many
+SELECT
+    "series_parts".*,
+    "series_part_progress"."in_progress_lectures" AS "series_part_progress_in_progress_lectures",
+    "series_part_progress"."completed_lectures" AS "series_part_progress_completed_lectures",
+    "series_part_progress"."completed_at" AS "series_part_progress_completed_at",
+    "series_part_progress"."is_current" AS "series_part_progress_is_current"
 FROM "series_parts"
-LEFT JOIN "lectures" ON ("series_parts"."id" = "lectures"."series_part_id")
-ORDER BY 
-    "series_parts"."position" ASC,
-    "lectures"."position" ASC;
-
--- name: FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithPublishedLectures :many
-WITH "series_parts" AS (
-    SELECT * FROM "series_parts"
-    WHERE 
-        "series_parts"."language_slug" = $1 AND
-        "series_parts"."series_slug" = $2
-    ORDER BY "series_parts"."position" ASC
-    LIMIT $3 OFFSET $4
+LEFT JOIN "series_part_progress" ON (
+    "series_parts"."id" = "series_part_progress"."series_part_id" AND
+    "series_part_progress"."user_id" = $1
 )
-SELECT 
-    "series_parts".*, 
-    "lectures"."id" AS "lecture_id", 
-    "lectures"."title" AS "lecture_title",
-    "lectures"."watch_time_seconds" AS "lecture_watch_time_seconds",
-    "lectures"."read_time_seconds" AS "lecture_read_time_seconds",
-    "lectures"."is_published" AS "lecture_is_published"
-FROM "series_parts"
-LEFT JOIN "lectures" ON (
-    "series_parts"."id" = "lectures"."series_part_id" AND 
-    "lectures"."is_published" = true
-)
-ORDER BY 
-    "series_parts"."position" ASC,
-    "lectures"."position" ASC;
+WHERE
+    "series_parts"."language_slug" = $2 AND
+    "series_parts"."series_slug" = $3 AND
+    "series_parts"."is_published" = true
+ORDER BY "series_parts"."position" ASC
+LIMIT $4 OFFSET $5;
 
 -- name: IncrementSeriesPartLecturesCount :exec
 UPDATE "series_parts" SET
@@ -226,6 +182,10 @@ WHERE "id" = $2;
 -- name: CountSeriesPartsBySeriesSlug :one
 SELECT COUNT("id") AS "count" FROM "series_parts"
 WHERE "series_slug" = $1 LIMIT 1;
+
+-- name: CountPublishedSeriesPartsBySeriesSlug :one
+SELECT COUNT("id") AS "count" FROM "series_parts"
+WHERE "series_slug" = $1 AND "is_published" = true LIMIT 1;
 
 -- name: DeleteSeriesPartById :exec
 DELETE FROM "series_parts"

@@ -17,36 +17,15 @@
 
 package controllers
 
-import "fmt"
+import "net/url"
 
 const (
 	OffsetDefault int = 0
 	LimitDefault  int = 25
 )
 
-type QueryStr string
-
-func (s *QueryStr) checkNotEmpty() bool {
-	if s != nil && *s != "" {
-		*s += "&"
-		return true
-	}
-
-	return false
-}
-
-func (s *QueryStr) add(key, value string) {
-	queryStrParam := QueryStr(fmt.Sprintf("%s=%s", key, value))
-
-	if s.checkNotEmpty() {
-		*s += queryStrParam
-	} else {
-		*s = queryStrParam
-	}
-}
-
 type FromQueryParams interface {
-	ToQueryString() QueryStr
+	ToQueryString() string
 	GetLimit() int32
 	GetOffset() int32
 }
@@ -57,14 +36,14 @@ type GetLanguagesQueryParams struct {
 	Search string `validate:"omitempty,min=1,max=50,extalphanum"`
 }
 
-func (p GetLanguagesQueryParams) ToQueryString() QueryStr {
-	var queryStr QueryStr = ""
+func (p GetLanguagesQueryParams) ToQueryString() string {
+	params := make(url.Values)
 
 	if p.Search != "" {
-		queryStr.add("search", p.Search)
+		params.Add("search", p.Search)
 	}
 
-	return queryStr
+	return params.Encode()
 }
 func (p GetLanguagesQueryParams) GetLimit() int32 {
 	return p.Limit
@@ -78,7 +57,7 @@ type PaginationQueryParams struct {
 	Offset int32 `validate:"omitempty,gte=0"`
 }
 
-func (p PaginationQueryParams) ToQueryString() QueryStr {
+func (p PaginationQueryParams) ToQueryString() string {
 	return ""
 }
 func (p PaginationQueryParams) GetLimit() int32 {
@@ -89,36 +68,23 @@ func (p PaginationQueryParams) GetOffset() int32 {
 }
 
 type SeriesQueryParams struct {
-	IsPublished bool   `validate:"omitempty"`
-	AuthorID    int32  `validate:"omitempty,gte=1"`
-	Search      string `validate:"omitempty,min=1,max=100"`
-	Tag         string `validate:"omitempty,min=2,max=50,slug"`
-	Limit       int32  `validate:"omitempty,gte=1,lte=100"`
-	Offset      int32  `validate:"omitempty,gte=0"`
-	SortBy      string `validate:"omitempty,oneof=slug id"`
-	Order       string `validate:"omitempty,oneof=ASC DESC"`
+	Search string `validate:"omitempty,min=1,max=100"`
+	Limit  int32  `validate:"omitempty,gte=1,lte=100"`
+	Offset int32  `validate:"omitempty,gte=0"`
+	SortBy string `validate:"omitempty,oneof=slug date"`
 }
 
-func (p SeriesQueryParams) ToQueryString() QueryStr {
-	var queryStr QueryStr = ""
+func (p SeriesQueryParams) ToQueryString() string {
+	params := make(url.Values)
 
-	if p.IsPublished {
-		queryStr.add("isPublished", "true")
-	}
 	if p.Search != "" {
-		queryStr.add("search", p.Search)
-	}
-	if p.Tag != "" {
-		queryStr.add("tag", p.Tag)
+		params.Add("search", p.Search)
 	}
 	if p.SortBy != "" {
-		queryStr.add("sortBy", p.SortBy)
-	}
-	if p.Order != "" {
-		queryStr.add("order", p.Order)
+		params.Add("sortBy", p.SortBy)
 	}
 
-	return queryStr
+	return params.Encode()
 }
 func (p SeriesQueryParams) GetLimit() int32 {
 	return p.Limit
@@ -128,23 +94,12 @@ func (p SeriesQueryParams) GetOffset() int32 {
 }
 
 type SeriesPartsQueryParams struct {
-	IsPublished       bool  `validate:"omitempty"`
-	PublishedLectures bool  `validate:"omitempty"`
-	Limit             int32 `validate:"omitempty,gte=1,lte=100"`
-	Offset            int32 `validate:"omitempty,gte=0"`
+	Limit  int32 `validate:"omitempty,gte=1,lte=100"`
+	Offset int32 `validate:"omitempty,gte=0"`
 }
 
-func (p SeriesPartsQueryParams) ToQueryString() QueryStr {
-	var queryStr QueryStr = ""
-
-	if p.IsPublished {
-		queryStr.add("isPublished", "true")
-	}
-	if p.PublishedLectures {
-		queryStr.add("publishedLectures", "true")
-	}
-
-	return queryStr
+func (p SeriesPartsQueryParams) ToQueryString() string {
+	return ""
 }
 func (p SeriesPartsQueryParams) GetLimit() int32 {
 	return p.Limit
@@ -159,14 +114,8 @@ type LecturesQueryParams struct {
 	Offset      int32 `validate:"omitempty,gte=0"`
 }
 
-func (p *LecturesQueryParams) ToQueryString() QueryStr {
-	var queryStr QueryStr = ""
-
-	if p.IsPublished {
-		queryStr.add("isPublished", "true")
-	}
-
-	return queryStr
+func (p *LecturesQueryParams) ToQueryString() string {
+	return ""
 }
 func (p *LecturesQueryParams) GetLimit() int32 {
 	return p.Limit

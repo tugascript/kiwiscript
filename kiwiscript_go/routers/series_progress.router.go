@@ -15,24 +15,22 @@
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
-package services
+package routers
 
-import (
-	"context"
+import "github.com/kiwiscript/kiwiscript_go/paths"
 
-	db "github.com/kiwiscript/kiwiscript_go/providers/database"
-)
+const seriesProgressPath = paths.LanguagePathV1 +
+	"/:languageSlug" +
+	paths.SeriesPath +
+	"/:seriesSlug" +
+	paths.ProgressPath
 
-func (s *Services) FindTagsBySeriesID(ctx context.Context, seriesID int32) ([]db.Tag, *ServiceError) {
-	log := s.log.WithGroup("service.series.FindTagsBySeriesID").With("seriesID", seriesID)
-	log.InfoContext(ctx, "Getting tags by series ID")
+func (r *Router) SeriesProgressPrivateRoutes() {
+	seriesProgress := r.router.Group(
+		seriesProgressPath,
+		r.controllers.AccessClaimsMiddleware,
+	)
 
-	tags, err := s.database.FindTagsBySeriesID(ctx, seriesID)
-	if err != nil {
-		log.ErrorContext(ctx, "Error getting tags", "error", err)
-		return nil, FromDBError(err)
-	}
-
-	log.InfoContext(ctx, "Tags found")
-	return tags, nil
+	seriesProgress.Post("/", r.controllers.CreateOrUpdateSeriesProgress)
+	seriesProgress.Delete("/", r.controllers.ResetSeriesProgress)
 }

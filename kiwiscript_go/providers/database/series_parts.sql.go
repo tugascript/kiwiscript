@@ -45,6 +45,18 @@ func (q *Queries) AddSeriesPartWatchTime(ctx context.Context, arg AddSeriesPartW
 	return err
 }
 
+const countPublishedSeriesPartsBySeriesSlug = `-- name: CountPublishedSeriesPartsBySeriesSlug :one
+SELECT COUNT("id") AS "count" FROM "series_parts"
+WHERE "series_slug" = $1 AND "is_published" = true LIMIT 1
+`
+
+func (q *Queries) CountPublishedSeriesPartsBySeriesSlug(ctx context.Context, seriesSlug string) (int64, error) {
+	row := q.db.QueryRow(ctx, countPublishedSeriesPartsBySeriesSlug, seriesSlug)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countSeriesPartsBySeriesSlug = `-- name: CountSeriesPartsBySeriesSlug :one
 SELECT COUNT("id") AS "count" FROM "series_parts"
 WHERE "series_slug" = $1 LIMIT 1
@@ -180,383 +192,321 @@ func (q *Queries) DeleteSeriesPartById(ctx context.Context, id int32) error {
 	return err
 }
 
-const findPaginatedPublishedSeriesPartsByLanguageSlugAndSeriesSlugWithLectures = `-- name: FindPaginatedPublishedSeriesPartsByLanguageSlugAndSeriesSlugWithLectures :many
-WITH "series_parts" AS (
-    SELECT id, title, language_slug, series_slug, description, position, lectures_count, watch_time_seconds, read_time_seconds, is_published, author_id, created_at, updated_at FROM "series_parts"
-    WHERE 
-        "series_parts"."language_slug" = $1 AND
-        "series_parts"."series_slug" = $2 AND 
-        "series_parts"."is_published" = true
-    ORDER BY "series_parts"."position" ASC
-    LIMIT $3 OFFSET $4
-)
-SELECT 
-    series_parts.id, series_parts.title, series_parts.language_slug, series_parts.series_slug, series_parts.description, series_parts.position, series_parts.lectures_count, series_parts.watch_time_seconds, series_parts.read_time_seconds, series_parts.is_published, series_parts.author_id, series_parts.created_at, series_parts.updated_at, 
-    "lectures"."id" AS "lecture_id", 
-    "lectures"."title" AS "lecture_title",
-    "lectures"."watch_time_seconds" AS "lecture_watch_time_seconds",
-    "lectures"."read_time_seconds" AS "lecture_read_time_seconds",
-    "lectures"."is_published" AS "lecture_is_published"
-FROM "series_parts"
-LEFT JOIN "lectures" ON (
-    "series_parts"."id" = "lectures"."series_part_id" AND 
-    "lectures"."is_published" = true
-)
-ORDER BY 
-    "series_parts"."position" ASC,
-    "lectures"."position" ASC
-`
-
-type FindPaginatedPublishedSeriesPartsByLanguageSlugAndSeriesSlugWithLecturesParams struct {
-	LanguageSlug string
-	SeriesSlug   string
-	Limit        int32
-	Offset       int32
-}
-
-type FindPaginatedPublishedSeriesPartsByLanguageSlugAndSeriesSlugWithLecturesRow struct {
-	ID                      int32
-	Title                   string
-	LanguageSlug            string
-	SeriesSlug              string
-	Description             string
-	Position                int16
-	LecturesCount           int16
-	WatchTimeSeconds        int32
-	ReadTimeSeconds         int32
-	IsPublished             bool
-	AuthorID                int32
-	CreatedAt               pgtype.Timestamp
-	UpdatedAt               pgtype.Timestamp
-	LectureID               pgtype.Int4
-	LectureTitle            pgtype.Text
-	LectureWatchTimeSeconds pgtype.Int4
-	LectureReadTimeSeconds  pgtype.Int4
-	LectureIsPublished      pgtype.Bool
-}
-
-func (q *Queries) FindPaginatedPublishedSeriesPartsByLanguageSlugAndSeriesSlugWithLectures(ctx context.Context, arg FindPaginatedPublishedSeriesPartsByLanguageSlugAndSeriesSlugWithLecturesParams) ([]FindPaginatedPublishedSeriesPartsByLanguageSlugAndSeriesSlugWithLecturesRow, error) {
-	rows, err := q.db.Query(ctx, findPaginatedPublishedSeriesPartsByLanguageSlugAndSeriesSlugWithLectures,
-		arg.LanguageSlug,
-		arg.SeriesSlug,
-		arg.Limit,
-		arg.Offset,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []FindPaginatedPublishedSeriesPartsByLanguageSlugAndSeriesSlugWithLecturesRow{}
-	for rows.Next() {
-		var i FindPaginatedPublishedSeriesPartsByLanguageSlugAndSeriesSlugWithLecturesRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.LanguageSlug,
-			&i.SeriesSlug,
-			&i.Description,
-			&i.Position,
-			&i.LecturesCount,
-			&i.WatchTimeSeconds,
-			&i.ReadTimeSeconds,
-			&i.IsPublished,
-			&i.AuthorID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.LectureID,
-			&i.LectureTitle,
-			&i.LectureWatchTimeSeconds,
-			&i.LectureReadTimeSeconds,
-			&i.LectureIsPublished,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const findPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithLectures = `-- name: FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithLectures :many
-WITH "series_parts" AS (
-    SELECT id, title, language_slug, series_slug, description, position, lectures_count, watch_time_seconds, read_time_seconds, is_published, author_id, created_at, updated_at FROM "series_parts"
-    WHERE 
-        "series_parts"."language_slug" = $1 AND
-        "series_parts"."series_slug" = $2
-    ORDER BY "series_parts"."position" ASC
-    LIMIT $3 OFFSET $4
-)
-SELECT 
-    series_parts.id, series_parts.title, series_parts.language_slug, series_parts.series_slug, series_parts.description, series_parts.position, series_parts.lectures_count, series_parts.watch_time_seconds, series_parts.read_time_seconds, series_parts.is_published, series_parts.author_id, series_parts.created_at, series_parts.updated_at, 
-    "lectures"."id" AS "lecture_id", 
-    "lectures"."title" AS "lecture_title",
-    "lectures"."watch_time_seconds" AS "lecture_watch_time_seconds",
-    "lectures"."read_time_seconds" AS "lecture_read_time_seconds",
-    "lectures"."is_published" AS "lecture_is_published"
-FROM "series_parts"
-LEFT JOIN "lectures" ON ("series_parts"."id" = "lectures"."series_part_id")
-ORDER BY 
-    "series_parts"."position" ASC,
-    "lectures"."position" ASC
-`
-
-type FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithLecturesParams struct {
-	LanguageSlug string
-	SeriesSlug   string
-	Limit        int32
-	Offset       int32
-}
-
-type FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithLecturesRow struct {
-	ID                      int32
-	Title                   string
-	LanguageSlug            string
-	SeriesSlug              string
-	Description             string
-	Position                int16
-	LecturesCount           int16
-	WatchTimeSeconds        int32
-	ReadTimeSeconds         int32
-	IsPublished             bool
-	AuthorID                int32
-	CreatedAt               pgtype.Timestamp
-	UpdatedAt               pgtype.Timestamp
-	LectureID               pgtype.Int4
-	LectureTitle            pgtype.Text
-	LectureWatchTimeSeconds pgtype.Int4
-	LectureReadTimeSeconds  pgtype.Int4
-	LectureIsPublished      pgtype.Bool
-}
-
-func (q *Queries) FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithLectures(ctx context.Context, arg FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithLecturesParams) ([]FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithLecturesRow, error) {
-	rows, err := q.db.Query(ctx, findPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithLectures,
-		arg.LanguageSlug,
-		arg.SeriesSlug,
-		arg.Limit,
-		arg.Offset,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithLecturesRow{}
-	for rows.Next() {
-		var i FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithLecturesRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.LanguageSlug,
-			&i.SeriesSlug,
-			&i.Description,
-			&i.Position,
-			&i.LecturesCount,
-			&i.WatchTimeSeconds,
-			&i.ReadTimeSeconds,
-			&i.IsPublished,
-			&i.AuthorID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.LectureID,
-			&i.LectureTitle,
-			&i.LectureWatchTimeSeconds,
-			&i.LectureReadTimeSeconds,
-			&i.LectureIsPublished,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const findPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithPublishedLectures = `-- name: FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithPublishedLectures :many
-WITH "series_parts" AS (
-    SELECT id, title, language_slug, series_slug, description, position, lectures_count, watch_time_seconds, read_time_seconds, is_published, author_id, created_at, updated_at FROM "series_parts"
-    WHERE 
-        "series_parts"."language_slug" = $1 AND
-        "series_parts"."series_slug" = $2
-    ORDER BY "series_parts"."position" ASC
-    LIMIT $3 OFFSET $4
-)
-SELECT 
-    series_parts.id, series_parts.title, series_parts.language_slug, series_parts.series_slug, series_parts.description, series_parts.position, series_parts.lectures_count, series_parts.watch_time_seconds, series_parts.read_time_seconds, series_parts.is_published, series_parts.author_id, series_parts.created_at, series_parts.updated_at, 
-    "lectures"."id" AS "lecture_id", 
-    "lectures"."title" AS "lecture_title",
-    "lectures"."watch_time_seconds" AS "lecture_watch_time_seconds",
-    "lectures"."read_time_seconds" AS "lecture_read_time_seconds",
-    "lectures"."is_published" AS "lecture_is_published"
-FROM "series_parts"
-LEFT JOIN "lectures" ON (
-    "series_parts"."id" = "lectures"."series_part_id" AND 
-    "lectures"."is_published" = true
-)
-ORDER BY 
-    "series_parts"."position" ASC,
-    "lectures"."position" ASC
-`
-
-type FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithPublishedLecturesParams struct {
-	LanguageSlug string
-	SeriesSlug   string
-	Limit        int32
-	Offset       int32
-}
-
-type FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithPublishedLecturesRow struct {
-	ID                      int32
-	Title                   string
-	LanguageSlug            string
-	SeriesSlug              string
-	Description             string
-	Position                int16
-	LecturesCount           int16
-	WatchTimeSeconds        int32
-	ReadTimeSeconds         int32
-	IsPublished             bool
-	AuthorID                int32
-	CreatedAt               pgtype.Timestamp
-	UpdatedAt               pgtype.Timestamp
-	LectureID               pgtype.Int4
-	LectureTitle            pgtype.Text
-	LectureWatchTimeSeconds pgtype.Int4
-	LectureReadTimeSeconds  pgtype.Int4
-	LectureIsPublished      pgtype.Bool
-}
-
-func (q *Queries) FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithPublishedLectures(ctx context.Context, arg FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithPublishedLecturesParams) ([]FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithPublishedLecturesRow, error) {
-	rows, err := q.db.Query(ctx, findPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithPublishedLectures,
-		arg.LanguageSlug,
-		arg.SeriesSlug,
-		arg.Limit,
-		arg.Offset,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithPublishedLecturesRow{}
-	for rows.Next() {
-		var i FindPaginatedSeriesPartsByLanguageSlugAndSeriesSlugWithPublishedLecturesRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.LanguageSlug,
-			&i.SeriesSlug,
-			&i.Description,
-			&i.Position,
-			&i.LecturesCount,
-			&i.WatchTimeSeconds,
-			&i.ReadTimeSeconds,
-			&i.IsPublished,
-			&i.AuthorID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.LectureID,
-			&i.LectureTitle,
-			&i.LectureWatchTimeSeconds,
-			&i.LectureReadTimeSeconds,
-			&i.LectureIsPublished,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const findPublishedSeriesPartByLanguageSlugSeriesSlugAndIDWithLectures = `-- name: FindPublishedSeriesPartByLanguageSlugSeriesSlugAndIDWithLectures :many
-SELECT 
-    series_parts.id, series_parts.title, series_parts.language_slug, series_parts.series_slug, series_parts.description, series_parts.position, series_parts.lectures_count, series_parts.watch_time_seconds, series_parts.read_time_seconds, series_parts.is_published, series_parts.author_id, series_parts.created_at, series_parts.updated_at, 
-    "lectures"."id" AS "lecture_id", 
-    "lectures"."title" AS "lecture_title",
-    "lectures"."watch_time_seconds" AS "lecture_watch_time_seconds",
-    "lectures"."read_time_seconds" AS "lecture_read_time_seconds",
-    "lectures"."is_published" AS "lecture_is_published"
-FROM "series_parts"
-LEFT JOIN "lectures" ON (
-    "series_parts"."id" = "lectures"."series_part_id" AND 
-    "lectures"."is_published" = true
-)
+const findPaginatedPublishedSeriesPartsBySlugs = `-- name: FindPaginatedPublishedSeriesPartsBySlugs :many
+SELECT id, title, language_slug, series_slug, description, position, lectures_count, watch_time_seconds, read_time_seconds, is_published, author_id, created_at, updated_at FROM "series_parts"
 WHERE
     "series_parts"."language_slug" = $1 AND
-    "series_parts"."series_slug" = $2 AND 
-    "series_parts"."id" = $3 AND
+    "series_parts"."series_slug" = $2 AND
     "series_parts"."is_published" = true
-ORDER BY "lectures"."position" ASC
+ORDER BY "series_parts"."position" ASC
+LIMIT $3 OFFSET $4
 `
 
-type FindPublishedSeriesPartByLanguageSlugSeriesSlugAndIDWithLecturesParams struct {
+type FindPaginatedPublishedSeriesPartsBySlugsParams struct {
+	LanguageSlug string
+	SeriesSlug   string
+	Limit        int32
+	Offset       int32
+}
+
+func (q *Queries) FindPaginatedPublishedSeriesPartsBySlugs(ctx context.Context, arg FindPaginatedPublishedSeriesPartsBySlugsParams) ([]SeriesPart, error) {
+	rows, err := q.db.Query(ctx, findPaginatedPublishedSeriesPartsBySlugs,
+		arg.LanguageSlug,
+		arg.SeriesSlug,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SeriesPart{}
+	for rows.Next() {
+		var i SeriesPart
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.LanguageSlug,
+			&i.SeriesSlug,
+			&i.Description,
+			&i.Position,
+			&i.LecturesCount,
+			&i.WatchTimeSeconds,
+			&i.ReadTimeSeconds,
+			&i.IsPublished,
+			&i.AuthorID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const findPaginatedPublishedSeriesPartsBySlugsWithProgress = `-- name: FindPaginatedPublishedSeriesPartsBySlugsWithProgress :many
+SELECT
+    series_parts.id, series_parts.title, series_parts.language_slug, series_parts.series_slug, series_parts.description, series_parts.position, series_parts.lectures_count, series_parts.watch_time_seconds, series_parts.read_time_seconds, series_parts.is_published, series_parts.author_id, series_parts.created_at, series_parts.updated_at,
+    "series_part_progress"."in_progress_lectures" AS "series_part_progress_in_progress_lectures",
+    "series_part_progress"."completed_lectures" AS "series_part_progress_completed_lectures",
+    "series_part_progress"."completed_at" AS "series_part_progress_completed_at",
+    "series_part_progress"."is_current" AS "series_part_progress_is_current"
+FROM "series_parts"
+LEFT JOIN "series_part_progress" ON (
+    "series_parts"."id" = "series_part_progress"."series_part_id" AND
+    "series_part_progress"."user_id" = $1
+)
+WHERE
+    "series_parts"."language_slug" = $2 AND
+    "series_parts"."series_slug" = $3 AND
+    "series_parts"."is_published" = true
+ORDER BY "series_parts"."position" ASC
+LIMIT $4 OFFSET $5
+`
+
+type FindPaginatedPublishedSeriesPartsBySlugsWithProgressParams struct {
+	UserID       int32
+	LanguageSlug string
+	SeriesSlug   string
+	Limit        int32
+	Offset       int32
+}
+
+type FindPaginatedPublishedSeriesPartsBySlugsWithProgressRow struct {
+	ID                                   int32
+	Title                                string
+	LanguageSlug                         string
+	SeriesSlug                           string
+	Description                          string
+	Position                             int16
+	LecturesCount                        int16
+	WatchTimeSeconds                     int32
+	ReadTimeSeconds                      int32
+	IsPublished                          bool
+	AuthorID                             int32
+	CreatedAt                            pgtype.Timestamp
+	UpdatedAt                            pgtype.Timestamp
+	SeriesPartProgressInProgressLectures pgtype.Int2
+	SeriesPartProgressCompletedLectures  pgtype.Int2
+	SeriesPartProgressCompletedAt        pgtype.Timestamp
+	SeriesPartProgressIsCurrent          pgtype.Bool
+}
+
+func (q *Queries) FindPaginatedPublishedSeriesPartsBySlugsWithProgress(ctx context.Context, arg FindPaginatedPublishedSeriesPartsBySlugsWithProgressParams) ([]FindPaginatedPublishedSeriesPartsBySlugsWithProgressRow, error) {
+	rows, err := q.db.Query(ctx, findPaginatedPublishedSeriesPartsBySlugsWithProgress,
+		arg.UserID,
+		arg.LanguageSlug,
+		arg.SeriesSlug,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FindPaginatedPublishedSeriesPartsBySlugsWithProgressRow{}
+	for rows.Next() {
+		var i FindPaginatedPublishedSeriesPartsBySlugsWithProgressRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.LanguageSlug,
+			&i.SeriesSlug,
+			&i.Description,
+			&i.Position,
+			&i.LecturesCount,
+			&i.WatchTimeSeconds,
+			&i.ReadTimeSeconds,
+			&i.IsPublished,
+			&i.AuthorID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.SeriesPartProgressInProgressLectures,
+			&i.SeriesPartProgressCompletedLectures,
+			&i.SeriesPartProgressCompletedAt,
+			&i.SeriesPartProgressIsCurrent,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const findPaginatedSeriesPartsBySlugs = `-- name: FindPaginatedSeriesPartsBySlugs :many
+SELECT id, title, language_slug, series_slug, description, position, lectures_count, watch_time_seconds, read_time_seconds, is_published, author_id, created_at, updated_at FROM "series_parts"
+WHERE
+    "series_parts"."language_slug" = $1 AND
+    "series_parts"."series_slug" = $2
+ORDER BY "series_parts"."position" ASC
+LIMIT $3 OFFSET $4
+`
+
+type FindPaginatedSeriesPartsBySlugsParams struct {
+	LanguageSlug string
+	SeriesSlug   string
+	Limit        int32
+	Offset       int32
+}
+
+func (q *Queries) FindPaginatedSeriesPartsBySlugs(ctx context.Context, arg FindPaginatedSeriesPartsBySlugsParams) ([]SeriesPart, error) {
+	rows, err := q.db.Query(ctx, findPaginatedSeriesPartsBySlugs,
+		arg.LanguageSlug,
+		arg.SeriesSlug,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SeriesPart{}
+	for rows.Next() {
+		var i SeriesPart
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.LanguageSlug,
+			&i.SeriesSlug,
+			&i.Description,
+			&i.Position,
+			&i.LecturesCount,
+			&i.WatchTimeSeconds,
+			&i.ReadTimeSeconds,
+			&i.IsPublished,
+			&i.AuthorID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const findPublishedSeriesPartBySlugsAndID = `-- name: FindPublishedSeriesPartBySlugsAndID :one
+SELECT id, title, language_slug, series_slug, description, position, lectures_count, watch_time_seconds, read_time_seconds, is_published, author_id, created_at, updated_at FROM "series_parts"
+WHERE
+    "language_slug" = $1 AND
+    "series_slug" = $2 AND
+    "id" = $3 AND
+    "is_published" = true
+LIMIT 1
+`
+
+type FindPublishedSeriesPartBySlugsAndIDParams struct {
 	LanguageSlug string
 	SeriesSlug   string
 	ID           int32
 }
 
-type FindPublishedSeriesPartByLanguageSlugSeriesSlugAndIDWithLecturesRow struct {
-	ID                      int32
-	Title                   string
-	LanguageSlug            string
-	SeriesSlug              string
-	Description             string
-	Position                int16
-	LecturesCount           int16
-	WatchTimeSeconds        int32
-	ReadTimeSeconds         int32
-	IsPublished             bool
-	AuthorID                int32
-	CreatedAt               pgtype.Timestamp
-	UpdatedAt               pgtype.Timestamp
-	LectureID               pgtype.Int4
-	LectureTitle            pgtype.Text
-	LectureWatchTimeSeconds pgtype.Int4
-	LectureReadTimeSeconds  pgtype.Int4
-	LectureIsPublished      pgtype.Bool
+func (q *Queries) FindPublishedSeriesPartBySlugsAndID(ctx context.Context, arg FindPublishedSeriesPartBySlugsAndIDParams) (SeriesPart, error) {
+	row := q.db.QueryRow(ctx, findPublishedSeriesPartBySlugsAndID, arg.LanguageSlug, arg.SeriesSlug, arg.ID)
+	var i SeriesPart
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.LanguageSlug,
+		&i.SeriesSlug,
+		&i.Description,
+		&i.Position,
+		&i.LecturesCount,
+		&i.WatchTimeSeconds,
+		&i.ReadTimeSeconds,
+		&i.IsPublished,
+		&i.AuthorID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
-func (q *Queries) FindPublishedSeriesPartByLanguageSlugSeriesSlugAndIDWithLectures(ctx context.Context, arg FindPublishedSeriesPartByLanguageSlugSeriesSlugAndIDWithLecturesParams) ([]FindPublishedSeriesPartByLanguageSlugSeriesSlugAndIDWithLecturesRow, error) {
-	rows, err := q.db.Query(ctx, findPublishedSeriesPartByLanguageSlugSeriesSlugAndIDWithLectures, arg.LanguageSlug, arg.SeriesSlug, arg.ID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []FindPublishedSeriesPartByLanguageSlugSeriesSlugAndIDWithLecturesRow{}
-	for rows.Next() {
-		var i FindPublishedSeriesPartByLanguageSlugSeriesSlugAndIDWithLecturesRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.LanguageSlug,
-			&i.SeriesSlug,
-			&i.Description,
-			&i.Position,
-			&i.LecturesCount,
-			&i.WatchTimeSeconds,
-			&i.ReadTimeSeconds,
-			&i.IsPublished,
-			&i.AuthorID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.LectureID,
-			&i.LectureTitle,
-			&i.LectureWatchTimeSeconds,
-			&i.LectureReadTimeSeconds,
-			&i.LectureIsPublished,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+const findPublishedSeriesPartBySlugsAndIDWithProgress = `-- name: FindPublishedSeriesPartBySlugsAndIDWithProgress :one
+SELECT
+    series_parts.id, series_parts.title, series_parts.language_slug, series_parts.series_slug, series_parts.description, series_parts.position, series_parts.lectures_count, series_parts.watch_time_seconds, series_parts.read_time_seconds, series_parts.is_published, series_parts.author_id, series_parts.created_at, series_parts.updated_at,
+    "series_part_progress"."in_progress_lectures" AS "series_part_progress_in_progress_lectures",
+    "series_part_progress"."completed_lectures" AS "series_part_progress_completed_lectures",
+    "series_part_progress"."completed_at" AS "series_part_progress_completed_at",
+    "series_part_progress"."is_current" AS "series_part_progress_is_current"
+FROM "series_parts"
+LEFT JOIN "series_part_progress" ON (
+    "series_parts"."id" = "series_part_progress"."series_part_id" AND
+    "series_part_progress"."user_id" = $1
+)
+WHERE
+    "series_parts"."language_slug" = $2 AND
+    "series_parts"."series_slug" = $3 AND
+    "series_parts"."id" = $4 AND
+    "series_parts"."is_published" = true
+LIMIT 1
+`
+
+type FindPublishedSeriesPartBySlugsAndIDWithProgressParams struct {
+	UserID       int32
+	LanguageSlug string
+	SeriesSlug   string
+	ID           int32
+}
+
+type FindPublishedSeriesPartBySlugsAndIDWithProgressRow struct {
+	ID                                   int32
+	Title                                string
+	LanguageSlug                         string
+	SeriesSlug                           string
+	Description                          string
+	Position                             int16
+	LecturesCount                        int16
+	WatchTimeSeconds                     int32
+	ReadTimeSeconds                      int32
+	IsPublished                          bool
+	AuthorID                             int32
+	CreatedAt                            pgtype.Timestamp
+	UpdatedAt                            pgtype.Timestamp
+	SeriesPartProgressInProgressLectures pgtype.Int2
+	SeriesPartProgressCompletedLectures  pgtype.Int2
+	SeriesPartProgressCompletedAt        pgtype.Timestamp
+	SeriesPartProgressIsCurrent          pgtype.Bool
+}
+
+func (q *Queries) FindPublishedSeriesPartBySlugsAndIDWithProgress(ctx context.Context, arg FindPublishedSeriesPartBySlugsAndIDWithProgressParams) (FindPublishedSeriesPartBySlugsAndIDWithProgressRow, error) {
+	row := q.db.QueryRow(ctx, findPublishedSeriesPartBySlugsAndIDWithProgress,
+		arg.UserID,
+		arg.LanguageSlug,
+		arg.SeriesSlug,
+		arg.ID,
+	)
+	var i FindPublishedSeriesPartBySlugsAndIDWithProgressRow
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.LanguageSlug,
+		&i.SeriesSlug,
+		&i.Description,
+		&i.Position,
+		&i.LecturesCount,
+		&i.WatchTimeSeconds,
+		&i.ReadTimeSeconds,
+		&i.IsPublished,
+		&i.AuthorID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SeriesPartProgressInProgressLectures,
+		&i.SeriesPartProgressCompletedLectures,
+		&i.SeriesPartProgressCompletedAt,
+		&i.SeriesPartProgressIsCurrent,
+	)
+	return i, err
 }
 
 const findSeriesPartById = `-- name: FindSeriesPartById :one
@@ -585,7 +535,7 @@ func (q *Queries) FindSeriesPartById(ctx context.Context, id int32) (SeriesPart,
 	return i, err
 }
 
-const findSeriesPartByLanguageSlugSeriesSlugAndID = `-- name: FindSeriesPartByLanguageSlugSeriesSlugAndID :one
+const findSeriesPartBySlugsAndID = `-- name: FindSeriesPartBySlugsAndID :one
 SELECT id, title, language_slug, series_slug, description, position, lectures_count, watch_time_seconds, read_time_seconds, is_published, author_id, created_at, updated_at FROM "series_parts"
 WHERE
     "language_slug" = $1 AND
@@ -594,14 +544,14 @@ WHERE
 LIMIT 1
 `
 
-type FindSeriesPartByLanguageSlugSeriesSlugAndIDParams struct {
+type FindSeriesPartBySlugsAndIDParams struct {
 	LanguageSlug string
 	SeriesSlug   string
 	ID           int32
 }
 
-func (q *Queries) FindSeriesPartByLanguageSlugSeriesSlugAndID(ctx context.Context, arg FindSeriesPartByLanguageSlugSeriesSlugAndIDParams) (SeriesPart, error) {
-	row := q.db.QueryRow(ctx, findSeriesPartByLanguageSlugSeriesSlugAndID, arg.LanguageSlug, arg.SeriesSlug, arg.ID)
+func (q *Queries) FindSeriesPartBySlugsAndID(ctx context.Context, arg FindSeriesPartBySlugsAndIDParams) (SeriesPart, error) {
+	row := q.db.QueryRow(ctx, findSeriesPartBySlugsAndID, arg.LanguageSlug, arg.SeriesSlug, arg.ID)
 	var i SeriesPart
 	err := row.Scan(
 		&i.ID,
@@ -619,89 +569,6 @@ func (q *Queries) FindSeriesPartByLanguageSlugSeriesSlugAndID(ctx context.Contex
 		&i.UpdatedAt,
 	)
 	return i, err
-}
-
-const findSeriesPartByLanguageSlugSeriesSlugAndIDWithLectures = `-- name: FindSeriesPartByLanguageSlugSeriesSlugAndIDWithLectures :many
-SELECT 
-    series_parts.id, series_parts.title, series_parts.language_slug, series_parts.series_slug, series_parts.description, series_parts.position, series_parts.lectures_count, series_parts.watch_time_seconds, series_parts.read_time_seconds, series_parts.is_published, series_parts.author_id, series_parts.created_at, series_parts.updated_at, 
-    "lectures"."id" AS "lecture_id", 
-    "lectures"."title" AS "lecture_title",
-    "lectures"."watch_time_seconds" AS "lecture_watch_time_seconds",
-    "lectures"."read_time_seconds" AS "lecture_read_time_seconds",
-    "lectures"."is_published" AS "lecture_is_published"
-FROM "series_parts"
-LEFT JOIN "lectures" ON ("series_parts"."id" = "lectures"."series_part_id")
-WHERE 
-    "series_parts"."language_slug" = $1 AND
-    "series_parts"."series_slug" = $2 AND 
-    "series_parts"."id" = $3
-ORDER BY "lectures"."position" ASC
-`
-
-type FindSeriesPartByLanguageSlugSeriesSlugAndIDWithLecturesParams struct {
-	LanguageSlug string
-	SeriesSlug   string
-	ID           int32
-}
-
-type FindSeriesPartByLanguageSlugSeriesSlugAndIDWithLecturesRow struct {
-	ID                      int32
-	Title                   string
-	LanguageSlug            string
-	SeriesSlug              string
-	Description             string
-	Position                int16
-	LecturesCount           int16
-	WatchTimeSeconds        int32
-	ReadTimeSeconds         int32
-	IsPublished             bool
-	AuthorID                int32
-	CreatedAt               pgtype.Timestamp
-	UpdatedAt               pgtype.Timestamp
-	LectureID               pgtype.Int4
-	LectureTitle            pgtype.Text
-	LectureWatchTimeSeconds pgtype.Int4
-	LectureReadTimeSeconds  pgtype.Int4
-	LectureIsPublished      pgtype.Bool
-}
-
-func (q *Queries) FindSeriesPartByLanguageSlugSeriesSlugAndIDWithLectures(ctx context.Context, arg FindSeriesPartByLanguageSlugSeriesSlugAndIDWithLecturesParams) ([]FindSeriesPartByLanguageSlugSeriesSlugAndIDWithLecturesRow, error) {
-	rows, err := q.db.Query(ctx, findSeriesPartByLanguageSlugSeriesSlugAndIDWithLectures, arg.LanguageSlug, arg.SeriesSlug, arg.ID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []FindSeriesPartByLanguageSlugSeriesSlugAndIDWithLecturesRow{}
-	for rows.Next() {
-		var i FindSeriesPartByLanguageSlugSeriesSlugAndIDWithLecturesRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.LanguageSlug,
-			&i.SeriesSlug,
-			&i.Description,
-			&i.Position,
-			&i.LecturesCount,
-			&i.WatchTimeSeconds,
-			&i.ReadTimeSeconds,
-			&i.IsPublished,
-			&i.AuthorID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.LectureID,
-			&i.LectureTitle,
-			&i.LectureWatchTimeSeconds,
-			&i.LectureReadTimeSeconds,
-			&i.LectureIsPublished,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const incrementSeriesPartLecturesCount = `-- name: IncrementSeriesPartLecturesCount :exec

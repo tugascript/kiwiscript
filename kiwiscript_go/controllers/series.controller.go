@@ -19,6 +19,8 @@ package controllers
 
 import (
 	"fmt"
+	db "github.com/kiwiscript/kiwiscript_go/providers/database"
+	"github.com/kiwiscript/kiwiscript_go/utils"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/kiwiscript/kiwiscript_go/paths"
@@ -50,7 +52,7 @@ func (c *Controllers) CreateSeries(ctx *fiber.Ctx) error {
 		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
 
-	series, tags, serviceErr := c.services.CreateSeries(userCtx, services.CreateSeriesOptions{
+	series, serviceErr := c.services.CreateSeries(userCtx, services.CreateSeriesOptions{
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		Title:        request.Title,
@@ -60,7 +62,11 @@ func (c *Controllers) CreateSeries(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.Status(fiber.StatusCreated).JSON(c.NewSeriesResponse(&user, series, tags))
+	return ctx.Status(fiber.StatusCreated).JSON(
+		c.NewSeriesResponse(
+			series.ToSeriesDTOWithAuthor(user.ID, user.FirstName, user.LastName),
+		),
+	)
 }
 
 func (c *Controllers) GetSingleSeries(ctx *fiber.Ctx) error {
@@ -78,19 +84,48 @@ func (c *Controllers) GetSingleSeries(ctx *fiber.Ctx) error {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}
 
-	seriesDto, serviceErr := c.services.FindSeriesBySlugsWithJoins(userCtx, services.FindSeriesBySlugsWithJoinsOptions{
-		LanguageSlug: params.LanguageSlug,
+	if user, err := c.GetUserClaims(ctx); err == nil {
+		if user.IsStaff {
+			series, serviceErr := c.services.FindSeriesBySlugs(userCtx, services.FindSeriesBySlugsOptions{
+				SeriesSlug:   params.SeriesSlug,
+				LanguageSlug: params.LanguageSlug,
+			})
+			if serviceErr != nil {
+				return c.serviceErrorResponse(serviceErr, ctx)
+			}
+
+			user, serviceErr := c.services.FindUserByID(userCtx, series.AuthorID)
+			if serviceErr != nil {
+				return c.serviceErrorResponse(serviceErr, ctx)
+			}
+
+			return ctx.JSON(c.NewSeriesResponse(series.ToSeriesDTOWithAuthor(user.ID, user.FirstName, user.LastName)))
+		}
+
+		seriesDto, serviceErr := c.services.FindPublishedSeriesBySlugsWithProgress(
+			userCtx,
+			services.FindSeriesBySlugsWithProgressOptions{
+				UserID:       user.ID,
+				LanguageSlug: params.LanguageSlug,
+				SeriesSlug:   params.SeriesSlug,
+			},
+		)
+		if serviceErr != nil {
+			return c.serviceErrorResponse(serviceErr, ctx)
+		}
+
+		return ctx.JSON(c.NewSeriesResponse(seriesDto))
+	}
+
+	series, serviceErr := c.services.FindPublishedSeriesBySlugsWithAuthor(userCtx, services.FindSeriesBySlugsOptions{
 		SeriesSlug:   params.SeriesSlug,
+		LanguageSlug: params.LanguageSlug,
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
-	user, err := c.GetUserClaims(ctx)
-	if !seriesDto.IsPublished && (err != nil || !user.IsStaff) {
-		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
-	}
 
-	return ctx.JSON(c.NewSeriesFromDto(seriesDto, params.LanguageSlug))
+	return ctx.JSON(c.NewSeriesResponse(series.ToSeriesDTO()))
 }
 
 func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
@@ -105,35 +140,126 @@ func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
 	}
 
 	queryParams := SeriesQueryParams{
-		IsPublished: ctx.QueryBool("isPublished", false),
-		AuthorID:    int32(ctx.QueryInt("authorID", 0)),
-		Search:      ctx.Query("search"),
-		Tag:         ctx.Query("tag"),
-		Offset:      int32(ctx.QueryInt("offset", OffsetDefault)),
-		Limit:       int32(ctx.QueryInt("limit", LimitDefault)),
-		SortBy:      ctx.Query("sortBy", "id"),
-		Order:       ctx.Query("order", "DESC"),
+		Search: ctx.Query("search"),
+		Offset: int32(ctx.QueryInt("offset", OffsetDefault)),
+		Limit:  int32(ctx.QueryInt("limit", LimitDefault)),
+		SortBy: ctx.Query("sortBy", "date"),
 	}
 	if err := c.validate.StructCtx(userCtx, queryParams); err != nil {
 		return c.validateQueryErrorResponse(log, userCtx, err, ctx)
 	}
 
-	user, err := c.GetUserClaims(ctx)
-	if err != nil || !user.IsStaff {
-		queryParams.IsPublished = true
+	sortBySlug := utils.Lowered(queryParams.SortBy) == "slug"
+	paginationPath := fmt.Sprintf("%s/%s%s", paths.LanguagePathV1, languageSlug, paths.SeriesPath)
+
+	var seriesDtos []db.SeriesDTO
+	var count int64
+	var serviceErr *services.ServiceError
+
+	if user, err := c.GetUserClaims(ctx); err == nil {
+		if user.IsStaff {
+			if queryParams.Search != "" {
+				seriesDtos, count, serviceErr = c.services.FindFilteredSeries(
+					userCtx,
+					services.FindFilteredSeriesOptions{
+						Search:       queryParams.Search,
+						LanguageSlug: params.LanguageSlug,
+						Offset:       queryParams.Offset,
+						Limit:        queryParams.Limit,
+						SortBySlug:   sortBySlug,
+					},
+				)
+			} else {
+				seriesDtos, count, serviceErr = c.services.FindPaginatedSeries(
+					userCtx,
+					services.FindPaginatedSeriesOptions{
+						LanguageSlug: params.LanguageSlug,
+						Offset:       queryParams.Offset,
+						Limit:        queryParams.Limit,
+						SortBySlug:   sortBySlug,
+					},
+				)
+			}
+			if serviceErr != nil {
+				return c.serviceErrorResponse(serviceErr, ctx)
+			}
+
+			return ctx.JSON(
+				NewPaginatedResponse(
+					c.backendDomain,
+					paginationPath,
+					&queryParams,
+					count,
+					seriesDtos,
+					func(dto *db.SeriesDTO) *SeriesResponse {
+						return c.NewSeriesResponse(dto)
+					},
+				),
+			)
+		}
+
+		if queryParams.Search != "" {
+			seriesDtos, count, serviceErr = c.services.FindFilteredPublishedSeriesWithProgress(
+				userCtx,
+				services.FindFilteredSeriesOptions{
+					Search:       queryParams.Search,
+					LanguageSlug: params.LanguageSlug,
+					Offset:       queryParams.Offset,
+					Limit:        queryParams.Limit,
+					SortBySlug:   sortBySlug,
+				},
+			)
+		} else {
+			seriesDtos, count, serviceErr = c.services.FindPaginatedPublishedSeriesWithProgress(
+				userCtx,
+				services.FindPaginatedSeriesOptions{
+					LanguageSlug: params.LanguageSlug,
+					Offset:       queryParams.Offset,
+					Limit:        queryParams.Limit,
+					SortBySlug:   sortBySlug,
+				},
+			)
+		}
+		if serviceErr != nil {
+			return c.serviceErrorResponse(serviceErr, ctx)
+		}
+
+		return ctx.JSON(
+			NewPaginatedResponse(
+				c.backendDomain,
+				paginationPath,
+				&queryParams,
+				count,
+				seriesDtos,
+				func(dto *db.SeriesDTO) *SeriesResponse {
+					return c.NewSeriesResponse(dto)
+				},
+			),
+		)
 	}
 
-	dtos, count, serviceErr := c.services.FindPaginatedSeries(userCtx, services.FindPaginatedSeriesOptions{
-		LanguageSlug: params.LanguageSlug,
-		IsPublished:  queryParams.IsPublished,
-		AuthorID:     queryParams.AuthorID,
-		Search:       queryParams.Search,
-		Tag:          queryParams.Tag,
-		Offset:       queryParams.Offset,
-		Limit:        queryParams.Limit,
-		SortBy:       queryParams.SortBy,
-		Order:        queryParams.Order,
-	})
+	if queryParams.Search != "" {
+		seriesDtos, count, serviceErr = c.services.FindFilteredPublishedSeries(
+			userCtx,
+			services.FindFilteredSeriesOptions{
+				Search:       queryParams.Search,
+				LanguageSlug: params.LanguageSlug,
+				Offset:       queryParams.Offset,
+				Limit:        queryParams.Limit,
+				SortBySlug:   sortBySlug,
+			},
+		)
+	} else {
+		seriesDtos, count, serviceErr = c.services.FindPaginatedPublishedSeries(
+			userCtx,
+			services.FindPaginatedSeriesOptions{
+				LanguageSlug: params.LanguageSlug,
+				Offset:       queryParams.Offset,
+				Limit:        queryParams.Limit,
+				SortBySlug:   sortBySlug,
+			},
+		)
+	}
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
@@ -141,12 +267,12 @@ func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
 	return ctx.JSON(
 		NewPaginatedResponse(
 			c.backendDomain,
-			fmt.Sprintf("%s/%s%s", paths.LanguagePathV1, languageSlug, paths.SeriesPath),
+			paginationPath,
 			&queryParams,
 			count,
-			dtos,
-			func(dto *services.SeriesDto) *SeriesResponse {
-				return c.NewSeriesFromDto(dto, params.LanguageSlug)
+			seriesDtos,
+			func(dto *db.SeriesDTO) *SeriesResponse {
+				return c.NewSeriesResponse(dto)
 			},
 		),
 	)
@@ -192,12 +318,7 @@ func (c *Controllers) UpdateSeries(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	tags, serviceErr := c.services.FindTagsBySeriesID(userCtx, series.ID)
-	if serviceErr != nil {
-		return c.serviceErrorResponse(serviceErr, ctx)
-	}
-
-	return ctx.JSON(c.NewSeriesResponse(&user, series, tags))
+	return ctx.JSON(c.NewSeriesResponse(series.ToSeriesDTOWithAuthor(user.ID, user.FirstName, user.LastName)))
 }
 
 func (c *Controllers) UpdateSeriesIsPublished(ctx *fiber.Ctx) error {
@@ -239,91 +360,7 @@ func (c *Controllers) UpdateSeriesIsPublished(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	tags, serviceErr := c.services.FindTagsBySeriesID(userCtx, series.ID)
-	if serviceErr != nil {
-		return c.serviceErrorResponse(serviceErr, ctx)
-	}
-
-	return ctx.JSON(c.NewSeriesResponse(&user, series, tags))
-
-}
-
-func (c *Controllers) AddTagToSeries(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.AddTagToSeries")
-	userCtx := ctx.UserContext()
-	languageSlug := ctx.Params("languageSlug")
-	seriesSlug := ctx.Params("seriesSlug")
-	log.InfoContext(userCtx, "Adding tag to series...", "languageSlug", languageSlug, "seriesSlug", seriesSlug)
-
-	user, err := c.GetUserClaims(ctx)
-	if err != nil || !user.IsStaff {
-		log.ErrorContext(userCtx, "User is not staff, should not have reached here")
-		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
-	}
-
-	params := SeriesParams{
-		LanguageSlug: languageSlug,
-		SeriesSlug:   seriesSlug,
-	}
-	if err := c.validate.StructCtx(userCtx, params); err != nil {
-		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
-	}
-
-	var request AddTagToSeriesRequest
-	if err := ctx.BodyParser(&request); err != nil {
-		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
-	}
-	if err := c.validate.StructCtx(userCtx, request); err != nil {
-		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
-	}
-
-	series, tags, serviceErr := c.services.AddTagToSeries(userCtx, services.AddTagToSeriesOptions{
-		UserID:       user.ID,
-		LanguageSlug: params.LanguageSlug,
-		SeriesSlug:   params.SeriesSlug,
-		TagName:      request.Tag,
-	})
-	if serviceErr != nil {
-		return c.serviceErrorResponse(serviceErr, ctx)
-	}
-
-	return ctx.JSON(c.NewSeriesResponse(&user, series, tags))
-}
-
-func (c *Controllers) RemoveTagFromSeries(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.RemoveTagFromSeries")
-	userCtx := ctx.UserContext()
-	languageSlug := ctx.Params("languageSlug")
-	seriesSlug := ctx.Params("seriesSlug")
-	tag := ctx.Params("tag")
-	log.InfoContext(userCtx, "Removing tag from series...", "languageSlug", languageSlug, "seriesSlug", seriesSlug, "tag", tag)
-
-	user, err := c.GetUserClaims(ctx)
-	if err != nil || !user.IsStaff {
-		log.ErrorContext(userCtx, "User is not staff, should not have reached here")
-		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
-	}
-
-	params := RemoveTagFromSeriesParams{
-		LanguageSlug: languageSlug,
-		SeriesSlug:   seriesSlug,
-		Tag:          tag,
-	}
-	if err := c.validate.StructCtx(userCtx, params); err != nil {
-		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
-	}
-
-	series, tags, serviceErr := c.services.RemoveTagFromSeries(userCtx, services.RemoveTagFromSeriesOptions{
-		UserID:       user.ID,
-		LanguageSlug: params.LanguageSlug,
-		SeriesSlug:   params.SeriesSlug,
-		TagName:      params.Tag,
-	})
-	if serviceErr != nil {
-		return c.serviceErrorResponse(serviceErr, ctx)
-	}
-
-	return ctx.JSON(c.NewSeriesResponse(&user, series, tags))
+	return ctx.JSON(c.NewSeriesResponse(series.ToSeriesDTOWithAuthor(user.ID, user.FirstName, user.LastName)))
 }
 
 func (c *Controllers) DeleteSeries(ctx *fiber.Ctx) error {

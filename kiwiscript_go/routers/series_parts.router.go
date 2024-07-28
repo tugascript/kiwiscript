@@ -32,7 +32,7 @@ func (r *Router) SeriesPartPublicRoutes() {
 	seriesPart.Get("/:seriesPartID", r.controllers.GetSeriesPart)
 }
 
-func (r *Router) SeriesPartPrivateRoutes() {
+func (r *Router) SeriesPartStaffRoutes() {
 	seriesPart := r.router.Group(
 		seriesPartPath,
 		r.controllers.AccessClaimsMiddleware,

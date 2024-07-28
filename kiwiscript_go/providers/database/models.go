@@ -28,15 +28,6 @@ type Certificate struct {
 	UpdatedAt   pgtype.Timestamp
 }
 
-type CommentReply struct {
-	ID        int32
-	AuthorID  int32
-	CommentID int32
-	Reply     string
-	CreatedAt pgtype.Timestamp
-	UpdatedAt pgtype.Timestamp
-}
-
 type Donation struct {
 	ID           int32
 	UserID       int32
@@ -49,13 +40,25 @@ type Donation struct {
 }
 
 type Language struct {
-	ID        int32
-	Name      string
-	Slug      string
-	Icon      string
-	AuthorID  int32
-	CreatedAt pgtype.Timestamp
-	UpdatedAt pgtype.Timestamp
+	ID          int32
+	Name        string
+	Slug        string
+	Icon        string
+	SeriesCount int16
+	AuthorID    int32
+	CreatedAt   pgtype.Timestamp
+	UpdatedAt   pgtype.Timestamp
+}
+
+type LanguageProgress struct {
+	ID               int32
+	UserID           int32
+	LanguageSlug     string
+	CompletedSeries  int16
+	InProgressSeries int16
+	IsCurrent        bool
+	CreatedAt        pgtype.Timestamp
+	UpdatedAt        pgtype.Timestamp
 }
 
 type Lecture struct {
@@ -63,7 +66,6 @@ type Lecture struct {
 	Title            string
 	Position         int16
 	IsPublished      bool
-	CommentsCount    int32
 	WatchTimeSeconds int32
 	ReadTimeSeconds  int32
 	AuthorID         int32
@@ -83,16 +85,6 @@ type LectureArticle struct {
 	UpdatedAt       pgtype.Timestamp
 }
 
-type LectureComment struct {
-	ID           int32
-	AuthorID     int32
-	LectureID    int32
-	Comment      string
-	RepliesCount int32
-	CreatedAt    pgtype.Timestamp
-	UpdatedAt    pgtype.Timestamp
-}
-
 type LectureFile struct {
 	ID        int32
 	LectureID int32
@@ -107,11 +99,14 @@ type LectureFile struct {
 type LectureProgress struct {
 	ID                   int32
 	UserID               int32
-	LanguageID           int32
+	LanguageSlug         string
+	SeriesSlug           string
+	SeriesPartID         int32
 	LectureID            int32
+	LanguageProgressID   int32
 	SeriesProgressID     int32
 	SeriesPartProgressID int32
-	IsCompleted          bool
+	IsCurrent            bool
 	CompletedAt          pgtype.Timestamp
 	CreatedAt            pgtype.Timestamp
 	UpdatedAt            pgtype.Timestamp
@@ -146,8 +141,6 @@ type Series struct {
 	LecturesCount    int16
 	WatchTimeSeconds int32
 	ReadTimeSeconds  int32
-	ReviewAvg        int16
-	ReviewCount      int32
 	IsPublished      bool
 	LanguageSlug     string
 	AuthorID         int32
@@ -182,54 +175,36 @@ type SeriesPart struct {
 }
 
 type SeriesPartProgress struct {
-	ID               int32
-	UserID           int32
-	SeriesPartID     int32
-	LanguageID       int32
-	SeriesProgressID int32
-	LecturesCount    int16
-	IsCompleted      bool
-	CompletedAt      pgtype.Timestamp
-	CreatedAt        pgtype.Timestamp
-	UpdatedAt        pgtype.Timestamp
+	ID                 int32
+	UserID             int32
+	LanguageSlug       string
+	SeriesSlug         string
+	SeriesPartID       int32
+	LanguageProgressID int32
+	SeriesProgressID   int32
+	InProgressLectures int16
+	CompletedLectures  int16
+	IsCurrent          bool
+	CompletedAt        pgtype.Timestamp
+	CreatedAt          pgtype.Timestamp
+	UpdatedAt          pgtype.Timestamp
 }
 
 type SeriesProgress struct {
-	ID            int32
-	UserID        int32
-	SeriesID      int32
-	LanguageID    int32
-	LecturesCount int16
-	PartsCount    int16
-	IsCompleted   bool
-	CompletedAt   pgtype.Timestamp
-	CreatedAt     pgtype.Timestamp
-	UpdatedAt     pgtype.Timestamp
-}
-
-type SeriesReview struct {
-	ID         int32
-	AuthorID   int32
-	SeriesID   int32
-	LanguageID int32
-	Rating     int16
-	Review     pgtype.Text
-	CreatedAt  pgtype.Timestamp
-	UpdatedAt  pgtype.Timestamp
-}
-
-type SeriesTag struct {
-	SeriesID  int32
-	TagID     int32
-	CreatedAt pgtype.Timestamp
-}
-
-type Tag struct {
-	ID        int32
-	Name      string
-	AuthorID  int32
-	CreatedAt pgtype.Timestamp
-	UpdatedAt pgtype.Timestamp
+	ID                 int32
+	UserID             int32
+	SeriesSlug         string
+	LanguageSlug       string
+	LanguageProgressID int32
+	InProgressParts    int16
+	CompletedParts     int16
+	InProgressLectures int16
+	CompletedLectures  int16
+	PartsCount         int16
+	IsCurrent          bool
+	CompletedAt        pgtype.Timestamp
+	CreatedAt          pgtype.Timestamp
+	UpdatedAt          pgtype.Timestamp
 }
 
 type User struct {

@@ -19,7 +19,7 @@ func (r *Router) LectureFilesPublicRoutes() {
 	lectureFiles.Get("/:fileID", r.controllers.GetLectureFile)
 }
 
-func (r *Router) LectureFilesPrivateRoutes() {
+func (r *Router) LectureFilesStaffRoutes() {
 	lectureFiles := r.router.Group(
 		lectureFilesPath,
 		r.controllers.AccessClaimsMiddleware,

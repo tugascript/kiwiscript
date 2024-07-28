@@ -56,7 +56,7 @@ INSERT INTO "lectures" (
     SELECT COUNT("id") + 1 FROM "lectures"
     WHERE "series_part_id" = $3
   )
-) RETURNING id, title, position, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at
+) RETURNING id, title, position, is_published, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at
 `
 
 type CreateLectureParams struct {
@@ -97,7 +97,6 @@ func (q *Queries) CreateLecture(ctx context.Context, arg CreateLectureParams) (L
 		&i.Title,
 		&i.Position,
 		&i.IsPublished,
-		&i.CommentsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.AuthorID,
@@ -152,7 +151,7 @@ func (q *Queries) DeleteLectureByID(ctx context.Context, id int32) error {
 }
 
 const findLectureBySlugsAndIDs = `-- name: FindLectureBySlugsAndIDs :one
-SELECT id, title, position, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at FROM "lectures"
+SELECT id, title, position, is_published, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at FROM "lectures"
 WHERE
   "language_slug" = $1 AND
   "series_slug" = $2 AND
@@ -181,7 +180,6 @@ func (q *Queries) FindLectureBySlugsAndIDs(ctx context.Context, arg FindLectureB
 		&i.Title,
 		&i.Position,
 		&i.IsPublished,
-		&i.CommentsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.AuthorID,
@@ -196,7 +194,7 @@ func (q *Queries) FindLectureBySlugsAndIDs(ctx context.Context, arg FindLectureB
 
 const findLectureBySlugsAndIDsWithArticleAndVideo = `-- name: FindLectureBySlugsAndIDsWithArticleAndVideo :one
 SELECT 
-  lectures.id, lectures.title, lectures.position, lectures.is_published, lectures.comments_count, lectures.watch_time_seconds, lectures.read_time_seconds, lectures.author_id, lectures.language_slug, lectures.series_slug, lectures.series_part_id, lectures.created_at, lectures.updated_at,
+  lectures.id, lectures.title, lectures.position, lectures.is_published, lectures.watch_time_seconds, lectures.read_time_seconds, lectures.author_id, lectures.language_slug, lectures.series_slug, lectures.series_part_id, lectures.created_at, lectures.updated_at,
   "lecture_articles"."id" AS "article_id",
   "lecture_articles"."content" AS "article_content",
   "lecture_videos"."id" AS "video_id",
@@ -224,7 +222,6 @@ type FindLectureBySlugsAndIDsWithArticleAndVideoRow struct {
 	Title            string
 	Position         int16
 	IsPublished      bool
-	CommentsCount    int32
 	WatchTimeSeconds int32
 	ReadTimeSeconds  int32
 	AuthorID         int32
@@ -252,7 +249,6 @@ func (q *Queries) FindLectureBySlugsAndIDsWithArticleAndVideo(ctx context.Contex
 		&i.Title,
 		&i.Position,
 		&i.IsPublished,
-		&i.CommentsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.AuthorID,
@@ -270,7 +266,7 @@ func (q *Queries) FindLectureBySlugsAndIDsWithArticleAndVideo(ctx context.Contex
 }
 
 const findLecturesBySeriesPartID = `-- name: FindLecturesBySeriesPartID :many
-SELECT id, title, position, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at FROM "lectures"
+SELECT id, title, position, is_published, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at FROM "lectures"
 WHERE "series_part_id" = $1
 ORDER BY "position" ASC
 `
@@ -289,7 +285,6 @@ func (q *Queries) FindLecturesBySeriesPartID(ctx context.Context, seriesPartID i
 			&i.Title,
 			&i.Position,
 			&i.IsPublished,
-			&i.CommentsCount,
 			&i.WatchTimeSeconds,
 			&i.ReadTimeSeconds,
 			&i.AuthorID,
@@ -311,7 +306,7 @@ func (q *Queries) FindLecturesBySeriesPartID(ctx context.Context, seriesPartID i
 
 const findPaginatedLecturesBySeriesPartIDWithArticleAndVideo = `-- name: FindPaginatedLecturesBySeriesPartIDWithArticleAndVideo :many
 SELECT 
-  lectures.id, lectures.title, lectures.position, lectures.is_published, lectures.comments_count, lectures.watch_time_seconds, lectures.read_time_seconds, lectures.author_id, lectures.language_slug, lectures.series_slug, lectures.series_part_id, lectures.created_at, lectures.updated_at,
+  lectures.id, lectures.title, lectures.position, lectures.is_published, lectures.watch_time_seconds, lectures.read_time_seconds, lectures.author_id, lectures.language_slug, lectures.series_slug, lectures.series_part_id, lectures.created_at, lectures.updated_at,
   "lecture_articles"."id" AS "article_id",
   "lecture_articles"."content" AS "article_content",
   "lecture_videos"."id" AS "video_id",
@@ -340,7 +335,6 @@ type FindPaginatedLecturesBySeriesPartIDWithArticleAndVideoRow struct {
 	Title            string
 	Position         int16
 	IsPublished      bool
-	CommentsCount    int32
 	WatchTimeSeconds int32
 	ReadTimeSeconds  int32
 	AuthorID         int32
@@ -375,7 +369,6 @@ func (q *Queries) FindPaginatedLecturesBySeriesPartIDWithArticleAndVideo(ctx con
 			&i.Title,
 			&i.Position,
 			&i.IsPublished,
-			&i.CommentsCount,
 			&i.WatchTimeSeconds,
 			&i.ReadTimeSeconds,
 			&i.AuthorID,
@@ -401,7 +394,7 @@ func (q *Queries) FindPaginatedLecturesBySeriesPartIDWithArticleAndVideo(ctx con
 
 const findPaginatedPublishedLecturesBySeriesPartIDWithArticleAndVideo = `-- name: FindPaginatedPublishedLecturesBySeriesPartIDWithArticleAndVideo :many
 SELECT 
-  lectures.id, lectures.title, lectures.position, lectures.is_published, lectures.comments_count, lectures.watch_time_seconds, lectures.read_time_seconds, lectures.author_id, lectures.language_slug, lectures.series_slug, lectures.series_part_id, lectures.created_at, lectures.updated_at,
+  lectures.id, lectures.title, lectures.position, lectures.is_published, lectures.watch_time_seconds, lectures.read_time_seconds, lectures.author_id, lectures.language_slug, lectures.series_slug, lectures.series_part_id, lectures.created_at, lectures.updated_at,
   "lecture_articles"."id" AS "article_id",
   "lecture_articles"."content" AS "article_content",
   "lecture_videos"."id" AS "video_id",
@@ -431,7 +424,6 @@ type FindPaginatedPublishedLecturesBySeriesPartIDWithArticleAndVideoRow struct {
 	Title            string
 	Position         int16
 	IsPublished      bool
-	CommentsCount    int32
 	WatchTimeSeconds int32
 	ReadTimeSeconds  int32
 	AuthorID         int32
@@ -466,7 +458,6 @@ func (q *Queries) FindPaginatedPublishedLecturesBySeriesPartIDWithArticleAndVide
 			&i.Title,
 			&i.Position,
 			&i.IsPublished,
-			&i.CommentsCount,
 			&i.WatchTimeSeconds,
 			&i.ReadTimeSeconds,
 			&i.AuthorID,
@@ -525,7 +516,7 @@ const updateLecture = `-- name: UpdateLecture :one
 UPDATE "lectures" SET
   "title" = $1
 WHERE "id" = $2
-RETURNING id, title, position, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at
+RETURNING id, title, position, is_published, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at
 `
 
 type UpdateLectureParams struct {
@@ -541,7 +532,6 @@ func (q *Queries) UpdateLecture(ctx context.Context, arg UpdateLectureParams) (L
 		&i.Title,
 		&i.Position,
 		&i.IsPublished,
-		&i.CommentsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.AuthorID,
@@ -558,7 +548,7 @@ const updateLectureIsPublished = `-- name: UpdateLectureIsPublished :one
 UPDATE "lectures" SET
   "is_published" = $1
 WHERE "id" = $2
-RETURNING id, title, position, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at
+RETURNING id, title, position, is_published, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at
 `
 
 type UpdateLectureIsPublishedParams struct {
@@ -574,7 +564,6 @@ func (q *Queries) UpdateLectureIsPublished(ctx context.Context, arg UpdateLectur
 		&i.Title,
 		&i.Position,
 		&i.IsPublished,
-		&i.CommentsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.AuthorID,
@@ -591,7 +580,7 @@ const updateLecturePosition = `-- name: UpdateLecturePosition :one
 UPDATE "lectures" SET
   "position" = $1
 WHERE "id" = $2
-RETURNING id, title, position, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at
+RETURNING id, title, position, is_published, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at
 `
 
 type UpdateLecturePositionParams struct {
@@ -607,7 +596,6 @@ func (q *Queries) UpdateLecturePosition(ctx context.Context, arg UpdateLecturePo
 		&i.Title,
 		&i.Position,
 		&i.IsPublished,
-		&i.CommentsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.AuthorID,
@@ -657,7 +645,7 @@ UPDATE "lectures" SET
   "title" = $1,
   "position" = $2
 WHERE "id" = $3
-RETURNING id, title, position, is_published, comments_count, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at
+RETURNING id, title, position, is_published, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, series_part_id, created_at, updated_at
 `
 
 type UpdateLectureWithPositionParams struct {
@@ -674,7 +662,6 @@ func (q *Queries) UpdateLectureWithPosition(ctx context.Context, arg UpdateLectu
 		&i.Title,
 		&i.Position,
 		&i.IsPublished,
-		&i.CommentsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.AuthorID,

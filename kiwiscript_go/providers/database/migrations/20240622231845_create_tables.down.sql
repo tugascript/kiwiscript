@@ -18,9 +18,6 @@
 DROP TABLE IF EXISTS "payments";
 DROP TABLE IF EXISTS "donations";
 DROP TABLE IF EXISTS "certificates";
-DROP TABLE IF EXISTS "comment_replies";
-DROP TABLE IF EXISTS "lecture_comments";
-DROP TABLE IF EXISTS "series_reviews";
 DROP TABLE IF EXISTS "lectures_progress";
 DROP TABLE IF EXISTS "series_part_progress";
 DROP TABLE IF EXISTS "series_progress";
@@ -29,8 +26,6 @@ DROP TABLE IF EXISTS "lecture_videos";
 DROP TABLE IF EXISTS "lecture_files";
 DROP TABLE IF EXISTS "lectures";
 DROP TABLE IF EXISTS "series_parts";
-DROP TABLE IF EXISTS "series_tags";
-DROP TABLE IF EXISTS "tags";
 DROP TABLE IF EXISTS "series_languages";
 DROP TABLE IF EXISTS "series";
 DROP TABLE IF EXISTS "languages";

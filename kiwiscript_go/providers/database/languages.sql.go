@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const countFilteredLanguages = `-- name: CountFilteredLanguages :one
@@ -44,7 +46,7 @@ INSERT INTO "languages" (
   $2,
   $3,
   $4
-) RETURNING id, name, slug, icon, author_id, created_at, updated_at
+) RETURNING id, name, slug, icon, series_count, author_id, created_at, updated_at
 `
 
 type CreateLanguageParams struct {
@@ -83,11 +85,23 @@ func (q *Queries) CreateLanguage(ctx context.Context, arg CreateLanguageParams) 
 		&i.Name,
 		&i.Slug,
 		&i.Icon,
+		&i.SeriesCount,
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const decrementLanguageSeriesCount = `-- name: DecrementLanguageSeriesCount :exec
+UPDATE "languages" SET
+  "series_count" = "series_count" - 1
+WHERE "slug" = $1
+`
+
+func (q *Queries) DecrementLanguageSeriesCount(ctx context.Context, slug string) error {
+	_, err := q.db.Exec(ctx, decrementLanguageSeriesCount, slug)
+	return err
 }
 
 const deleteAllLanguages = `-- name: DeleteAllLanguages :exec
@@ -110,7 +124,7 @@ func (q *Queries) DeleteLanguageById(ctx context.Context, id int32) error {
 }
 
 const findAllLanguages = `-- name: FindAllLanguages :many
-SELECT id, name, slug, icon, author_id, created_at, updated_at FROM "languages"
+SELECT id, name, slug, icon, series_count, author_id, created_at, updated_at FROM "languages"
 ORDER BY "slug" ASC
 `
 
@@ -128,6 +142,7 @@ func (q *Queries) FindAllLanguages(ctx context.Context) ([]Language, error) {
 			&i.Name,
 			&i.Slug,
 			&i.Icon,
+			&i.SeriesCount,
 			&i.AuthorID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -143,7 +158,7 @@ func (q *Queries) FindAllLanguages(ctx context.Context) ([]Language, error) {
 }
 
 const findFilteredPaginatedLanguages = `-- name: FindFilteredPaginatedLanguages :many
-SELECT id, name, slug, icon, author_id, created_at, updated_at FROM "languages"
+SELECT id, name, slug, icon, series_count, author_id, created_at, updated_at FROM "languages"
 WHERE "name" ILIKE $1
 ORDER BY "slug" ASC
 LIMIT $2 OFFSET $3
@@ -169,6 +184,7 @@ func (q *Queries) FindFilteredPaginatedLanguages(ctx context.Context, arg FindFi
 			&i.Name,
 			&i.Slug,
 			&i.Icon,
+			&i.SeriesCount,
 			&i.AuthorID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -183,8 +199,79 @@ func (q *Queries) FindFilteredPaginatedLanguages(ctx context.Context, arg FindFi
 	return items, nil
 }
 
+const findFilteredPaginatedLanguagesWithLanguageProgress = `-- name: FindFilteredPaginatedLanguagesWithLanguageProgress :many
+SELECT
+    languages.id, languages.name, languages.slug, languages.icon, languages.series_count, languages.author_id, languages.created_at, languages.updated_at,
+    "language_progress"."in_progress_series" AS "in_progress_series",
+    "language_progress"."completed_series" AS "completed_series",
+    "language_progress"."is_current" AS "is_current"
+FROM "languages"
+LEFT JOIN "language_progress" ON "languages"."slug" = "language_progress"."language_slug"
+WHERE "language_progress"."user_id" = $1 AND "languages"."name" ILIKE $2
+ORDER BY "languages"."slug" ASC
+LIMIT $3 OFFSET $4
+`
+
+type FindFilteredPaginatedLanguagesWithLanguageProgressParams struct {
+	UserID int32
+	Name   string
+	Limit  int32
+	Offset int32
+}
+
+type FindFilteredPaginatedLanguagesWithLanguageProgressRow struct {
+	ID               int32
+	Name             string
+	Slug             string
+	Icon             string
+	SeriesCount      int16
+	AuthorID         int32
+	CreatedAt        pgtype.Timestamp
+	UpdatedAt        pgtype.Timestamp
+	InProgressSeries pgtype.Int2
+	CompletedSeries  pgtype.Int2
+	IsCurrent        pgtype.Bool
+}
+
+func (q *Queries) FindFilteredPaginatedLanguagesWithLanguageProgress(ctx context.Context, arg FindFilteredPaginatedLanguagesWithLanguageProgressParams) ([]FindFilteredPaginatedLanguagesWithLanguageProgressRow, error) {
+	rows, err := q.db.Query(ctx, findFilteredPaginatedLanguagesWithLanguageProgress,
+		arg.UserID,
+		arg.Name,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FindFilteredPaginatedLanguagesWithLanguageProgressRow{}
+	for rows.Next() {
+		var i FindFilteredPaginatedLanguagesWithLanguageProgressRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.Icon,
+			&i.SeriesCount,
+			&i.AuthorID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.InProgressSeries,
+			&i.CompletedSeries,
+			&i.IsCurrent,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const findLanguageById = `-- name: FindLanguageById :one
-SELECT id, name, slug, icon, author_id, created_at, updated_at FROM "languages"
+SELECT id, name, slug, icon, series_count, author_id, created_at, updated_at FROM "languages"
 WHERE "id" = $1 LIMIT 1
 `
 
@@ -196,6 +283,7 @@ func (q *Queries) FindLanguageById(ctx context.Context, id int32) (Language, err
 		&i.Name,
 		&i.Slug,
 		&i.Icon,
+		&i.SeriesCount,
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -204,7 +292,7 @@ func (q *Queries) FindLanguageById(ctx context.Context, id int32) (Language, err
 }
 
 const findLanguageBySlug = `-- name: FindLanguageBySlug :one
-SELECT id, name, slug, icon, author_id, created_at, updated_at FROM "languages"
+SELECT id, name, slug, icon, series_count, author_id, created_at, updated_at FROM "languages"
 WHERE "slug" = $1 LIMIT 1
 `
 
@@ -216,6 +304,7 @@ func (q *Queries) FindLanguageBySlug(ctx context.Context, slug string) (Language
 		&i.Name,
 		&i.Slug,
 		&i.Icon,
+		&i.SeriesCount,
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -223,8 +312,61 @@ func (q *Queries) FindLanguageBySlug(ctx context.Context, slug string) (Language
 	return i, err
 }
 
+const findLanguageBySlugWithLanguageProgress = `-- name: FindLanguageBySlugWithLanguageProgress :one
+SELECT
+    languages.id, languages.name, languages.slug, languages.icon, languages.series_count, languages.author_id, languages.created_at, languages.updated_at,
+    "language_progress"."in_progress_series" AS "in_progress_series",
+    "language_progress"."completed_series" AS "completed_series",
+    "language_progress"."is_current" AS "is_current"
+FROM "languages"
+LEFT JOIN "language_progress" ON (
+    "languages"."slug" = "language_progress"."language_slug" AND
+    "language_progress"."user_id" = $1
+)
+WHERE "languages"."slug" = $2
+LIMIT 1
+`
+
+type FindLanguageBySlugWithLanguageProgressParams struct {
+	UserID int32
+	Slug   string
+}
+
+type FindLanguageBySlugWithLanguageProgressRow struct {
+	ID               int32
+	Name             string
+	Slug             string
+	Icon             string
+	SeriesCount      int16
+	AuthorID         int32
+	CreatedAt        pgtype.Timestamp
+	UpdatedAt        pgtype.Timestamp
+	InProgressSeries pgtype.Int2
+	CompletedSeries  pgtype.Int2
+	IsCurrent        pgtype.Bool
+}
+
+func (q *Queries) FindLanguageBySlugWithLanguageProgress(ctx context.Context, arg FindLanguageBySlugWithLanguageProgressParams) (FindLanguageBySlugWithLanguageProgressRow, error) {
+	row := q.db.QueryRow(ctx, findLanguageBySlugWithLanguageProgress, arg.UserID, arg.Slug)
+	var i FindLanguageBySlugWithLanguageProgressRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.Icon,
+		&i.SeriesCount,
+		&i.AuthorID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.InProgressSeries,
+		&i.CompletedSeries,
+		&i.IsCurrent,
+	)
+	return i, err
+}
+
 const findPaginatedLanguages = `-- name: FindPaginatedLanguages :many
-SELECT id, name, slug, icon, author_id, created_at, updated_at FROM "languages"
+SELECT id, name, slug, icon, series_count, author_id, created_at, updated_at FROM "languages"
 ORDER BY "slug" ASC
 LIMIT $1 OFFSET $2
 `
@@ -248,6 +390,7 @@ func (q *Queries) FindPaginatedLanguages(ctx context.Context, arg FindPaginatedL
 			&i.Name,
 			&i.Slug,
 			&i.Icon,
+			&i.SeriesCount,
 			&i.AuthorID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -262,13 +405,91 @@ func (q *Queries) FindPaginatedLanguages(ctx context.Context, arg FindPaginatedL
 	return items, nil
 }
 
+const findPaginatedLanguagesWithLanguageProgress = `-- name: FindPaginatedLanguagesWithLanguageProgress :many
+SELECT
+    languages.id, languages.name, languages.slug, languages.icon, languages.series_count, languages.author_id, languages.created_at, languages.updated_at,
+    "language_progress"."in_progress_series" AS "in_progress_series",
+    "language_progress"."completed_series" AS "completed_series",
+    "language_progress"."is_current" AS "is_current"
+FROM "languages"
+LEFT JOIN "language_progress" ON (
+    "languages"."slug" = "language_progress"."language_slug" AND
+    "language_progress"."user_id" = $1
+)
+ORDER BY "languages"."slug" ASC
+LIMIT $2 OFFSET $3
+`
+
+type FindPaginatedLanguagesWithLanguageProgressParams struct {
+	UserID int32
+	Limit  int32
+	Offset int32
+}
+
+type FindPaginatedLanguagesWithLanguageProgressRow struct {
+	ID               int32
+	Name             string
+	Slug             string
+	Icon             string
+	SeriesCount      int16
+	AuthorID         int32
+	CreatedAt        pgtype.Timestamp
+	UpdatedAt        pgtype.Timestamp
+	InProgressSeries pgtype.Int2
+	CompletedSeries  pgtype.Int2
+	IsCurrent        pgtype.Bool
+}
+
+func (q *Queries) FindPaginatedLanguagesWithLanguageProgress(ctx context.Context, arg FindPaginatedLanguagesWithLanguageProgressParams) ([]FindPaginatedLanguagesWithLanguageProgressRow, error) {
+	rows, err := q.db.Query(ctx, findPaginatedLanguagesWithLanguageProgress, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FindPaginatedLanguagesWithLanguageProgressRow{}
+	for rows.Next() {
+		var i FindPaginatedLanguagesWithLanguageProgressRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.Icon,
+			&i.SeriesCount,
+			&i.AuthorID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.InProgressSeries,
+			&i.CompletedSeries,
+			&i.IsCurrent,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const incrementLanguageSeriesCount = `-- name: IncrementLanguageSeriesCount :exec
+UPDATE "languages" SET
+  "series_count" = "series_count" + 1
+WHERE "slug" = $1
+`
+
+func (q *Queries) IncrementLanguageSeriesCount(ctx context.Context, slug string) error {
+	_, err := q.db.Exec(ctx, incrementLanguageSeriesCount, slug)
+	return err
+}
+
 const updateLanguage = `-- name: UpdateLanguage :one
 UPDATE "languages" SET
   "name" = $1,
   "icon" = $2,
   "slug" = $3
 WHERE "id" = $4
-RETURNING id, name, slug, icon, author_id, created_at, updated_at
+RETURNING id, name, slug, icon, series_count, author_id, created_at, updated_at
 `
 
 type UpdateLanguageParams struct {
@@ -291,6 +512,7 @@ func (q *Queries) UpdateLanguage(ctx context.Context, arg UpdateLanguageParams) 
 		&i.Name,
 		&i.Slug,
 		&i.Icon,
+		&i.SeriesCount,
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,

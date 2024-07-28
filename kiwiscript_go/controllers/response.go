@@ -23,7 +23,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/kiwiscript/kiwiscript_go/paths"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
-	"github.com/kiwiscript/kiwiscript_go/providers/tokens"
 	"github.com/kiwiscript/kiwiscript_go/services"
 )
 
@@ -83,7 +82,7 @@ type PaginatedResponse[T any] struct {
 	Results []T                    `json:"results"`
 }
 
-func newPaginatedNavigationURL(frontendDomain, path string, params QueryStr, limit, offset int32) LinkResponse {
+func newPaginatedNavigationURL(frontendDomain, path string, params string, limit, offset int32) LinkResponse {
 	if offset < 0 {
 		offset = 0
 	}
@@ -148,24 +147,31 @@ type LanguageResponse struct {
 	Links LanguageLinks `json:"_links"`
 }
 
-func (c *Controllers) NewLanguageResponse(language *db.Language) *LanguageResponse {
+func (c *Controllers) NewLanguageResponse(dto *db.LanguageDTO) *LanguageResponse {
 	return &LanguageResponse{
-		ID:   language.ID,
-		Name: language.Name,
-		Slug: language.Slug,
-		Icon: language.Icon,
+		ID:   dto.ID,
+		Name: dto.Name,
+		Slug: dto.Slug,
+		Icon: dto.Icon,
 		Links: LanguageLinks{
 			Self: LinkResponse{
-				fmt.Sprintf("https://%s%s/%s", c.backendDomain, paths.LanguagePathV1, language.Slug),
+				fmt.Sprintf("https://%s%s/%s", c.backendDomain, paths.LanguagePathV1, dto.Slug),
 			},
 			Series: LinkResponse{
-				fmt.Sprintf("https://%s%s/%s%s", c.backendDomain, paths.LanguagePathV1, language.Slug, paths.SeriesPath),
+				fmt.Sprintf(
+					"https://%s%s/%s%s",
+					c.backendDomain,
+					paths.LanguagePathV1,
+					dto.Slug,
+					paths.SeriesPath,
+				),
 			},
 		},
 	}
 }
 
 type SeriesAuthor struct {
+	ID        int32            `json:"id"`
 	FirstName string           `json:"firstName"`
 	LastName  string           `json:"lastName"`
 	Links     SelfLinkResponse `json:"_links"`
@@ -181,7 +187,6 @@ type SeriesLinks struct {
 	Author   LinkResponse `json:"author"`
 	Language LinkResponse `json:"language"`
 	Parts    LinkResponse `json:"parts"`
-	Reviews  LinkResponse `json:"reviews"`
 }
 
 func (c *Controllers) newSeriesLinks(languageSlug, seriesSlug string, authorID int32) SeriesLinks {
@@ -198,46 +203,22 @@ func (c *Controllers) newSeriesLinks(languageSlug, seriesSlug string, authorID i
 		Parts: LinkResponse{
 			fmt.Sprintf("https://%s%s/%s%s/%s%s", c.backendDomain, paths.LanguagePathV1, languageSlug, paths.SeriesPath, seriesSlug, paths.PartsPath),
 		},
-		Reviews: LinkResponse{
-			fmt.Sprintf("https://%s%s/%s%s/%s%s",
-				c.backendDomain,
-				paths.LanguagePathV1,
-				languageSlug,
-				paths.SeriesPath,
-				seriesSlug,
-				paths.ReviewsPath,
-			),
-		},
 	}
 }
 
 type SeriesEmbedded struct {
 	Author SeriesAuthor `json:"author"`
-	Tags   []SeriesTag  `json:"tags"`
 }
 
-func (c *Controllers) newSeriesEmbeded(
+func (c *Controllers) newSeriesEmbedded(
 	authorId int32,
 	authorFirstName,
 	authorLastName string,
-	tags []string,
 	languageSlug string,
 ) SeriesEmbedded {
-	seriesTags := make([]SeriesTag, len(tags))
-
-	for i, t := range tags {
-		seriesTags[i] = SeriesTag{
-			Name: t,
-			Links: SelfLinkResponse{
-				LinkResponse{
-					fmt.Sprintf("https://%s%s/%s%s?tag=%s", c.backendDomain, paths.LanguagePathV1, languageSlug, paths.SeriesPath, t),
-				},
-			},
-		}
-	}
-
 	return SeriesEmbedded{
 		Author: SeriesAuthor{
+			ID:        authorId,
 			FirstName: authorFirstName,
 			LastName:  authorLastName,
 			Links: SelfLinkResponse{
@@ -246,80 +227,45 @@ func (c *Controllers) newSeriesEmbeded(
 				},
 			},
 		},
-		Tags: seriesTags,
 	}
 }
 
 type SeriesResponse struct {
-	ID          int32          `json:"id"`
-	Title       string         `json:"title"`
-	Slug        string         `json:"slug"`
-	Description string         `json:"description"`
-	Parts       int16          `json:"parts"`
-	Lectures    int16          `json:"lectures"`
-	ReviewAvg   int16          `json:"reviewAvg"`
-	ReviewCount int32          `json:"reviewCount"`
-	IsPublished bool           `json:"isPublished"`
-	Tags        []string       `json:"tags"`
-	Embedded    SeriesEmbedded `json:"_embedded"`
-	Links       SeriesLinks    `json:"_links"`
+	ID                 int32          `json:"id"`
+	Title              string         `json:"title"`
+	Slug               string         `json:"slug"`
+	Description        string         `json:"description"`
+	InProgressParts    int16          `json:"inProgressParts"`
+	CompletedParts     int16          `json:"completedParts"`
+	TotalParts         int16          `json:"totalParts"`
+	InProgressLectures int16          `json:"inProgressLectures"`
+	CompletedLectures  int16          `json:"completedLectures"`
+	TotalLectures      int16          `json:"totalLectures"`
+	IsPublished        bool           `json:"isPublished"`
+	Embedded           SeriesEmbedded `json:"_embedded"`
+	Links              SeriesLinks    `json:"_links"`
 }
 
-func (c *Controllers) NewSeriesResponse(user *tokens.AccessUserClaims, series *db.Series, tags []db.Tag) *SeriesResponse {
-	strTags := make([]string, len(tags))
-
-	for i, t := range tags {
-		strTags[i] = t.Name
-	}
-
+func (c *Controllers) NewSeriesResponse(dto *db.SeriesDTO) *SeriesResponse {
 	return &SeriesResponse{
-		ID:          series.ID,
-		Title:       series.Title,
-		Slug:        series.Slug,
-		Description: series.Description,
-		Parts:       series.PartsCount,
-		Lectures:    series.LecturesCount,
-		ReviewAvg:   series.ReviewAvg,
-		ReviewCount: series.ReviewCount,
-		IsPublished: series.IsPublished,
-		Tags:        strTags,
-		Embedded:    c.newSeriesEmbeded(user.ID, user.FirstName, user.LastName, strTags, series.LanguageSlug),
-		Links:       c.newSeriesLinks(series.LanguageSlug, series.Slug, series.AuthorID),
-	}
-}
-
-func (c *Controllers) NewSeriesFromDto(dto *services.SeriesDto, languageSlug string) *SeriesResponse {
-	seriesTags := make([]SeriesTag, len(dto.Tags))
-
-	for i, t := range dto.Tags {
-		seriesTags[i] = SeriesTag{
-			Name: t,
-			Links: SelfLinkResponse{
-				LinkResponse{
-					fmt.Sprintf(
-						"https://%s%s/%s%s?tag=%s",
-						c.backendDomain,
-						paths.LanguagePathV1,
-						languageSlug,
-						paths.SeriesPath,
-						t,
-					),
-				},
-			},
-		}
-	}
-
-	return &SeriesResponse{
-		ID:          dto.ID,
-		Title:       dto.Title,
-		Slug:        dto.Slug,
-		Description: dto.Description,
-		Parts:       dto.Parts,
-		Lectures:    dto.Lectures,
-		ReviewAvg:   dto.ReviewAvg,
-		ReviewCount: dto.ReviewCount,
-		IsPublished: dto.IsPublished,
-		Tags:        dto.Tags,
+		ID:                 dto.ID,
+		Title:              dto.Title,
+		Slug:               dto.Slug,
+		Description:        dto.Description,
+		IsPublished:        dto.IsPublished,
+		InProgressLectures: dto.InProgressLectures,
+		CompletedLectures:  dto.CompletedLectures,
+		TotalLectures:      dto.TotalLectures,
+		InProgressParts:    dto.InProgressParts,
+		CompletedParts:     dto.CompletedParts,
+		TotalParts:         dto.TotalParts,
+		Embedded: c.newSeriesEmbedded(
+			dto.Author.ID,
+			dto.Author.FirstName,
+			dto.Author.LastName,
+			dto.LanguageSlug,
+		),
+		Links: c.newSeriesLinks(dto.LanguageSlug, dto.Slug, dto.Author.ID),
 	}
 }
 
@@ -343,128 +289,35 @@ func (c *Controllers) newSeriesPartLinks(languageSlug, seriesSlug string, partID
 	}
 }
 
-type SeriesPartLecture struct {
-	ID               int32            `json:"id"`
-	Title            string           `json:"title"`
-	WatchTimeSeconds int32            `json:"watchTimeSeconds"`
-	ReadTimeSeconds  int32            `json:"readTimeSeconds"`
-	IsPublished      bool             `json:"isPublished"`
-	Links            SelfLinkResponse `json:"_links"`
-}
-
-type SeriesPartEmbedded struct {
-	Lectures []SeriesPartLecture `json:"lectures"`
-}
-
-func (c *Controllers) newSeriesPartEmbedded(languageSlug, seriesSlug string, partID int32, lectures []db.Lecture) SeriesPartEmbedded {
-	seriesPartLectures := make([]SeriesPartLecture, len(lectures))
-
-	for i, l := range lectures {
-		seriesPartLectures[i] = SeriesPartLecture{
-			ID:               l.ID,
-			Title:            l.Title,
-			WatchTimeSeconds: l.WatchTimeSeconds,
-			ReadTimeSeconds:  l.ReadTimeSeconds,
-			IsPublished:      l.IsPublished,
-			Links: SelfLinkResponse{
-				LinkResponse{
-					fmt.Sprintf(
-						"https://%s%s/%s%s/%s%s/%d%s/%d",
-						c.backendDomain,
-						paths.LanguagePathV1,
-						languageSlug,
-						paths.SeriesPath,
-						seriesSlug,
-						paths.PartsPath,
-						partID,
-						paths.LecturesPath,
-						l.ID,
-					),
-				},
-			},
-		}
-	}
-
-	return SeriesPartEmbedded{Lectures: seriesPartLectures}
-}
-
-func (c *Controllers) newSeriesPartEmbeddedFromDto(
-	languageSlug,
-	seriesSlug string,
-	partID int32,
-	lectures []services.SeriesPartLecture,
-) SeriesPartEmbedded {
-	seriesPartLectures := make([]SeriesPartLecture, len(lectures))
-
-	for i, l := range lectures {
-		seriesPartLectures[i] = SeriesPartLecture{
-			ID:               l.ID,
-			Title:            l.Title,
-			WatchTimeSeconds: l.WatchTimeSeconds,
-			ReadTimeSeconds:  l.ReadTimeSeconds,
-			IsPublished:      l.IsPublished,
-			Links: SelfLinkResponse{
-				LinkResponse{
-					fmt.Sprintf(
-						"https://%s%s/%s%s/%s%s/%d%s/%d",
-						c.backendDomain,
-						paths.LanguagePathV1,
-						languageSlug,
-						paths.SeriesPath,
-						seriesSlug,
-						paths.PartsPath,
-						partID,
-						paths.LecturesPath,
-						l.ID,
-					),
-				},
-			},
-		}
-	}
-
-	return SeriesPartEmbedded{Lectures: seriesPartLectures}
-}
-
 type SeriesPartResponse struct {
-	ID          int32              `json:"id"`
-	Title       string             `json:"title"`
-	Description string             `json:"description"`
-	Position    int16              `json:"position"`
-	Lectures    int16              `json:"lectures"`
-	ReadTime    int32              `json:"readTime"`
-	WatchTime   int32              `json:"watchTime"`
-	IsPublished bool               `json:"isPublished"`
-	Embedded    SeriesPartEmbedded `json:"_embedded"`
-	Links       SeriesPartLinks    `json:"_links"`
+	ID                 int32           `json:"id"`
+	Title              string          `json:"title"`
+	Description        string          `json:"description"`
+	Position           int16           `json:"position"`
+	InProgressLectures int16           `json:"inProgressLectures"`
+	CompletedLectures  int16           `json:"completedLectures"`
+	TotalLectures      int16           `json:"totalLectures"`
+	IsCurrent          bool            `json:"isCurrent"`
+	ReadTime           int32           `json:"readTime"`
+	WatchTime          int32           `json:"watchTime"`
+	IsPublished        bool            `json:"isPublished"`
+	Links              SeriesPartLinks `json:"_links"`
 }
 
-func (c *Controllers) NewSeriesPartResponse(part *db.SeriesPart, lectures []db.Lecture) *SeriesPartResponse {
+func (c *Controllers) NewSeriesPartResponse(part *db.SeriesPartDTO) *SeriesPartResponse {
 	return &SeriesPartResponse{
-		ID:          part.ID,
-		Title:       part.Title,
-		Description: part.Description,
-		Position:    part.Position,
-		Lectures:    part.LecturesCount,
-		ReadTime:    part.ReadTimeSeconds,
-		WatchTime:   part.WatchTimeSeconds,
-		IsPublished: part.IsPublished,
-		Links:       c.newSeriesPartLinks(part.LanguageSlug, part.SeriesSlug, part.ID),
-		Embedded:    c.newSeriesPartEmbedded(part.LanguageSlug, part.SeriesSlug, part.ID, lectures),
-	}
-}
-
-func (c *Controllers) NewSeriesPartResponseFromDTO(dto *services.SeriesPartDto, languageSlug, seriesSlug string) *SeriesPartResponse {
-	return &SeriesPartResponse{
-		ID:          dto.ID,
-		Title:       dto.Title,
-		Description: dto.Description,
-		Position:    dto.Position,
-		Lectures:    dto.LecturesCount,
-		ReadTime:    dto.ReadTimeSeconds,
-		WatchTime:   dto.WatchTimeSeconds,
-		IsPublished: dto.IsPublished,
-		Links:       c.newSeriesPartLinks(languageSlug, seriesSlug, dto.ID),
-		Embedded:    c.newSeriesPartEmbeddedFromDto(languageSlug, seriesSlug, dto.ID, dto.Lectures),
+		ID:                 part.ID,
+		Title:              part.Title,
+		Description:        part.Description,
+		Position:           part.Position,
+		InProgressLectures: part.InProgressLectures,
+		CompletedLectures:  part.CompletedLectures,
+		TotalLectures:      part.TotalLectures,
+		IsCurrent:          false,
+		ReadTime:           part.ReadTimeSeconds,
+		WatchTime:          part.WatchTimeSeconds,
+		IsPublished:        part.IsPublished,
+		Links:              c.newSeriesPartLinks(part.LanguageSlug, part.SeriesSlug, part.ID),
 	}
 }
 
@@ -662,7 +515,6 @@ type LectureResponse struct {
 	ID       int32            `json:"id"`
 	Title    string           `json:"title"`
 	Position int16            `json:"position"`
-	Comments int32            `json:"comments"`
 	Embedded *LectureEmbedded `json:"_embedded,omitempty"`
 	Links    LectureLinks     `json:"_links"`
 }
@@ -717,7 +569,6 @@ func (c *Controllers) NewLectureResponse(
 		ID:       lecture.ID,
 		Title:    lecture.Title,
 		Position: lecture.Position,
-		Comments: lecture.CommentsCount,
 		Embedded: c.newLectureEmbedded(lecArt, lecVid, lecFs),
 		Links: c.newLectureLinks(
 			lecture.LanguageSlug,

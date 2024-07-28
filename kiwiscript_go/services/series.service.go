@@ -19,12 +19,9 @@ package services
 
 import (
 	"context"
-	"fmt"
-	"slices"
-
-	"github.com/jackc/pgx/v5/pgtype"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/utils"
+	"log/slog"
 )
 
 type FindSeriesBySlugsOptions struct {
@@ -52,36 +49,64 @@ func (s *Services) FindSeriesBySlugs(ctx context.Context, opts FindSeriesBySlugs
 	return &series, nil
 }
 
-type findOrCreateTagOptions struct {
-	Tags     []string
-	SeriesID int32
-	UserID   int32
-}
+func (s *Services) FindPublishedSeriesBySlugsWithAuthor(
+	ctx context.Context,
+	opts FindSeriesBySlugsOptions,
+) (*db.FindPublishedSeriesBySlugsWithAuthorRow, *ServiceError) {
+	log := s.
+		log.
+		WithGroup("service.series.FindPublishedSeriesBySlugsWithAuthor").
+		With(
+			"laguageSlug", opts.LanguageSlug,
+			"slug", opts.SeriesSlug,
+		)
+	log.InfoContext(ctx, "Getting published series by slug")
 
-func (s *Services) findOrCreateTags(ctx context.Context, qrs *db.Queries, opts findOrCreateTagOptions) ([]db.Tag, *ServiceError) {
-	tags := make([]db.Tag, len(opts.Tags))
-
-	for i, name := range opts.Tags {
-		tag, err := qrs.FindOrCreateTag(ctx, db.FindOrCreateTagParams{
-			Name:     name,
-			AuthorID: opts.UserID,
-		})
-		if err != nil {
-			return nil, FromDBError(err)
-		}
-
-		params := db.CreateSeriesTagParams{
-			SeriesID: opts.SeriesID,
-			TagID:    tag.ID,
-		}
-		if err := qrs.CreateSeriesTag(ctx, params); err != nil {
-			return nil, FromDBError(err)
-		}
-
-		tags[i] = tag
+	series, err := s.database.FindPublishedSeriesBySlugsWithAuthor(ctx, db.FindPublishedSeriesBySlugsWithAuthorParams{
+		Slug:         opts.SeriesSlug,
+		LanguageSlug: opts.LanguageSlug,
+	})
+	if err != nil {
+		log.Warn("Error getting series by slug", "error", err)
+		return nil, FromDBError(err)
 	}
 
-	return tags, nil
+	log.InfoContext(ctx, "Series found")
+	return &series, nil
+}
+
+type FindSeriesBySlugsWithProgressOptions struct {
+	UserID       int32
+	LanguageSlug string
+	SeriesSlug   string
+}
+
+func (s *Services) FindPublishedSeriesBySlugsWithProgress(
+	ctx context.Context,
+	opts FindSeriesBySlugsWithProgressOptions,
+) (*db.SeriesDTO, *ServiceError) {
+	log := s.log.WithGroup("services.series.FindPublishedSeriesBySlugsWithProgress").With(
+		"userId", opts.UserID,
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+	)
+	log.InfoContext(ctx, "Finding published series with progress...")
+
+	series, err := s.database.FindPublishedSeriesBySlugWithAuthorAndProgress(
+		ctx,
+		db.FindPublishedSeriesBySlugWithAuthorAndProgressParams{
+			UserID:       opts.UserID,
+			LanguageSlug: opts.LanguageSlug,
+			Slug:         opts.SeriesSlug,
+		},
+	)
+	if err != nil {
+		log.Warn("Error finding series by slug", "error", err)
+		return nil, FromDBError(err)
+	}
+
+	log.InfoContext(ctx, "Series found")
+	return series.ToSeriesDTO(), nil
 }
 
 type CreateSeriesOptions struct {
@@ -89,16 +114,15 @@ type CreateSeriesOptions struct {
 	LanguageSlug string
 	Title        string
 	Description  string
-	Tags         []string
 }
 
-func (s *Services) CreateSeries(ctx context.Context, options CreateSeriesOptions) (*db.Series, []db.Tag, *ServiceError) {
+func (s *Services) CreateSeries(ctx context.Context, options CreateSeriesOptions) (*db.Series, *ServiceError) {
 	log := s.log.WithGroup("service.series.CreateSeries")
 	log.InfoContext(ctx, "create series", "title", options.Title)
 
 	language, serviceErr := s.FindLanguageBySlug(ctx, options.LanguageSlug)
 	if serviceErr != nil {
-		return nil, nil, NewError(CodeNotFound, MessageNotFound)
+		return nil, NewError(CodeNotFound, MessageNotFound)
 	}
 
 	slug := utils.Slugify(options.Title)
@@ -108,34 +132,11 @@ func (s *Services) CreateSeries(ctx context.Context, options CreateSeriesOptions
 	}
 	if _, err := s.database.FindSeriesBySlugAndLanguageSlug(ctx, params); err == nil {
 		log.InfoContext(ctx, "series already exists", "slug", slug)
-		return nil, nil, NewDuplicateKeyError("Series already exists")
+		return nil, NewDuplicateKeyError("Series already exists")
 
 	}
 
-	if options.Tags == nil || len(options.Tags) == 0 {
-		log.InfoContext(ctx, "create series without tags")
-		series, err := s.database.CreateSeries(ctx, db.CreateSeriesParams{
-			Title:        options.Title,
-			Description:  options.Description,
-			AuthorID:     options.UserID,
-			LanguageSlug: language.Slug,
-			Slug:         slug,
-		})
-
-		if err != nil {
-			return nil, nil, FromDBError(err)
-		}
-
-		return &series, nil, nil
-	}
-
-	qrs, txn, err := s.database.BeginTx(ctx)
-	if err != nil {
-		return nil, nil, FromDBError(err)
-	}
-	defer s.database.FinalizeTx(ctx, txn, err)
-
-	series, err := qrs.CreateSeries(ctx, db.CreateSeriesParams{
+	series, err := s.database.CreateSeries(ctx, db.CreateSeriesParams{
 		Title:        options.Title,
 		Description:  options.Description,
 		AuthorID:     options.UserID,
@@ -143,345 +144,451 @@ func (s *Services) CreateSeries(ctx context.Context, options CreateSeriesOptions
 		Slug:         slug,
 	})
 	if err != nil {
-		return nil, nil, FromDBError(err)
+		return nil, FromDBError(err)
 	}
 
-	tags, serviceErr := s.findOrCreateTags(ctx, qrs, findOrCreateTagOptions{
-		Tags:     options.Tags,
-		SeriesID: series.ID,
-		UserID:   series.AuthorID,
-	})
-	if serviceErr != nil {
-		return nil, nil, serviceErr
-	}
-
-	return &series, tags, nil
-}
-
-type SeriesRow struct {
-	ID              int32
-	Title           string
-	Slug            string
-	Description     string
-	PartsCount      int16
-	LecturesCount   int16
-	IsPublished     bool
-	ReviewAvg       int16
-	ReviewCount     int32
-	AuthorID        int32
-	AuthorFirstName pgtype.Text
-	AuthorLastName  pgtype.Text
-	TagName         pgtype.Text
-}
-
-type SeriesAuthor struct {
-	ID        int32
-	FirstName string
-	LastName  string
-}
-
-type SeriesLanguage struct {
-	Name string
-	Slug string
-}
-
-type SeriesDto struct {
-	ID          int32
-	Title       string
-	Slug        string
-	Description string
-	Parts       int16
-	Lectures    int16
-	IsPublished bool
-	ReviewAvg   int16
-	ReviewCount int32
-	Author      SeriesAuthor
-	Tags        []string
-}
-
-type seriesMapper struct {
-	dto SeriesDto
-	idx int
-}
-
-func mapSeriesRowsToDtos(rows []SeriesRow) []SeriesDto {
-	dtos := make(map[int32]seriesMapper)
-
-	for i, row := range rows {
-		var dto SeriesDto
-		idx := i - len(dtos)
-		if m, ok := dtos[row.ID]; ok {
-			dto = m.dto
-			idx = m.idx
-		} else {
-			dto = SeriesDto{
-				ID:          row.ID,
-				Title:       row.Title,
-				Slug:        row.Slug,
-				Description: row.Description,
-				Parts:       row.PartsCount,
-				Lectures:    row.LecturesCount,
-				IsPublished: row.IsPublished,
-				ReviewAvg:   row.ReviewAvg,
-				ReviewCount: row.ReviewCount,
-				Author: SeriesAuthor{
-					ID:        row.AuthorID,
-					FirstName: row.AuthorFirstName.String,
-					LastName:  row.AuthorLastName.String,
-				},
-				Tags: make([]string, 0),
-			}
-		}
-
-		if row.TagName.Valid {
-			dto.Tags = append(dto.Tags, row.TagName.String)
-		}
-
-		dtos[row.ID] = seriesMapper{
-			dto: dto,
-			idx: idx,
-		}
-	}
-
-	result := make([]SeriesDto, len(dtos))
-
-	for _, m := range dtos {
-		result[m.idx] = m.dto
-	}
-
-	return result
-}
-
-type findPaginatedSeriesRowsOptions struct {
-	LanguageID  int32
-	IsPublished bool
-	AuthorID    int32
-	Search      string
-	Tag         string
-	Offset      int32
-	Limit       int32
-	SortBy      string
-	Order       string
-}
-
-// FIX me this now is VERY WRONG
-func (s *Services) findPaginatedSeriesRows(ctx context.Context, options findPaginatedSeriesRowsOptions) ([]SeriesRow, int64, *ServiceError) {
-	log := s.log.WithGroup("service.series.GetSeries")
-	log.InfoContext(ctx, "Getting series...")
-	args := make([]interface{}, 6)
-	args[0] = options.LanguageID
-	args[1] = options.Limit
-	args[2] = options.Offset
-	idx := 3
-
-	// Base query for main selection
-	baseQuery := `SELECT
-		"series"."id",
-		"series"."title",
-		"series"."slug",
-		"series"."description",
-		"series"."parts_count",
-		"series"."lectures_count",
-		"series"."is_published",
-		"series"."review_avg",
-		"series"."review_count",
-		"series"."author_id"
-	FROM "series"
-	WHERE "series"."language_id" = $1
-	`
-	countQueryWhere := `WHERE "series"."language_id" = $1 `
-	countQueryJoin := ""
-
-	if options.IsPublished {
-		where := `AND "series"."is_published" = true `
-		baseQuery += where
-		countQueryWhere += where
-	}
-	if options.AuthorID > 0 {
-		where := fmt.Sprintf(`AND "series"."author_id" = $%d `, idx+1)
-		baseQuery += where
-		countQueryWhere += where
-		args[idx] = options.AuthorID
-		idx++
-	}
-	if options.Search != "" {
-		where := fmt.Sprintf(`AND "series"."title" ILIKE $%d `, idx+1)
-		baseQuery += where
-		countQueryWhere += where
-		args[idx] = "%" + options.Search + "%"
-		idx++
-	}
-	if options.Tag != "" {
-		baseQuery += fmt.Sprintf(`AND EXISTS (
-			SELECT 1 FROM "series_tags" 
-			JOIN "tags" ON "series_tags"."tag_id" = "tags"."id" 
-				WHERE "series_tags"."series_id" = "series"."id" AND 
-				"tags"."name" = $%d
-		) `, idx+1)
-		countQueryJoin += `
-		LEFT JOIN "series_tags" ON "series"."id" = "series_tags"."series_id"
-		LEFT JOIN "tags" ON "series_tags"."tag_id" = "tags"."id" 
-		`
-		countQueryWhere += fmt.Sprintf(`AND "tags"."name" = $%d `, idx+1)
-		args[idx] = options.Tag
-		idx++
-	}
-
-	countQuery := `SELECT COUNT("series"."id") FROM "series" ` + countQueryJoin + countQueryWhere + "LIMIT 1;"
-	countRow := s.database.RawQueryRow(ctx, countQuery, args[:idx+1])
-	var count int64
-	if err := countRow.Scan(&count); err != nil {
-		return nil, 0, FromDBError(err)
-	}
-
-	query := fmt.Sprintf(`
-		WITH "series" AS (
-			%s
-			ORDER BY "%s" %s
-			LIMIT $%d OFFSET $%d
-		)
-		SELECT
-			"series".*,
-			"users"."first_name" AS "author_first_name",
-			"users"."last_name" AS "author_last_name",
-			"tags"."name" AS "tag_name"
-		FROM "series"
-		LEFT JOIN "users" ON "series"."author_id" = "users"."id"
-		LEFT JOIN "series_tags" ON "series"."id" = "series_tags"."series_id"
-		LEFT JOIN "tags" ON "series_tags"."tag_id" = "tags"."id"
-		ORDER BY "series"."%s" %s, "tags"."name" ASC;
-	`, baseQuery, options.SortBy, options.Order, idx+1, idx+2, options.SortBy, options.Order)
-	args[idx] = options.Limit
-	args[idx+1] = options.Offset
-	rows, err := s.database.RawQuery(ctx, query, args)
-	if err != nil {
-		log.ErrorContext(ctx, "Error getting series", "error", err)
-		return nil, 0, FromDBError(err)
-	}
-	defer rows.Close()
-
-	series := make([]SeriesRow, 0)
-	for rows.Next() {
-		var s SeriesRow
-		if err := rows.Scan(
-			&s.ID,
-			&s.Title,
-			&s.Slug,
-			&s.Description,
-			&s.PartsCount,
-			&s.LecturesCount,
-			&s.IsPublished,
-			&s.ReviewAvg,
-			&s.ReviewCount,
-			&s.AuthorID,
-			&s.AuthorFirstName,
-			&s.AuthorLastName,
-			&s.TagName,
-		); err != nil {
-			return nil, 0, FromDBError(err)
-		}
-		series = append(series, s)
-	}
-	if err := rows.Err(); err != nil {
-		log.ErrorContext(ctx, "Error getting series", "error", err)
-		return nil, 0, FromDBError(err)
-	}
-
-	return series, count, nil
+	return &series, nil
 }
 
 type FindPaginatedSeriesOptions struct {
 	LanguageSlug string
-	IsPublished  bool
-	AuthorID     int32
-	Search       string
-	Tag          string
 	Offset       int32
 	Limit        int32
-	SortBy       string
-	Order        string
+	SortBySlug   bool
 }
 
-func (s *Services) FindPaginatedSeries(ctx context.Context, options FindPaginatedSeriesOptions) ([]SeriesDto, int64, *ServiceError) {
+func (s *Services) findPublishedCount(
+	ctx context.Context,
+	log *slog.Logger,
+	languageSlug string,
+) (int64, *ServiceError) {
+	if _, serviceErr := s.FindLanguageBySlug(ctx, languageSlug); serviceErr != nil {
+		log.WarnContext(ctx, "Language not found", "error", serviceErr)
+		return 0, serviceErr
+	}
+
+	count, err := s.database.CountPublishedSeries(ctx, languageSlug)
+	if err != nil {
+		log.ErrorContext(ctx, "Error counting series", "error", err)
+		return 0, FromDBError(err)
+	}
+
+	return count, nil
+}
+
+func (s *Services) FindPaginatedPublishedSeries(
+	ctx context.Context,
+	opts FindPaginatedSeriesOptions,
+) ([]db.SeriesDTO, int64, *ServiceError) {
+	log := s.log.WithGroup("service.series.findPaginatedPublishedSeries")
+	log.InfoContext(ctx, "Getting published series...")
+
+	count, serviceErr := s.findPublishedCount(ctx, log, opts.LanguageSlug)
+	if serviceErr != nil {
+		return nil, 0, serviceErr
+	}
+
+	seriesDTOs := make([]db.SeriesDTO, 0, count)
+	if count == 0 {
+		return seriesDTOs, 0, nil
+	}
+
+	if opts.SortBySlug {
+		series, err := s.database.FindPaginatedPublishedSeriesWithAuthorSortBySlug(
+			ctx,
+			db.FindPaginatedPublishedSeriesWithAuthorSortBySlugParams{
+				LanguageSlug: opts.LanguageSlug,
+				Limit:        opts.Limit,
+				Offset:       opts.Offset,
+			},
+		)
+		if err != nil {
+			log.ErrorContext(ctx, "Error getting series", "error", err)
+			return nil, 0, FromDBError(err)
+		}
+
+		for _, row := range series {
+			seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+		}
+
+		return seriesDTOs, count, nil
+	}
+
+	series, err := s.database.FindPaginatedPublishedSeriesWithAuthorSortByID(
+		ctx,
+		db.FindPaginatedPublishedSeriesWithAuthorSortByIDParams{
+			LanguageSlug: opts.LanguageSlug,
+			Limit:        opts.Limit,
+			Offset:       opts.Offset,
+		},
+	)
+	if err != nil {
+		log.ErrorContext(ctx, "Error getting series", "error", err)
+		return nil, 0, FromDBError(err)
+	}
+
+	for _, row := range series {
+		seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+	}
+
+	return seriesDTOs, count, nil
+}
+
+func (s *Services) FindPaginatedPublishedSeriesWithProgress(
+	ctx context.Context,
+	opts FindPaginatedSeriesOptions,
+) ([]db.SeriesDTO, int64, *ServiceError) {
+	log := s.log.WithGroup("service.series.findPaginatedPublishedSeriesWithProgress")
+	log.InfoContext(ctx, "Getting published series with progress...")
+
+	count, serviceErr := s.findPublishedCount(ctx, log, opts.LanguageSlug)
+	if serviceErr != nil {
+		return nil, 0, serviceErr
+	}
+
+	seriesDTOs := make([]db.SeriesDTO, 0, count)
+	if count == 0 {
+		return seriesDTOs, 0, nil
+	}
+
+	if opts.SortBySlug {
+		series, err := s.database.FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlug(
+			ctx,
+			db.FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlugParams{
+				LanguageSlug: opts.LanguageSlug,
+				Limit:        opts.Limit,
+				Offset:       opts.Offset,
+			},
+		)
+		if err != nil {
+			log.ErrorContext(ctx, "Error getting series", "error", err)
+			return nil, 0, FromDBError(err)
+		}
+
+		for _, row := range series {
+			seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+		}
+
+		return seriesDTOs, count, nil
+	}
+
+	series, err := s.database.FindPaginatedPublishedSeriesWithAuthorAndProgressSortByID(
+		ctx,
+		db.FindPaginatedPublishedSeriesWithAuthorAndProgressSortByIDParams{
+			LanguageSlug: opts.LanguageSlug,
+			Limit:        opts.Limit,
+			Offset:       opts.Offset,
+		},
+	)
+	if err != nil {
+		log.ErrorContext(ctx, "Error getting series", "error", err)
+		return nil, 0, FromDBError(err)
+	}
+
+	for _, row := range series {
+		seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+	}
+
+	return seriesDTOs, count, nil
+}
+
+func (s *Services) FindPaginatedSeries(
+	ctx context.Context,
+	opts FindPaginatedSeriesOptions,
+) ([]db.SeriesDTO, int64, *ServiceError) {
 	log := s.log.WithGroup("service.series.GetSeries")
 	log.InfoContext(ctx, "Getting series...")
 
-	language, serviceErr := s.FindLanguageBySlug(ctx, options.LanguageSlug)
-	if serviceErr != nil {
+	if _, serviceErr := s.FindLanguageBySlug(ctx, opts.LanguageSlug); serviceErr != nil {
 		log.WarnContext(ctx, "Language not found", "error", serviceErr)
 		return nil, 0, serviceErr
 	}
 
-	rows, count, serviceErr := s.findPaginatedSeriesRows(ctx, findPaginatedSeriesRowsOptions{
-		LanguageID:  language.ID,
-		IsPublished: options.IsPublished,
-		AuthorID:    options.AuthorID,
-		Search:      options.Search,
-		Tag:         options.Tag,
-		Offset:      options.Offset,
-		Limit:       options.Limit,
-		SortBy:      options.SortBy,
-		Order:       options.Order,
+	count, err := s.database.CountSeries(ctx, opts.LanguageSlug)
+	if err != nil {
+		log.ErrorContext(ctx, "Error counting series", "error", err)
+		return nil, 0, FromDBError(err)
+	}
+
+	seriesDTOs := make([]db.SeriesDTO, 0, count)
+	if count == 0 {
+		return seriesDTOs, 0, nil
+	}
+
+	if opts.SortBySlug {
+		series, err := s.database.FindPaginatedSeriesWithAuthorSortBySlug(ctx, db.FindPaginatedSeriesWithAuthorSortBySlugParams{
+			LanguageSlug: opts.LanguageSlug,
+			Limit:        opts.Limit,
+			Offset:       opts.Offset,
+		})
+		if err != nil {
+			log.ErrorContext(ctx, "Error getting series", "error", err)
+			return nil, 0, FromDBError(err)
+		}
+
+		for _, row := range series {
+			seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+		}
+
+		return seriesDTOs, count, nil
+	}
+
+	series, err := s.database.FindPaginatedSeriesWithAuthorSortByID(ctx, db.FindPaginatedSeriesWithAuthorSortByIDParams{
+		LanguageSlug: opts.LanguageSlug,
+		Limit:        opts.Limit,
+		Offset:       opts.Offset,
 	})
+	if err != nil {
+		log.ErrorContext(ctx, "Error getting series", "error", err)
+		return nil, 0, FromDBError(err)
+	}
+
+	for _, row := range series {
+		seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+	}
+
+	return seriesDTOs, count, nil
+}
+
+type FindFilteredSeriesOptions struct {
+	Search       string
+	LanguageSlug string
+	Offset       int32
+	Limit        int32
+	SortBySlug   bool
+}
+
+func (s *Services) findFilteredPublishedCount(
+	ctx context.Context,
+	log *slog.Logger,
+	languageSlug,
+	dbSearch string,
+) (int64, *ServiceError) {
+	if _, serviceErr := s.FindLanguageBySlug(ctx, languageSlug); serviceErr != nil {
+		log.WarnContext(ctx, "Language not found", "error", serviceErr)
+		return 0, serviceErr
+	}
+
+	count, err := s.database.CountFilteredPublishedSeries(ctx, db.CountFilteredPublishedSeriesParams{
+		LanguageSlug: languageSlug,
+		Title:        dbSearch,
+	})
+	if err != nil {
+		log.ErrorContext(ctx, "Error counting series", "error", err)
+		return 0, FromDBError(err)
+	}
+
+	return count, nil
+}
+
+func (s *Services) FindFilteredPublishedSeries(
+	ctx context.Context,
+	opts FindFilteredSeriesOptions,
+) ([]db.SeriesDTO, int64, *ServiceError) {
+	log := s.log.WithGroup("service.series.FindFilteredPublishedSeries").With(
+		"search", opts.Search,
+		"languageSlug", opts.LanguageSlug,
+		"offset", opts.Offset,
+		"limit", opts.Limit,
+		"sortBySlug", opts.SortBySlug,
+	)
+	log.InfoContext(ctx, "Find filtered published series...")
+
+	dbSearch := utils.DbSearch(opts.Search)
+	count, serviceErr := s.findFilteredPublishedCount(ctx, log, opts.LanguageSlug, dbSearch)
 	if serviceErr != nil {
-		log.WarnContext(ctx, "Error getting series", "error", serviceErr)
 		return nil, 0, serviceErr
 	}
 
-	return mapSeriesRowsToDtos(rows), count, nil
-}
-
-func mapSingleSeriesRowsToDto(rows []db.FindSeriesBySlugAndLanguageSlugWithTagsRow) *SeriesDto {
-	dto := SeriesDto{
-		ID:          rows[0].ID,
-		Title:       rows[0].Title,
-		Slug:        rows[0].Slug,
-		Description: rows[0].Description,
-		Parts:       rows[0].PartsCount,
-		Lectures:    rows[0].LecturesCount,
-		IsPublished: rows[0].IsPublished,
-		ReviewAvg:   rows[0].ReviewAvg,
-		ReviewCount: rows[0].ReviewCount,
-		Author: SeriesAuthor{
-			ID:        rows[0].AuthorID,
-			FirstName: rows[0].AuthorFirstName.String,
-			LastName:  rows[0].AuthorLastName.String,
-		},
-		Tags: make([]string, 0),
+	seriesDTOs := make([]db.SeriesDTO, 0, count)
+	if count == 0 {
+		return seriesDTOs, 0, nil
 	}
 
-	for _, row := range rows {
-		if row.TagName.Valid {
-			dto.Tags = append(dto.Tags, row.TagName.String)
+	if opts.SortBySlug {
+		series, err := s.database.FindFilteredPublishedSeriesWithAuthorSortBySlug(
+			ctx,
+			db.FindFilteredPublishedSeriesWithAuthorSortBySlugParams{
+				LanguageSlug: opts.LanguageSlug,
+				Title:        dbSearch,
+				Limit:        opts.Limit,
+				Offset:       opts.Offset,
+			},
+		)
+		if err != nil {
+			log.ErrorContext(ctx, "Error getting series", "error", err)
+			return nil, 0, FromDBError(err)
 		}
+
+		for _, row := range series {
+			seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+		}
+
+		return seriesDTOs, count, nil
 	}
 
-	return &dto
+	series, err := s.database.FindFilteredPublishedSeriesWithAuthorSortByID(
+		ctx,
+		db.FindFilteredPublishedSeriesWithAuthorSortByIDParams{
+			LanguageSlug: opts.LanguageSlug,
+			Title:        dbSearch,
+			Limit:        opts.Limit,
+			Offset:       opts.Offset,
+		},
+	)
+	if err != nil {
+		log.ErrorContext(ctx, "Error getting series", "error", err)
+		return nil, 0, FromDBError(err)
+	}
+
+	for _, row := range series {
+		seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+	}
+
+	return seriesDTOs, count, nil
 }
 
-type FindSeriesBySlugsWithJoinsOptions struct {
-	LanguageSlug string
-	SeriesSlug   string
+func (s *Services) FindFilteredPublishedSeriesWithProgress(
+	ctx context.Context,
+	opts FindFilteredSeriesOptions,
+) ([]db.SeriesDTO, int64, *ServiceError) {
+	log := s.log.WithGroup("service.series.FindFilteredPublishedSeriesWithProgress").With(
+		"search", opts.Search,
+		"languageSlug", opts.LanguageSlug,
+		"offset", opts.Offset,
+		"limit", opts.Limit,
+		"sortBySlug", opts.SortBySlug,
+	)
+	log.InfoContext(ctx, "Find filtered published series with progress...")
+
+	dbSearch := utils.DbSearch(opts.Search)
+	count, serviceErr := s.findFilteredPublishedCount(ctx, log, opts.LanguageSlug, dbSearch)
+	if serviceErr != nil {
+		return nil, 0, serviceErr
+	}
+
+	seriesDTOs := make([]db.SeriesDTO, 0, count)
+	if count == 0 {
+		return seriesDTOs, 0, nil
+	}
+
+	if opts.SortBySlug {
+		series, err := s.database.FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlug(
+			ctx,
+			db.FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlugParams{
+				LanguageSlug: opts.LanguageSlug,
+				Title:        dbSearch,
+				Limit:        opts.Limit,
+				Offset:       opts.Offset,
+			},
+		)
+		if err != nil {
+			log.ErrorContext(ctx, "Error getting series", "error", err)
+			return nil, 0, FromDBError(err)
+		}
+
+		for _, row := range series {
+			seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+		}
+
+		return seriesDTOs, count, nil
+	}
+
+	series, err := s.database.FindFilteredPublishedSeriesWithAuthorAndProgressSortByID(
+		ctx,
+		db.FindFilteredPublishedSeriesWithAuthorAndProgressSortByIDParams{
+			LanguageSlug: opts.LanguageSlug,
+			Title:        dbSearch,
+			Limit:        opts.Limit,
+			Offset:       opts.Offset,
+		},
+	)
+	if err != nil {
+		log.ErrorContext(ctx, "Error getting series", "error", err)
+		return nil, 0, FromDBError(err)
+	}
+
+	for _, row := range series {
+		seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+	}
+
+	return seriesDTOs, count, nil
 }
 
-func (s *Services) FindSeriesBySlugsWithJoins(ctx context.Context, opts FindSeriesBySlugsWithJoinsOptions) (*SeriesDto, *ServiceError) {
-	log := s.
-		log.
-		WithGroup("service.series.FindSeriesBySlugWithJoins").
-		With("SerieSlug", opts.SeriesSlug, "LanguageSlug", opts.LanguageSlug)
-	log.InfoContext(ctx, "Getting series by slug")
+func (s *Services) FindFilteredSeries(
+	ctx context.Context,
+	opts FindFilteredSeriesOptions,
+) ([]db.SeriesDTO, int64, *ServiceError) {
+	log := s.log.WithGroup("service.series.FindFilteredSeries").With(
+		"search", opts.Search,
+		"languageSlug", opts.LanguageSlug,
+		"offset", opts.Offset,
+		"limit", opts.Limit,
+		"sortBySlug", opts.SortBySlug,
+	)
+	log.InfoContext(ctx, "Find filtered published series...")
 
-	rows, err := s.database.FindSeriesBySlugAndLanguageSlugWithTags(ctx, db.FindSeriesBySlugAndLanguageSlugWithTagsParams{
-		Slug:         opts.SeriesSlug,
+	if _, serviceErr := s.FindLanguageBySlug(ctx, opts.LanguageSlug); serviceErr != nil {
+		log.WarnContext(ctx, "Language not found", "error", serviceErr)
+		return nil, 0, serviceErr
+	}
+
+	dbSearch := utils.DbSearch(opts.Search)
+	count, err := s.database.CountFilteredSeries(ctx, db.CountFilteredSeriesParams{
 		LanguageSlug: opts.LanguageSlug,
+		Title:        dbSearch,
 	})
 	if err != nil {
-		log.WarnContext(ctx, "Error getting series by slug", "error", err)
-		return nil, FromDBError(err)
+		log.ErrorContext(ctx, "Error counting series", "error", err)
+		return nil, 0, FromDBError(err)
 	}
 
-	log.InfoContext(ctx, "Series found")
-	return mapSingleSeriesRowsToDto(rows), nil
+	seriesDTOs := make([]db.SeriesDTO, 0, count)
+	if count == 0 {
+		return seriesDTOs, 0, nil
+	}
+
+	if opts.SortBySlug {
+		series, err := s.database.FindFilteredSeriesWithAuthorSortBySlug(
+			ctx,
+			db.FindFilteredSeriesWithAuthorSortBySlugParams{
+				LanguageSlug: opts.LanguageSlug,
+				Title:        dbSearch,
+				Limit:        opts.Limit,
+				Offset:       opts.Offset,
+			},
+		)
+		if err != nil {
+			log.ErrorContext(ctx, "Error getting series", "error", err)
+			return nil, 0, FromDBError(err)
+		}
+
+		for _, row := range series {
+			seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+		}
+
+		return seriesDTOs, count, nil
+	}
+
+	series, err := s.database.FindFilteredSeriesWithAuthorSortByID(
+		ctx,
+		db.FindFilteredSeriesWithAuthorSortByIDParams{
+			LanguageSlug: opts.LanguageSlug,
+			Title:        dbSearch,
+			Limit:        opts.Limit,
+			Offset:       opts.Offset,
+		},
+	)
+	if err != nil {
+		log.ErrorContext(ctx, "Error getting series", "error", err)
+		return nil, 0, FromDBError(err)
+	}
+
+	for _, row := range series {
+		seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+	}
+
+	return seriesDTOs, count, nil
 }
 
 type AssertSeriesOwnershipOptions struct {
@@ -614,8 +721,14 @@ func (s *Services) UpdateSeriesIsPublished(ctx context.Context, options UpdateSe
 
 	// TODO: add constraints to prevent unpublishing series with students
 
-	var err error
-	*series, err = s.database.UpdateSeriesIsPublished(ctx, db.UpdateSeriesIsPublishedParams{
+	qrs, txn, err := s.database.BeginTx(ctx)
+	if err != nil {
+		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
+		return nil, FromDBError(err)
+	}
+	defer s.database.FinalizeTx(ctx, txn, err)
+
+	*series, err = qrs.UpdateSeriesIsPublished(ctx, db.UpdateSeriesIsPublishedParams{
 		ID:          series.ID,
 		IsPublished: options.IsPublished,
 	})
@@ -624,118 +737,18 @@ func (s *Services) UpdateSeriesIsPublished(ctx context.Context, options UpdateSe
 		return nil, FromDBError(err)
 	}
 
+	if options.IsPublished {
+		if err := qrs.IncrementLanguageSeriesCount(ctx, options.LanguageSlug); err != nil {
+			log.ErrorContext(ctx, "Error incrementing language series count", "error", err)
+			return nil, FromDBError(err)
+		}
+	} else {
+		if err := qrs.DecrementLanguageSeriesCount(ctx, options.LanguageSlug); err != nil {
+			log.ErrorContext(ctx, "Error decrementing language series count", "error", err)
+			return nil, FromDBError(err)
+		}
+	}
+
 	log.InfoContext(ctx, "Series isPublished updated")
 	return series, nil
-}
-
-type AddTagToSeriesOptions struct {
-	UserID       int32
-	LanguageSlug string
-	SeriesSlug   string
-	TagName      string
-}
-
-func (s *Services) AddTagToSeries(ctx context.Context, opts AddTagToSeriesOptions) (*db.Series, []db.Tag, *ServiceError) {
-	log := s.log.WithGroup("service.series.AddTagToSeries").With("slug", opts.SeriesSlug, "tag", opts.TagName)
-	log.InfoContext(ctx, "Adding tag to series...")
-
-	series, serviceErr := s.AssertSeriesOwnership(ctx, AssertSeriesOwnershipOptions{
-		UserID:       opts.UserID,
-		LanguageSlug: opts.LanguageSlug,
-		SeriesSlug:   opts.SeriesSlug,
-	})
-	if serviceErr != nil {
-		return nil, nil, serviceErr
-	}
-
-	tags, serviceErr := s.FindTagsBySeriesID(ctx, series.ID)
-	if serviceErr != nil {
-		return nil, nil, serviceErr
-	}
-
-	tagIdx := slices.IndexFunc(tags, func(t db.Tag) bool {
-		return t.Name == opts.TagName
-	})
-	if tagIdx > -1 {
-		log.WarnContext(ctx, "Tag already added to series")
-		return series, tags, nil
-	}
-
-	if len(tags) > 5 {
-		log.Warn("Series has too many tags")
-		return nil, nil, NewValidationError("Series has too many tags")
-	}
-
-	qrs, txn, err := s.database.BeginTx(ctx)
-	if err != nil {
-		return nil, nil, FromDBError(err)
-	}
-	defer s.database.FinalizeTx(ctx, txn, err)
-
-	tag, err := qrs.FindOrCreateTag(ctx, db.FindOrCreateTagParams{
-		Name:     opts.TagName,
-		AuthorID: opts.UserID,
-	})
-	if err != nil {
-		return nil, nil, FromDBError(err)
-	}
-
-	params := db.CreateSeriesTagParams{
-		SeriesID: series.ID,
-		TagID:    tag.ID,
-	}
-	if err := qrs.CreateSeriesTag(ctx, params); err != nil {
-		return nil, nil, FromDBError(err)
-	}
-
-	log.InfoContext(ctx, "Tag added to series")
-	tags = append(tags, tag)
-	return series, tags, nil
-}
-
-type RemoveTagFromSeriesOptions struct {
-	UserID       int32
-	LanguageSlug string
-	SeriesSlug   string
-	TagName      string
-}
-
-func (s *Services) RemoveTagFromSeries(ctx context.Context, opts RemoveTagFromSeriesOptions) (*db.Series, []db.Tag, *ServiceError) {
-	log := s.log.WithGroup("service.series.RemoveTagFromSeries").With("slug", opts.SeriesSlug, "tag", opts.TagName)
-	log.InfoContext(ctx, "Removing tag from series...")
-
-	series, serviceErr := s.AssertSeriesOwnership(ctx, AssertSeriesOwnershipOptions{
-		UserID:       opts.UserID,
-		LanguageSlug: opts.LanguageSlug,
-		SeriesSlug:   opts.SeriesSlug,
-	})
-	if serviceErr != nil {
-		return nil, nil, serviceErr
-	}
-
-	tags, serviceErr := s.FindTagsBySeriesID(ctx, series.ID)
-	if serviceErr != nil {
-		return nil, nil, serviceErr
-	}
-
-	tagIdx := slices.IndexFunc(tags, func(t db.Tag) bool {
-		return t.Name == opts.TagName
-	})
-	if tagIdx == -1 {
-		log.WarnContext(ctx, "Tag not found in series")
-		return nil, nil, NewNotFoundError()
-	}
-
-	params := db.DeleteSeriesTagByIDsParams{
-		SeriesID: series.ID,
-		TagID:    tags[tagIdx].ID,
-	}
-	if err := s.database.DeleteSeriesTagByIDs(ctx, params); err != nil {
-		log.ErrorContext(ctx, "Failed to delete series' tag")
-		return nil, nil, FromDBError(err)
-	}
-
-	tags = append(tags[:tagIdx], tags[tagIdx+1:]...)
-	log.InfoContext(ctx, "Delete series' tag successfully")
-	return series, tags, nil
 }

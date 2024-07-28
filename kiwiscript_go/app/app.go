@@ -97,19 +97,19 @@ func CreateApp(
 	log.Info("Loading validators...")
 	vld := validator.New()
 	if err := vld.RegisterValidation(svgValidatorTag, isValidSVG); err != nil {
-		log.Error("Failed to register svg validator", err)
+		log.Error("Failed to register svg validator", "error", err)
 		panic(err)
 	}
 	if err := vld.RegisterValidation(extAlphaNumTag, isValidExtAlphaNum); err != nil {
-		log.Error("Failed to register extalphanum validator", err)
+		log.Error("Failed to register extalphanum validator", "error", err)
 		panic(err)
 	}
 	if err := vld.RegisterValidation(slugValidatorTag, isValidSlug); err != nil {
-		log.Error("Failed to register slug validator", err)
+		log.Error("Failed to register slug validator", "error", err)
 		panic(err)
 	}
 	if err := vld.RegisterValidation(markdownValidatorTag, isValidMarkdown); err != nil {
-		log.Error("Failed to register markdown validator", err)
+		log.Error("Failed to register markdown validator", "error", err)
 		panic(err)
 	}
 	log.Info("Successfully loaded validators")
@@ -145,14 +145,24 @@ func CreateApp(
 	// Private routes
 	log.Info("Loading private routes...")
 	rtr.AuthPrivateRoutes()
-	rtr.LanguagePrivateRoutes()
-	rtr.SeriesPrivateRoutes()
-	rtr.SeriesPartPrivateRoutes()
-	rtr.LecturePrivateRoutes()
-	rtr.LectureArticlePrivateRoutes()
-	rtr.LectureVideoPrivateRoutes()
-	rtr.LectureFilesPrivateRoutes()
+	rtr.LanguageProgressPrivateRoutes()
+	rtr.SeriesProgressPrivateRoutes()
 	log.Info("Successfully loaded private routes")
+
+	// Staff routes
+	log.Info("Loading staff routes...")
+	rtr.SeriesStaffRoutes()
+	rtr.SeriesPartStaffRoutes()
+	rtr.LectureStaffRoutes()
+	rtr.LectureArticleStaffRoutes()
+	rtr.LectureVideoStaffRoutes()
+	rtr.LectureFilesStaffRoutes()
+	log.Info("Successfully loaded staff routes")
+
+	// Admin Routes
+	log.Info("Loading admin routes...")
+	rtr.LanguageAdminRoutes()
+	log.Info("Successfully loaded admin routes")
 
 	log.Info("Successfully built the app")
 	return app

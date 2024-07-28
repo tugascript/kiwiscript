@@ -15,25 +15,4 @@
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
-package routers
-
-import "github.com/kiwiscript/kiwiscript_go/paths"
-
-func (r *Router) LanguagePublicRoutes() {
-	languages := r.router.Group(paths.LanguagePathV1)
-
-	languages.Get("/", r.controllers.GetLanguages)
-	languages.Get("/:languageSlug", r.controllers.GetLanguage)
-}
-
-func (r *Router) LanguageAdminRoutes() {
-	languages := r.router.Group(
-		paths.LanguagePathV1,
-		r.controllers.AccessClaimsMiddleware,
-		r.controllers.AdminUserMiddleware,
-	)
-
-	languages.Post("/", r.controllers.CreateLanguage)
-	languages.Put("/:languageSlug", r.controllers.UpdateLanguage)
-	languages.Delete("/:languageSlug", r.controllers.DeleteLanguage)
-}
+package services

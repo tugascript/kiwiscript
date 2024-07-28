@@ -11,7 +11,7 @@ func (r *Router) SeriesPublicRoutes() {
 	series.Get("/:seriesSlug", r.controllers.GetSingleSeries)
 }
 
-func (r *Router) SeriesPrivateRoutes() {
+func (r *Router) SeriesStaffRoutes() {
 	series := r.router.Group(
 		seriesPath,
 		r.controllers.AccessClaimsMiddleware,
@@ -22,6 +22,4 @@ func (r *Router) SeriesPrivateRoutes() {
 	series.Put("/:seriesSlug", r.controllers.UpdateSeries)
 	series.Delete("/:seriesSlug", r.controllers.DeleteSeries)
 	series.Patch("/:seriesSlug/publish", r.controllers.UpdateSeriesIsPublished)
-	series.Patch("/:seriesSlug/tags", r.controllers.AddTagToSeries)
-	series.Delete("/:seriesSlug/tags/:tagSlug", r.controllers.RemoveTagFromSeries)
 }

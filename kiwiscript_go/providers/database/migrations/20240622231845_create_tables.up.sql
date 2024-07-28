@@ -1,6 +1,6 @@
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2024-07-20T06:19:49.435Z
+-- Generated at: 2024-07-26T22:00:55.030Z
 
 CREATE TABLE "users" (
   "id" serial PRIMARY KEY,
@@ -31,14 +31,7 @@ CREATE TABLE "languages" (
   "name" varchar(50) NOT NULL,
   "slug" varchar(50) NOT NULL,
   "icon" text NOT NULL,
-  "author_id" int NOT NULL,
-  "created_at" timestamp NOT NULL DEFAULT (now()),
-  "updated_at" timestamp NOT NULL DEFAULT (now())
-);
-
-CREATE TABLE "tags" (
-  "id" serial PRIMARY KEY,
-  "name" varchar(50) NOT NULL,
+  "series_count" smallint NOT NULL DEFAULT 0,
   "author_id" int NOT NULL,
   "created_at" timestamp NOT NULL DEFAULT (now()),
   "updated_at" timestamp NOT NULL DEFAULT (now())
@@ -53,8 +46,6 @@ CREATE TABLE "series" (
   "lectures_count" smallint NOT NULL DEFAULT 0,
   "watch_time_seconds" int NOT NULL DEFAULT 0,
   "read_time_seconds" int NOT NULL DEFAULT 0,
-  "review_avg" smallint NOT NULL DEFAULT 0,
-  "review_count" int NOT NULL DEFAULT 0,
   "is_published" boolean NOT NULL DEFAULT false,
   "language_slug" varchar(50) NOT NULL,
   "author_id" int NOT NULL,
@@ -70,13 +61,6 @@ CREATE TABLE "series_images" (
   "ext" varchar(10) NOT NULL,
   "created_at" timestamp NOT NULL DEFAULT (now()),
   "updated_at" timestamp NOT NULL DEFAULT (now())
-);
-
-CREATE TABLE "series_tags" (
-  "series_id" int NOT NULL,
-  "tag_id" int NOT NULL,
-  "created_at" timestamp NOT NULL DEFAULT (now()),
-  PRIMARY KEY ("series_id", "tag_id")
 );
 
 CREATE TABLE "series_parts" (
@@ -100,7 +84,6 @@ CREATE TABLE "lectures" (
   "title" varchar(250) NOT NULL,
   "position" smallint NOT NULL,
   "is_published" boolean NOT NULL DEFAULT false,
-  "comments_count" int NOT NULL DEFAULT 0,
   "watch_time_seconds" int NOT NULL DEFAULT 0,
   "read_time_seconds" int NOT NULL DEFAULT 0,
   "author_id" int NOT NULL,
@@ -140,14 +123,29 @@ CREATE TABLE "lecture_files" (
   "updated_at" timestamp NOT NULL DEFAULT (now())
 );
 
+CREATE TABLE "language_progress" (
+  "id" serial PRIMARY KEY,
+  "user_id" int NOT NULL,
+  "language_slug" varchar(50) NOT NULL,
+  "completed_series" smallint NOT NULL DEFAULT 0,
+  "in_progress_series" smallint NOT NULL DEFAULT 0,
+  "is_current" boolean NOT NULL DEFAULT false,
+  "created_at" timestamp NOT NULL DEFAULT (now()),
+  "updated_at" timestamp NOT NULL DEFAULT (now())
+);
+
 CREATE TABLE "series_progress" (
   "id" serial PRIMARY KEY,
   "user_id" int NOT NULL,
-  "series_id" int NOT NULL,
-  "language_id" int NOT NULL,
-  "lectures_count" smallint NOT NULL DEFAULT 0,
+  "series_slug" varchar(100) NOT NULL,
+  "language_slug" varchar(50) NOT NULL,
+  "language_progress_id" int NOT NULL,
+  "in_progress_parts" smallint NOT NULL DEFAULT 0,
+  "completed_parts" smallint NOT NULL DEFAULT 0,
+  "in_progress_lectures" smallint NOT NULL DEFAULT 0,
+  "completed_lectures" smallint NOT NULL DEFAULT 0,
   "parts_count" smallint NOT NULL DEFAULT 0,
-  "is_completed" boolean NOT NULL DEFAULT false,
+  "is_current" boolean NOT NULL DEFAULT false,
   "completed_at" timestamp,
   "created_at" timestamp NOT NULL DEFAULT (now()),
   "updated_at" timestamp NOT NULL DEFAULT (now())
@@ -156,11 +154,14 @@ CREATE TABLE "series_progress" (
 CREATE TABLE "series_part_progress" (
   "id" serial PRIMARY KEY,
   "user_id" int NOT NULL,
+  "language_slug" varchar(50) NOT NULL,
+  "series_slug" varchar(100) NOT NULL,
   "series_part_id" int NOT NULL,
-  "language_id" int NOT NULL,
+  "language_progress_id" int NOT NULL,
   "series_progress_id" int NOT NULL,
-  "lectures_count" smallint NOT NULL DEFAULT 0,
-  "is_completed" boolean NOT NULL DEFAULT false,
+  "in_progress_lectures" smallint NOT NULL DEFAULT 0,
+  "completed_lectures" smallint NOT NULL DEFAULT 0,
+  "is_current" boolean NOT NULL DEFAULT false,
   "completed_at" timestamp,
   "created_at" timestamp NOT NULL DEFAULT (now()),
   "updated_at" timestamp NOT NULL DEFAULT (now())
@@ -169,42 +170,15 @@ CREATE TABLE "series_part_progress" (
 CREATE TABLE "lecture_progress" (
   "id" serial PRIMARY KEY,
   "user_id" int NOT NULL,
-  "language_id" int NOT NULL,
+  "language_slug" varchar(50) NOT NULL,
+  "series_slug" varchar(100) NOT NULL,
+  "series_part_id" int NOT NULL,
   "lecture_id" int NOT NULL,
+  "language_progress_id" int NOT NULL,
   "series_progress_id" int NOT NULL,
   "series_part_progress_id" int NOT NULL,
-  "is_completed" boolean NOT NULL DEFAULT false,
+  "is_current" boolean NOT NULL DEFAULT false,
   "completed_at" timestamp,
-  "created_at" timestamp NOT NULL DEFAULT (now()),
-  "updated_at" timestamp NOT NULL DEFAULT (now())
-);
-
-CREATE TABLE "series_reviews" (
-  "id" serial PRIMARY KEY,
-  "author_id" int NOT NULL,
-  "series_id" int NOT NULL,
-  "language_id" int NOT NULL,
-  "rating" smallint NOT NULL,
-  "review" text,
-  "created_at" timestamp NOT NULL DEFAULT (now()),
-  "updated_at" timestamp NOT NULL DEFAULT (now())
-);
-
-CREATE TABLE "lecture_comments" (
-  "id" serial PRIMARY KEY,
-  "author_id" int NOT NULL,
-  "lecture_id" int NOT NULL,
-  "comment" text NOT NULL,
-  "replies_count" int NOT NULL DEFAULT 0,
-  "created_at" timestamp NOT NULL DEFAULT (now()),
-  "updated_at" timestamp NOT NULL DEFAULT (now())
-);
-
-CREATE TABLE "comment_replies" (
-  "id" serial PRIMARY KEY,
-  "author_id" int NOT NULL,
-  "comment_id" int NOT NULL,
-  "reply" text NOT NULL,
   "created_at" timestamp NOT NULL DEFAULT (now()),
   "updated_at" timestamp NOT NULL DEFAULT (now())
 );
@@ -251,10 +225,6 @@ CREATE UNIQUE INDEX "auth_providers_email_provider_unique_idx" ON "auth_provider
 CREATE UNIQUE INDEX "languages_name_unique_idx" ON "languages" ("name");
 
 CREATE UNIQUE INDEX "languages_slug_unique_idx" ON "languages" ("slug");
-
-CREATE UNIQUE INDEX "tags_name_unique_idx" ON "tags" ("name");
-
-CREATE INDEX "tags_author_id_idx" ON "tags" ("author_id");
 
 CREATE UNIQUE INDEX "series_title_unique_idx" ON "series" ("title");
 
@@ -330,53 +300,55 @@ CREATE UNIQUE INDEX "lecture_files_lecture_id_unique_idx" ON "lecture_files" ("l
 
 CREATE INDEX "lecture_files_author_id_idx" ON "lecture_files" ("author_id");
 
-CREATE UNIQUE INDEX "series_progress_user_id_series_id_language_id_unique_idx" ON "series_progress" ("user_id", "series_id", "language_id");
+CREATE UNIQUE INDEX "language_progress_user_id_language_slug_unique_idx" ON "language_progress" ("user_id", "language_slug");
+
+CREATE INDEX "language_progress_user_id_created_at_idx" ON "language_progress" ("user_id", "created_at");
+
+CREATE INDEX "language_progress_user_id_idx" ON "language_progress" ("user_id");
+
+CREATE INDEX "language_progress_language_slug_idx" ON "language_progress" ("language_slug");
+
+CREATE UNIQUE INDEX "series_progress_user_id_series_slug_language_slug_unique_idx" ON "series_progress" ("user_id", "series_slug", "language_slug");
 
 CREATE INDEX "series_progress_user_id_idx" ON "series_progress" ("user_id");
 
-CREATE INDEX "series_progress_series_id_idx" ON "series_progress" ("series_id");
+CREATE INDEX "series_progress_series_slug_idx" ON "series_progress" ("series_slug");
 
-CREATE INDEX "series_progress_language_id_idx" ON "series_progress" ("language_id");
+CREATE INDEX "series_progress_language_slug_idx" ON "series_progress" ("language_slug");
 
-CREATE UNIQUE INDEX "series_part_progress_user_id_series_part_id_language_id_unique_idx" ON "series_part_progress" ("user_id", "series_part_id", "language_id");
+CREATE INDEX "series_progress_language_progress_id_idx" ON "series_progress" ("language_progress_id");
 
-CREATE UNIQUE INDEX "series_part_progress_user_id_series_progress_id_language_id_unique_idx" ON "series_part_progress" ("user_id", "series_progress_id", "language_id");
+CREATE UNIQUE INDEX "series_part_progress_user_id_language_slug_series_slug_series_part_id_unique_idx" ON "series_part_progress" ("user_id", "language_slug", "series_slug", "series_part_id");
 
 CREATE INDEX "series_part_progress_user_id_idx" ON "series_part_progress" ("user_id");
 
+CREATE INDEX "series_part_progress_language_slug_idx" ON "series_part_progress" ("language_slug");
+
+CREATE INDEX "series_part_progress_series_slug_idx" ON "series_part_progress" ("series_slug");
+
 CREATE INDEX "series_part_progress_series_part_id_idx" ON "series_part_progress" ("series_part_id");
+
+CREATE INDEX "series_part_progress_language_progress_id_idx" ON "series_part_progress" ("language_progress_id");
 
 CREATE INDEX "series_part_progress_series_progress_id_idx" ON "series_part_progress" ("series_progress_id");
 
-CREATE INDEX "series_part_progress_language_id_idx" ON "series_part_progress" ("language_id");
-
-CREATE UNIQUE INDEX "lecture_progress_user_id_lecture_id_language_id_unique_idx" ON "lecture_progress" ("user_id", "lecture_id", "language_id");
-
-CREATE UNIQUE INDEX "lecture_progress_user_id_series_part_progress_id_language_id_unique_idx" ON "lecture_progress" ("user_id", "series_part_progress_id", "language_id");
+CREATE UNIQUE INDEX "lecture_progress_user_id_language_slug_series_slug_series_part_id_lecture_id_unique_idx" ON "lecture_progress" ("user_id", "language_slug", "series_slug", "series_part_id", "lecture_id");
 
 CREATE INDEX "lecture_progress_user_id_idx" ON "lecture_progress" ("user_id");
 
+CREATE INDEX "lecture_progress_language_slug_idx" ON "lecture_progress" ("language_slug");
+
+CREATE INDEX "lecture_progress_series_slug_idx" ON "lecture_progress" ("series_slug");
+
+CREATE INDEX "lecture_progress_series_part_id_idx" ON "lecture_progress" ("series_part_id");
+
 CREATE INDEX "lecture_progress_lecture_id_idx" ON "lecture_progress" ("lecture_id");
+
+CREATE INDEX "lecture_progress_language_progress_id_idx" ON "lecture_progress" ("language_progress_id");
 
 CREATE INDEX "lecture_progress_series_progress_id_idx" ON "lecture_progress" ("series_progress_id");
 
 CREATE INDEX "lecture_progress_series_part_progress_id_idx" ON "lecture_progress" ("series_part_progress_id");
-
-CREATE INDEX "lecture_progress_language_id_idx" ON "lecture_progress" ("language_id");
-
-CREATE UNIQUE INDEX "series_review_user_id_series_id_language_id_unique_idx" ON "series_reviews" ("author_id", "series_id", "language_id");
-
-CREATE INDEX "series_review_author_id_idx" ON "series_reviews" ("author_id");
-
-CREATE INDEX "series_review_series_id_idx" ON "series_reviews" ("series_id");
-
-CREATE INDEX "series_review_language_id_idx" ON "series_reviews" ("language_id");
-
-CREATE INDEX "lecture_comments_author_id_idx" ON "lecture_comments" ("author_id");
-
-CREATE INDEX "comment_replies_author_id_idx" ON "comment_replies" ("author_id");
-
-CREATE INDEX "comment_replies_comment_id_idx" ON "comment_replies" ("comment_id");
 
 CREATE UNIQUE INDEX "certificates_user_id_language_id_series_id_unique_idx" ON "certificates" ("user_id", "language_id", "series_id");
 
@@ -398,15 +370,9 @@ ALTER TABLE "auth_providers" ADD FOREIGN KEY ("email") REFERENCES "users" ("emai
 
 ALTER TABLE "languages" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "tags" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
 ALTER TABLE "series" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "series" ADD FOREIGN KEY ("language_slug") REFERENCES "languages" ("slug") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "series_tags" ADD FOREIGN KEY ("series_id") REFERENCES "series" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "series_tags" ADD FOREIGN KEY ("tag_id") REFERENCES "tags" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "series_parts" ADD FOREIGN KEY ("language_slug") REFERENCES "languages" ("slug") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -428,39 +394,45 @@ ALTER TABLE "lecture_articles" ADD FOREIGN KEY ("lecture_id") REFERENCES "lectur
 
 ALTER TABLE "lecture_files" ADD FOREIGN KEY ("lecture_id") REFERENCES "lectures" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
+ALTER TABLE "language_progress" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "language_progress" ADD FOREIGN KEY ("language_slug") REFERENCES "languages" ("slug") ON DELETE CASCADE ON UPDATE CASCADE;
+
 ALTER TABLE "series_progress" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "series_progress" ADD FOREIGN KEY ("series_id") REFERENCES "series" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "series_progress" ADD FOREIGN KEY ("series_slug") REFERENCES "series" ("slug") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "series_progress" ADD FOREIGN KEY ("language_id") REFERENCES "languages" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "series_progress" ADD FOREIGN KEY ("language_slug") REFERENCES "languages" ("slug") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "series_progress" ADD FOREIGN KEY ("language_progress_id") REFERENCES "language_progress" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "series_part_progress" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
+ALTER TABLE "series_part_progress" ADD FOREIGN KEY ("language_slug") REFERENCES "languages" ("slug") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "series_part_progress" ADD FOREIGN KEY ("series_slug") REFERENCES "series" ("slug") ON DELETE CASCADE ON UPDATE CASCADE;
+
 ALTER TABLE "series_part_progress" ADD FOREIGN KEY ("series_part_id") REFERENCES "series_parts" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "series_part_progress" ADD FOREIGN KEY ("language_id") REFERENCES "languages" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "series_part_progress" ADD FOREIGN KEY ("language_progress_id") REFERENCES "language_progress" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "series_part_progress" ADD FOREIGN KEY ("series_progress_id") REFERENCES "series_progress" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "lecture_progress" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE "lecture_progress" ADD FOREIGN KEY ("language_id") REFERENCES "languages" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "lecture_progress" ADD FOREIGN KEY ("language_slug") REFERENCES "languages" ("slug") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "lecture_progress" ADD FOREIGN KEY ("series_slug") REFERENCES "series" ("slug") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "lecture_progress" ADD FOREIGN KEY ("series_part_id") REFERENCES "series_parts" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "lecture_progress" ADD FOREIGN KEY ("lecture_id") REFERENCES "lectures" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "lecture_progress" ADD FOREIGN KEY ("language_progress_id") REFERENCES "language_progress" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "lecture_progress" ADD FOREIGN KEY ("series_progress_id") REFERENCES "series_progress" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "lecture_progress" ADD FOREIGN KEY ("series_part_progress_id") REFERENCES "series_part_progress" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "series_reviews" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "series_reviews" ADD FOREIGN KEY ("series_id") REFERENCES "series" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "series_reviews" ADD FOREIGN KEY ("language_id") REFERENCES "languages" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "lecture_comments" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "lecture_comments" ADD FOREIGN KEY ("lecture_id") REFERENCES "lectures" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "certificates" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

@@ -46,17 +46,271 @@ UPDATE "series" SET
 WHERE "id" = $2
 RETURNING *;
 
--- name: UpdateSeriesReviewAvg :exec
-UPDATE "series" SET
-  "review_avg" = $1,
-  "updated_at" = now()
-WHERE "id" = $2;
+-- name: FindPublishedSeriesBySlugsWithAuthor :one
+SELECT
+  "series".*,
+  "users"."first_name" AS "author_first_name",
+  "users"."last_name" AS "author_last_name"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+WHERE
+  "series"."slug" = $1 AND
+  "series"."language_slug" = $2 AND
+  "series"."is_published" = true
+LIMIT 1;
 
--- name: IncrementSeriesReviewCount :exec
-UPDATE "series" SET
-  "review_count" = "review_count" + 1,
-  "updated_at" = now()
-WHERE "id" = $1;
+-- name: FindPaginatedSeriesWithAuthorSortByID :many
+SELECT
+  "series".*,
+  "users"."first_name" AS "author_first_name",
+  "users"."last_name" AS "author_last_name"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+WHERE "series"."language_slug" = $1
+ORDER BY "series"."id" DESC
+LIMIT $2 OFFSET $3;
+
+-- name: FindPaginatedPublishedSeriesWithAuthorSortByID :many
+SELECT
+  "series".*,
+  "users"."first_name" AS "author_first_name",
+  "users"."last_name" AS "author_last_name"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+WHERE
+    "series"."language_slug" = $1 AND
+    "series"."is_published" = true
+ORDER BY "series"."id" DESC
+LIMIT $2 OFFSET $3;
+
+-- name: FindFilteredSeriesWithAuthorSortByID :many
+SELECT
+  "series".*,
+  "users"."first_name" AS "author_first_name",
+  "users"."last_name" AS "author_last_name"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+WHERE
+    "series"."language_slug" = $1 AND
+    (
+        "series"."title" ILIKE $2 OR
+        "users"."first_name" ILIKE $2 OR
+        "users"."last_name" ILIKE $2
+    )
+ORDER BY "series"."id" DESC
+LIMIT $3 OFFSET $4;
+
+-- name: FindFilteredPublishedSeriesWithAuthorSortByID :many
+SELECT
+  "series".*,
+  "users"."first_name" AS "author_first_name",
+  "users"."last_name" AS "author_last_name"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+WHERE
+    "series"."language_slug" = $1 AND
+    "series"."is_published" = true AND
+    (
+        "series"."title" ILIKE $2 OR
+        "users"."first_name" ILIKE $2 OR
+        "users"."last_name" ILIKE $2
+    )
+ORDER BY "series"."id" DESC
+LIMIT $3 OFFSET $4;
+
+-- name: CountSeries :one
+SELECT COUNT("id") FROM "series"
+WHERE "language_slug" = $1;
+
+-- name: CountPublishedSeries :one
+SELECT COUNT("id") FROM "series"
+WHERE
+    "language_slug" = $1 AND
+    "is_published" = true;
+
+-- name: CountFilteredSeries :one
+SELECT COUNT("series"."id") FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+WHERE
+    "series"."language_slug" = $1 AND
+    (
+        "series"."title" ILIKE $2 OR
+        "users"."first_name" ILIKE $2 OR
+        "users"."last_name" ILIKE $2
+    );
+
+-- name: CountFilteredPublishedSeries :one
+SELECT COUNT("series"."id") FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+WHERE
+    "series"."language_slug" = $1 AND
+    "series"."is_published" = true AND
+    (
+        "series"."title" ILIKE $2 OR
+        "users"."first_name" ILIKE $2 OR
+        "users"."last_name" ILIKE $2
+    );
+
+-- name: FindPaginatedSeriesWithAuthorSortBySlug :many
+SELECT
+  "series".*,
+  "users"."first_name" AS "author_first_name",
+  "users"."last_name" AS "author_last_name"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+WHERE "series"."language_slug" = $1
+ORDER BY "series"."slug" ASC
+LIMIT $2 OFFSET $3;
+
+-- name: FindFilteredSeriesWithAuthorSortBySlug :many
+SELECT
+  "series".*,
+  "users"."first_name" AS "author_first_name",
+  "users"."last_name" AS "author_last_name"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+WHERE
+    "series"."language_slug" = $1 AND
+    (
+        "series"."title" ILIKE $2 OR
+        "users"."first_name" ILIKE $2 OR
+        "users"."last_name" ILIKE $2
+    )
+ORDER BY "series"."slug" ASC
+LIMIT $3 OFFSET $4;
+
+-- name: FindPaginatedPublishedSeriesWithAuthorSortBySlug :many
+SELECT
+  "series".*,
+  "users"."first_name" AS "author_first_name",
+  "users"."last_name" AS "author_last_name"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+WHERE
+    "series"."language_slug" = $1 AND
+    "series"."is_published" = true
+ORDER BY "series"."slug" ASC
+LIMIT $2 OFFSET $3;
+
+-- name: FindFilteredPublishedSeriesWithAuthorSortBySlug :many
+SELECT
+  "series".*,
+  "users"."first_name" AS "author_first_name",
+  "users"."last_name" AS "author_last_name"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+WHERE
+    "series"."language_slug" = $1 AND
+    "series"."is_published" = true AND
+    (
+        "series"."title" ILIKE $2 OR
+        "users"."first_name" ILIKE $2 OR
+        "users"."last_name" ILIKE $2
+    )
+ORDER BY "series"."slug" ASC
+LIMIT $3 OFFSET $4;
+
+-- name: FindPaginatedPublishedSeriesWithAuthorAndProgressSortByID :many
+SELECT
+  "series".*,
+  "users"."first_name" AS "author_first_name",
+  "users"."last_name" AS "author_last_name",
+  "series_progress"."id" AS "series_progress_id",
+  "series_progress"."is_current" AS "series_progress_is_current",
+  "series_progress"."completed_parts" AS "series_progress_completed_parts",
+  "series_progress"."in_progress_parts" AS "series_progress_in_progress_parts",
+  "series_progress"."completed_lectures" AS "series_progress_completed_lectures",
+  "series_progress"."in_progress_lectures" AS "series_progress_in_progress_lectures"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_progress" ON (
+    "series"."slug" = "series_progress"."series_slug" AND
+    "series_progress"."user_id" = $1
+)
+WHERE
+  "series"."language_slug" = $2 AND
+  "series"."is_published" = true
+ORDER BY "series"."id" DESC
+LIMIT $3 OFFSET $4;
+
+-- name: FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlug :many
+SELECT
+  "series".*,
+  "users"."first_name" AS "author_first_name",
+  "users"."last_name" AS "author_last_name",
+  "series_progress"."id" AS "series_progress_id",
+  "series_progress"."is_current" AS "series_progress_is_current",
+  "series_progress"."completed_parts" AS "series_progress_completed_parts",
+  "series_progress"."in_progress_parts" AS "series_progress_in_progress_parts",
+  "series_progress"."completed_lectures" AS "series_progress_completed_lectures",
+  "series_progress"."in_progress_lectures" AS "series_progress_in_progress_lectures"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_progress" ON (
+    "series"."slug" = "series_progress"."series_slug" AND
+    "series_progress"."user_id" = $1
+)
+WHERE
+  "series"."language_slug" = $2 AND
+  "series"."is_published" = true
+ORDER BY "series"."slug" ASC
+LIMIT $3 OFFSET $4;
+
+-- name: FindFilteredPublishedSeriesWithAuthorAndProgressSortByID :many
+SELECT
+  "series".*,
+  "users"."first_name" AS "author_first_name",
+  "users"."last_name" AS "author_last_name",
+  "series_progress"."id" AS "series_progress_id",
+  "series_progress"."is_current" AS "series_progress_is_current",
+  "series_progress"."completed_parts" AS "series_progress_completed_parts",
+  "series_progress"."in_progress_parts" AS "series_progress_in_progress_parts",
+  "series_progress"."completed_lectures" AS "series_progress_completed_lectures",
+  "series_progress"."in_progress_lectures" AS "series_progress_in_progress_lectures"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_progress" ON (
+    "series"."slug" = "series_progress"."series_slug" AND
+    "series_progress"."user_id" = $1 AND
+    (
+        "series"."title" ILIKE $2 OR
+        "users"."first_name" ILIKE $2 OR
+        "users"."last_name" ILIKE $2
+    )
+)
+WHERE
+  "series"."language_slug" = $3 AND
+  "series"."is_published" = true
+ORDER BY "series"."id" DESC
+LIMIT $4 OFFSET $5;
+
+-- name: FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlug :many
+SELECT
+  "series".*,
+  "users"."first_name" AS "author_first_name",
+  "users"."last_name" AS "author_last_name",
+  "series_progress"."id" AS "series_progress_id",
+  "series_progress"."is_current" AS "series_progress_is_current",
+  "series_progress"."completed_parts" AS "series_progress_completed_parts",
+  "series_progress"."in_progress_parts" AS "series_progress_in_progress_parts",
+  "series_progress"."completed_lectures" AS "series_progress_completed_lectures",
+  "series_progress"."in_progress_lectures" AS "series_progress_in_progress_lectures"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_progress" ON (
+    "series"."slug" = "series_progress"."series_slug" AND
+    "series_progress"."user_id" = $1 AND
+    (
+        "series"."title" ILIKE $2 OR
+        "users"."first_name" ILIKE $2 OR
+        "users"."last_name" ILIKE $2
+    )
+)
+WHERE
+  "series"."language_slug" = $3 AND
+  "series"."is_published" = true
+ORDER BY "series"."slug" ASC
+LIMIT $4 OFFSET $5;
 
 -- name: AddSeriesPartsCount :exec
 UPDATE "series" SET
@@ -113,21 +367,49 @@ SELECT * FROM "series"
 WHERE "slug" = $1 AND "language_slug" = $2
 LIMIT 1;
 
+-- name: FindPublishedSeriesBySlugAndLanguageSlug :one
+SELECT * FROM "series"
+WHERE
+    "slug" = $1 AND
+    "language_slug" = $2 AND
+    "is_published" = true
+LIMIT 1;
+
 -- name: DeleteSeriesById :exec
 DELETE FROM "series"
 WHERE "id" = $1;
 
--- name: FindSeriesBySlugAndLanguageSlugWithTags :many
-SELECT 
+-- name: FindSeriesBySlugWithAuthor :one
+SELECT
   "series".*,
-  "tags"."name" AS "tag_name",
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name"
 FROM "series"
-LEFT JOIN "users" ON "series"."author_id" = "users"."id"
-LEFT JOIN "series_tags" ON "series"."id" = "series_tags"."series_id"
-  LEFT JOIN "tags" ON "series_tags"."tag_id" = "tags"."id"
-WHERE 
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+WHERE
   "series"."slug" = $1 AND
   "series"."language_slug" = $2
-ORDER BY "tags"."name" ASC;
+LIMIT 1;
+
+-- name: FindPublishedSeriesBySlugWithAuthorAndProgress :one
+SELECT
+    "series".*,
+    "users"."first_name" AS "author_first_name",
+    "users"."last_name" AS "author_last_name",
+    "series_progress"."id" AS "series_progress_id",
+    "series_progress"."is_current" AS "series_progress_is_current",
+    "series_progress"."completed_parts" AS "series_progress_completed_parts",
+    "series_progress"."in_progress_parts" AS "series_progress_in_progress_parts",
+    "series_progress"."completed_lectures" AS "series_progress_completed_lectures",
+    "series_progress"."in_progress_lectures" AS "series_progress_in_progress_lectures"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_progress" ON (
+    "series"."slug" = "series_progress"."series_slug" AND
+    "series_progress"."user_id" = $1
+)
+WHERE
+    "series"."slug" = $2 AND
+    "series"."language_slug" = $3 AND
+    "series"."is_published" = true
+LIMIT 1;

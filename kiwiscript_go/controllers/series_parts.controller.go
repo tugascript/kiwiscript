@@ -106,7 +106,7 @@ func (c *Controllers) GetSeriesPart(ctx *fiber.Ctx) error {
 		isPublished = true
 	}
 
-	seriesPart, serviceErr := c.services.FindSeriesPartBySlugAndID(userCtx, services.FindSeriesPartBySlugsAndIDOptions{
+	seriesPart, serviceErr := c.services.FindSeriesPartBySlugsAndID(userCtx, services.FindSeriesPartBySlugsAndIDOptions{
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
 		IsPublished:  isPublished,

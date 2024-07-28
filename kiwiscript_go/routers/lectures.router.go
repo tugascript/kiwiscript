@@ -34,7 +34,7 @@ func (r *Router) LecturePublicRoutes() {
 	lecture.Get("/:lectureID", r.controllers.GetLecture)
 }
 
-func (r *Router) LecturePrivateRoutes() {
+func (r *Router) LectureStaffRoutes() {
 	lecture := r.router.Group(
 		lecturesPath,
 		r.controllers.AccessClaimsMiddleware,

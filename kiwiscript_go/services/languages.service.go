@@ -40,6 +40,24 @@ func (s *Services) FindLanguageBySlug(ctx context.Context, slug string) (*db.Lan
 	return &language, nil
 }
 
+type FindLanguageWithProgressBySlugOptions struct {
+	UserID       int32
+	LanguageSlug string
+}
+
+func (s *Services) FindLanguageWithProgressBySlug(ctx context.Context, opts FindLanguageProgressOptions) (*db.FindLanguageBySlugWithLanguageProgressRow, *ServiceError) {
+	language, err := s.database.FindLanguageBySlugWithLanguageProgress(ctx, db.FindLanguageBySlugWithLanguageProgressParams{
+		UserID: opts.UserID,
+		Slug:   opts.LanguageSlug,
+	})
+
+	if err != nil {
+		return nil, FromDBError(err)
+	}
+
+	return &language, nil
+}
+
 func (s *Services) FindLanguageByID(ctx context.Context, id int32) (db.Language, *ServiceError) {
 	language, err := s.database.FindLanguageById(ctx, id)
 
@@ -161,6 +179,74 @@ func (s *Services) FindPaginatedLanguages(ctx context.Context, options FindPagin
 		Offset: options.Offset,
 		Limit:  options.Limit,
 	})
+	if err != nil {
+		return nil, 0, FromDBError(err)
+	}
+
+	count, err := s.database.CountFilteredLanguages(ctx, search)
+	if err != nil {
+		return nil, 0, FromDBError(err)
+	}
+
+	return languages, count, nil
+}
+
+type FindPaginatedLanguagesWithProgressOptions struct {
+	UserID int32
+	Offset int32
+	Limit  int32
+}
+
+func (s *Services) FindPaginatedLanguagesWithProgress(
+	ctx context.Context,
+	opts FindPaginatedLanguagesWithProgressOptions,
+) ([]db.FindPaginatedLanguagesWithLanguageProgressRow, int64, *ServiceError) {
+	log := s.log.WithGroup("service.languages.FindPaginatedLanguagesWithProgress")
+	log.InfoContext(ctx, "Finding paginated languages with progress...")
+
+	languages, err := s.database.FindPaginatedLanguagesWithLanguageProgress(
+		ctx,
+		db.FindPaginatedLanguagesWithLanguageProgressParams{
+			UserID: opts.UserID,
+			Offset: opts.Offset,
+			Limit:  opts.Limit,
+		},
+	)
+	if err != nil {
+		return nil, 0, FromDBError(err)
+	}
+
+	count, err := s.database.CountLanguages(ctx)
+	if err != nil {
+		return nil, 0, FromDBError(err)
+	}
+
+	return languages, count, nil
+}
+
+type FindFilteredPaginatedLanguagesWithProgressOptions struct {
+	UserID int32
+	Search string
+	Offset int32
+	Limit  int32
+}
+
+func (s *Services) FindFilteredPaginatedLanguagesWithProgress(
+	ctx context.Context,
+	opts FindFilteredPaginatedLanguagesWithProgressOptions,
+) ([]db.FindFilteredPaginatedLanguagesWithLanguageProgressRow, int64, *ServiceError) {
+	log := s.log.WithGroup("service.languages.FindFilteredPaginatedLanguagesWithProgress")
+	log.InfoContext(ctx, "Finding filtered paginated languages with progress...")
+
+	search := utils.DbSearch(opts.Search)
+	languages, err := s.database.FindFilteredPaginatedLanguagesWithLanguageProgress(
+		ctx,
+		db.FindFilteredPaginatedLanguagesWithLanguageProgressParams{
+			UserID: opts.UserID,
+			Name:   search,
+			Offset: opts.Offset,
+		},
+	)
 	if err != nil {
 		return nil, 0, FromDBError(err)
 	}

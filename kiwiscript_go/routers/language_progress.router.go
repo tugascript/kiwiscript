@@ -19,30 +19,16 @@ package routers
 
 import "github.com/kiwiscript/kiwiscript_go/paths"
 
-const lectureArticlePath = paths.LanguagePathV1 +
+const languageProgressPath = paths.LanguagePathV1 +
 	"/:languageSlug" +
-	paths.SeriesPath +
-	"/:seriesSlug" +
-	paths.PartsPath +
-	"/:seriesPartID" +
-	paths.LecturesPath +
-	"/:lectureID" +
-	paths.ArticlePath
+	paths.ProgressPath
 
-func (r *Router) LectureArticlePublicRoutes() {
-	lectureArticle := r.router.Group(lectureArticlePath)
-
-	lectureArticle.Get("/", r.controllers.GetLectureArticle)
-}
-
-func (r *Router) LectureArticleStaffRoutes() {
-	lectureArticle := r.router.Group(
-		lectureArticlePath,
+func (r *Router) LanguageProgressPrivateRoutes() {
+	languageProgress := r.router.Group(
+		languageProgressPath,
 		r.controllers.AccessClaimsMiddleware,
-		r.controllers.StaffUserMiddleware,
 	)
 
-	lectureArticle.Post("/", r.controllers.CreateLectureArticle)
-	lectureArticle.Put("/", r.controllers.UpdateLectureArticle)
-	lectureArticle.Delete("/", r.controllers.DeleteLectureArticle)
+	languageProgress.Post("/", r.controllers.CreateOrUpdateLanguageProgress)
+	languageProgress.Delete("/", r.controllers.ResetLanguageProgress)
 }

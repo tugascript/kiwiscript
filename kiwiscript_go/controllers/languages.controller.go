@@ -18,6 +18,7 @@
 package controllers
 
 import (
+	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -51,7 +52,7 @@ func (c *Controllers) CreateLanguage(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.Status(fiber.StatusCreated).JSON(c.NewLanguageResponse(language))
+	return ctx.Status(fiber.StatusCreated).JSON(c.NewLanguageResponse(language.ToLanguageDTO()))
 }
 
 func (c *Controllers) GetLanguage(ctx *fiber.Ctx) error {
@@ -65,12 +66,24 @@ func (c *Controllers) GetLanguage(ctx *fiber.Ctx) error {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}
 
+	if user, err := c.GetUserClaims(ctx); err == nil {
+		language, serviceErr := c.services.FindLanguageWithProgressBySlug(userCtx, services.FindLanguageProgressOptions{
+			UserID:       user.ID,
+			LanguageSlug: slug,
+		})
+		if serviceErr != nil {
+			return c.serviceErrorResponse(serviceErr, ctx)
+		}
+
+		return ctx.JSON(c.NewLanguageResponse(language.ToLanguageDTO()))
+	}
+
 	language, serviceErr := c.services.FindLanguageBySlug(userCtx, slug)
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(c.NewLanguageResponse(language))
+	return ctx.JSON(c.NewLanguageResponse(language.ToLanguageDTO()))
 }
 
 func (c *Controllers) GetLanguages(ctx *fiber.Ctx) error {
@@ -85,6 +98,56 @@ func (c *Controllers) GetLanguages(ctx *fiber.Ctx) error {
 
 	if err := c.validate.StructCtx(userCtx, queryParams); err != nil {
 		return c.validateQueryErrorResponse(log, userCtx, err, ctx)
+	}
+
+	if user, err := c.GetUserClaims(ctx); err == nil {
+		if queryParams.Search != "" {
+			languages, count, serviceErr := c.services.FindFilteredPaginatedLanguagesWithProgress(
+				userCtx,
+				services.FindFilteredPaginatedLanguagesWithProgressOptions{
+					UserID: user.ID,
+					Search: queryParams.Search,
+					Offset: queryParams.Offset,
+					Limit:  queryParams.Limit,
+				},
+			)
+			if serviceErr != nil {
+				return c.serviceErrorResponse(serviceErr, ctx)
+			}
+
+			return ctx.JSON(NewPaginatedResponse(
+				c.backendDomain,
+				paths.LanguagePathV1,
+				&queryParams,
+				count,
+				languages,
+				func(l *db.FindFilteredPaginatedLanguagesWithLanguageProgressRow) *LanguageResponse {
+					return c.NewLanguageResponse(l.ToLanguageDTO())
+				},
+			))
+		}
+
+		languages, count, serviceErr := c.services.FindPaginatedLanguagesWithProgress(
+			userCtx,
+			services.FindPaginatedLanguagesWithProgressOptions{
+				UserID: user.ID,
+				Offset: queryParams.Offset,
+				Limit:  queryParams.Limit,
+			},
+		)
+		if serviceErr != nil {
+			return c.serviceErrorResponse(serviceErr, ctx)
+		}
+		return ctx.JSON(NewPaginatedResponse(
+			c.backendDomain,
+			paths.LanguagePathV1,
+			&queryParams,
+			count,
+			languages,
+			func(l *db.FindPaginatedLanguagesWithLanguageProgressRow) *LanguageResponse {
+				return c.NewLanguageResponse(l.ToLanguageDTO())
+			},
+		))
 	}
 
 	languages, count, serviceErr := c.services.FindPaginatedLanguages(userCtx, services.FindPaginatedLanguagesOptions{
@@ -102,7 +165,9 @@ func (c *Controllers) GetLanguages(ctx *fiber.Ctx) error {
 		&queryParams,
 		count,
 		languages,
-		c.NewLanguageResponse,
+		func(l *db.Language) *LanguageResponse {
+			return c.NewLanguageResponse(l.ToLanguageDTO())
+		},
 	))
 }
 
@@ -139,7 +204,7 @@ func (c *Controllers) UpdateLanguage(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(c.NewLanguageResponse(language))
+	return ctx.JSON(c.NewLanguageResponse(language.ToLanguageDTO()))
 }
 
 func (c *Controllers) DeleteLanguage(ctx *fiber.Ctx) error {

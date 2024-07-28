@@ -35,7 +35,7 @@ func (r *Router) LectureVideoPublicRoutes() {
 	lectureVideo.Get("/", r.controllers.GetLectureVideo)
 }
 
-func (r *Router) LectureVideoPrivateRoutes() {
+func (r *Router) LectureVideoStaffRoutes() {
 	lectureVideo := r.router.Group(
 		lectureVideoPath,
 		r.controllers.AccessClaimsMiddleware,
