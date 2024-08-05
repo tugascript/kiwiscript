@@ -1,23 +1,24 @@
 // Copyright (C) 2024 Afonso Barracha
-// 
+//
 // This file is part of KiwiScript.
-// 
+//
 // KiwiScript is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // KiwiScript is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
 package controllers
 
 import (
+	"github.com/kiwiscript/kiwiscript_go/dtos"
 	"unicode"
 
 	"github.com/gofiber/fiber/v2"
@@ -66,13 +67,13 @@ func (c *Controllers) processAuthResponse(ctx *fiber.Ctx, authRes services.AuthR
 	})
 	return ctx.
 		Status(fiber.StatusOK).
-		JSON(NewAuthResponse(authRes.AccessToken, authRes.RefreshToken, authRes.ExpiresIn))
+		JSON(dtos.NewAuthResponse(authRes.AccessToken, authRes.RefreshToken, authRes.ExpiresIn))
 }
 
 func (c *Controllers) SignUp(ctx *fiber.Ctx) error {
 	log := c.log.WithGroup("controllers.auth.SignUp")
 	userCtx := ctx.UserContext()
-	var request SignUpRequest
+	var request dtos.SignUpBody
 
 	if err := ctx.BodyParser(&request); err != nil {
 		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
@@ -103,13 +104,13 @@ func (c *Controllers) SignUp(ctx *fiber.Ctx) error {
 
 	return ctx.
 		Status(fiber.StatusOK).
-		JSON(NewMessageResponse("Confirmation email has been sent"))
+		JSON(dtos.NewMessageResponse("Confirmation email has been sent"))
 }
 
 func (c *Controllers) SignIn(ctx *fiber.Ctx) error {
 	log := c.log.WithGroup("controllers.auth.SignIn")
 	userCtx := ctx.UserContext()
-	var request SignInRequest
+	var request dtos.SignInBody
 
 	if err := ctx.BodyParser(&request); err != nil {
 		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
@@ -128,13 +129,13 @@ func (c *Controllers) SignIn(ctx *fiber.Ctx) error {
 
 	return ctx.
 		Status(fiber.StatusOK).
-		JSON(NewMessageResponse("Confirmation code has been sent to your email"))
+		JSON(dtos.NewMessageResponse("Confirmation code has been sent to your email"))
 }
 
 func (c *Controllers) ConfirmSignIn(ctx *fiber.Ctx) error {
 	log := c.log.WithGroup("controllers.auth.ConfirmSignIn")
 	userCtx := ctx.UserContext()
-	var request ConfirmSignInRequest
+	var request dtos.ConfirmSignInBody
 
 	if err := ctx.BodyParser(&request); err != nil {
 		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
@@ -161,7 +162,7 @@ func (c *Controllers) SignOut(ctx *fiber.Ctx) error {
 
 	log.Info("SignOut", "refreshToken", refreshToken)
 	if refreshToken == "" {
-		var request SignOutRequest
+		var request dtos.SignOutBody
 
 		if err := ctx.BodyParser(&request); err != nil {
 			return c.parseRequestErrorResponse(log, userCtx, err, ctx)
@@ -185,7 +186,7 @@ func (c *Controllers) Refresh(ctx *fiber.Ctx) error {
 	refreshToken := ctx.Cookies(c.refreshCookieName)
 
 	if refreshToken == "" {
-		var request RefreshRequest
+		var request dtos.RefreshBody
 
 		if err := ctx.BodyParser(&request); err != nil {
 			return c.parseRequestErrorResponse(log, userCtx, err, ctx)
@@ -208,7 +209,7 @@ func (c *Controllers) Refresh(ctx *fiber.Ctx) error {
 func (c *Controllers) ConfirmEmail(ctx *fiber.Ctx) error {
 	log := c.log.WithGroup("controllers.auth.ConfirmEmail")
 	userCtx := ctx.UserContext()
-	var request ConfirmRequest
+	var request dtos.ConfirmBody
 
 	if err := ctx.BodyParser(&request); err != nil {
 		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
@@ -228,7 +229,7 @@ func (c *Controllers) ConfirmEmail(ctx *fiber.Ctx) error {
 func (c *Controllers) ForgotPassword(ctx *fiber.Ctx) error {
 	log := c.log.WithGroup("controllers.auth.ForgotPassword")
 	userCtx := ctx.UserContext()
-	var request ForgotPasswordRequest
+	var request dtos.ForgotPasswordBody
 
 	if err := ctx.BodyParser(&request); err != nil {
 		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
@@ -242,13 +243,13 @@ func (c *Controllers) ForgotPassword(ctx *fiber.Ctx) error {
 
 	return ctx.
 		Status(fiber.StatusOK).
-		JSON(NewMessageResponse("If the email exists, a password reset email has been sent"))
+		JSON(dtos.NewMessageResponse("If the email exists, a password reset email has been sent"))
 }
 
 func (c *Controllers) ResetPassword(ctx *fiber.Ctx) error {
 	log := c.log.WithGroup("controllers.auth.ForgotPassword")
 	userCtx := ctx.UserContext()
-	var request ResetPasswordRequest
+	var request dtos.ResetPasswordBody
 
 	if err := ctx.BodyParser(&request); err != nil {
 		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
@@ -271,7 +272,7 @@ func (c *Controllers) ResetPassword(ctx *fiber.Ctx) error {
 
 	return ctx.
 		Status(fiber.StatusOK).
-		JSON(NewMessageResponse("Password reseted successfully"))
+		JSON(dtos.NewMessageResponse("Password reset successfully"))
 }
 
 func (c *Controllers) UpdatePassword(ctx *fiber.Ctx) error {
@@ -284,7 +285,7 @@ func (c *Controllers) UpdatePassword(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(err, ctx)
 	}
 
-	var request UpdatePasswordRequest
+	var request dtos.UpdatePasswordBody
 	if err := ctx.BodyParser(&request); err != nil {
 		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 	}
@@ -318,7 +319,7 @@ func (c *Controllers) UpdateEmail(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(err, ctx)
 	}
 
-	var request UpdateEmailRequest
+	var request dtos.UpdateEmailBody
 	if err := ctx.BodyParser(&request); err != nil {
 		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 	}

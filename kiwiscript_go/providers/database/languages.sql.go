@@ -202,9 +202,8 @@ func (q *Queries) FindFilteredPaginatedLanguages(ctx context.Context, arg FindFi
 const findFilteredPaginatedLanguagesWithLanguageProgress = `-- name: FindFilteredPaginatedLanguagesWithLanguageProgress :many
 SELECT
     languages.id, languages.name, languages.slug, languages.icon, languages.series_count, languages.author_id, languages.created_at, languages.updated_at,
-    "language_progress"."in_progress_series" AS "in_progress_series",
-    "language_progress"."completed_series" AS "completed_series",
-    "language_progress"."is_current" AS "is_current"
+    "language_progress"."completed_series" AS "language_progress_completed_series",
+    "language_progress"."viewed_at" AS "language_progress_viewed_at"
 FROM "languages"
 LEFT JOIN "language_progress" ON "languages"."slug" = "language_progress"."language_slug"
 WHERE "language_progress"."user_id" = $1 AND "languages"."name" ILIKE $2
@@ -220,17 +219,16 @@ type FindFilteredPaginatedLanguagesWithLanguageProgressParams struct {
 }
 
 type FindFilteredPaginatedLanguagesWithLanguageProgressRow struct {
-	ID               int32
-	Name             string
-	Slug             string
-	Icon             string
-	SeriesCount      int16
-	AuthorID         int32
-	CreatedAt        pgtype.Timestamp
-	UpdatedAt        pgtype.Timestamp
-	InProgressSeries pgtype.Int2
-	CompletedSeries  pgtype.Int2
-	IsCurrent        pgtype.Bool
+	ID                              int32
+	Name                            string
+	Slug                            string
+	Icon                            string
+	SeriesCount                     int16
+	AuthorID                        int32
+	CreatedAt                       pgtype.Timestamp
+	UpdatedAt                       pgtype.Timestamp
+	LanguageProgressCompletedSeries pgtype.Int2
+	LanguageProgressViewedAt        pgtype.Timestamp
 }
 
 func (q *Queries) FindFilteredPaginatedLanguagesWithLanguageProgress(ctx context.Context, arg FindFilteredPaginatedLanguagesWithLanguageProgressParams) ([]FindFilteredPaginatedLanguagesWithLanguageProgressRow, error) {
@@ -256,9 +254,8 @@ func (q *Queries) FindFilteredPaginatedLanguagesWithLanguageProgress(ctx context
 			&i.AuthorID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.InProgressSeries,
-			&i.CompletedSeries,
-			&i.IsCurrent,
+			&i.LanguageProgressCompletedSeries,
+			&i.LanguageProgressViewedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -315,9 +312,8 @@ func (q *Queries) FindLanguageBySlug(ctx context.Context, slug string) (Language
 const findLanguageBySlugWithLanguageProgress = `-- name: FindLanguageBySlugWithLanguageProgress :one
 SELECT
     languages.id, languages.name, languages.slug, languages.icon, languages.series_count, languages.author_id, languages.created_at, languages.updated_at,
-    "language_progress"."in_progress_series" AS "in_progress_series",
     "language_progress"."completed_series" AS "completed_series",
-    "language_progress"."is_current" AS "is_current"
+    "language_progress"."viewed_at" AS "viewed_at"
 FROM "languages"
 LEFT JOIN "language_progress" ON (
     "languages"."slug" = "language_progress"."language_slug" AND
@@ -333,17 +329,16 @@ type FindLanguageBySlugWithLanguageProgressParams struct {
 }
 
 type FindLanguageBySlugWithLanguageProgressRow struct {
-	ID               int32
-	Name             string
-	Slug             string
-	Icon             string
-	SeriesCount      int16
-	AuthorID         int32
-	CreatedAt        pgtype.Timestamp
-	UpdatedAt        pgtype.Timestamp
-	InProgressSeries pgtype.Int2
-	CompletedSeries  pgtype.Int2
-	IsCurrent        pgtype.Bool
+	ID              int32
+	Name            string
+	Slug            string
+	Icon            string
+	SeriesCount     int16
+	AuthorID        int32
+	CreatedAt       pgtype.Timestamp
+	UpdatedAt       pgtype.Timestamp
+	CompletedSeries pgtype.Int2
+	ViewedAt        pgtype.Timestamp
 }
 
 func (q *Queries) FindLanguageBySlugWithLanguageProgress(ctx context.Context, arg FindLanguageBySlugWithLanguageProgressParams) (FindLanguageBySlugWithLanguageProgressRow, error) {
@@ -358,9 +353,8 @@ func (q *Queries) FindLanguageBySlugWithLanguageProgress(ctx context.Context, ar
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.InProgressSeries,
 		&i.CompletedSeries,
-		&i.IsCurrent,
+		&i.ViewedAt,
 	)
 	return i, err
 }
@@ -408,9 +402,8 @@ func (q *Queries) FindPaginatedLanguages(ctx context.Context, arg FindPaginatedL
 const findPaginatedLanguagesWithLanguageProgress = `-- name: FindPaginatedLanguagesWithLanguageProgress :many
 SELECT
     languages.id, languages.name, languages.slug, languages.icon, languages.series_count, languages.author_id, languages.created_at, languages.updated_at,
-    "language_progress"."in_progress_series" AS "in_progress_series",
-    "language_progress"."completed_series" AS "completed_series",
-    "language_progress"."is_current" AS "is_current"
+    "language_progress"."completed_series" AS "language_progress_completed_series",
+    "language_progress"."viewed_at" AS "language_progress_viewed_at"
 FROM "languages"
 LEFT JOIN "language_progress" ON (
     "languages"."slug" = "language_progress"."language_slug" AND
@@ -427,17 +420,16 @@ type FindPaginatedLanguagesWithLanguageProgressParams struct {
 }
 
 type FindPaginatedLanguagesWithLanguageProgressRow struct {
-	ID               int32
-	Name             string
-	Slug             string
-	Icon             string
-	SeriesCount      int16
-	AuthorID         int32
-	CreatedAt        pgtype.Timestamp
-	UpdatedAt        pgtype.Timestamp
-	InProgressSeries pgtype.Int2
-	CompletedSeries  pgtype.Int2
-	IsCurrent        pgtype.Bool
+	ID                              int32
+	Name                            string
+	Slug                            string
+	Icon                            string
+	SeriesCount                     int16
+	AuthorID                        int32
+	CreatedAt                       pgtype.Timestamp
+	UpdatedAt                       pgtype.Timestamp
+	LanguageProgressCompletedSeries pgtype.Int2
+	LanguageProgressViewedAt        pgtype.Timestamp
 }
 
 func (q *Queries) FindPaginatedLanguagesWithLanguageProgress(ctx context.Context, arg FindPaginatedLanguagesWithLanguageProgressParams) ([]FindPaginatedLanguagesWithLanguageProgressRow, error) {
@@ -458,9 +450,8 @@ func (q *Queries) FindPaginatedLanguagesWithLanguageProgress(ctx context.Context
 			&i.AuthorID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.InProgressSeries,
-			&i.CompletedSeries,
-			&i.IsCurrent,
+			&i.LanguageProgressCompletedSeries,
+			&i.LanguageProgressViewedAt,
 		); err != nil {
 			return nil, err
 		}

@@ -84,7 +84,7 @@ type FindSeriesBySlugsWithProgressOptions struct {
 func (s *Services) FindPublishedSeriesBySlugsWithProgress(
 	ctx context.Context,
 	opts FindSeriesBySlugsWithProgressOptions,
-) (*db.SeriesDTO, *ServiceError) {
+) (*db.SeriesModel, *ServiceError) {
 	log := s.log.WithGroup("services.series.FindPublishedSeriesBySlugsWithProgress").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -106,7 +106,7 @@ func (s *Services) FindPublishedSeriesBySlugsWithProgress(
 	}
 
 	log.InfoContext(ctx, "Series found")
-	return series.ToSeriesDTO(), nil
+	return series.ToSeriesModel(), nil
 }
 
 type CreateSeriesOptions struct {
@@ -179,7 +179,7 @@ func (s *Services) findPublishedCount(
 func (s *Services) FindPaginatedPublishedSeries(
 	ctx context.Context,
 	opts FindPaginatedSeriesOptions,
-) ([]db.SeriesDTO, int64, *ServiceError) {
+) ([]db.SeriesModel, int64, *ServiceError) {
 	log := s.log.WithGroup("service.series.findPaginatedPublishedSeries")
 	log.InfoContext(ctx, "Getting published series...")
 
@@ -188,7 +188,7 @@ func (s *Services) FindPaginatedPublishedSeries(
 		return nil, 0, serviceErr
 	}
 
-	seriesDTOs := make([]db.SeriesDTO, 0, count)
+	seriesDTOs := make([]db.SeriesModel, 0, count)
 	if count == 0 {
 		return seriesDTOs, 0, nil
 	}
@@ -208,7 +208,7 @@ func (s *Services) FindPaginatedPublishedSeries(
 		}
 
 		for _, row := range series {
-			seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+			seriesDTOs = append(seriesDTOs, *row.ToSeriesModel())
 		}
 
 		return seriesDTOs, count, nil
@@ -228,7 +228,7 @@ func (s *Services) FindPaginatedPublishedSeries(
 	}
 
 	for _, row := range series {
-		seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+		seriesDTOs = append(seriesDTOs, *row.ToSeriesModel())
 	}
 
 	return seriesDTOs, count, nil
@@ -237,7 +237,7 @@ func (s *Services) FindPaginatedPublishedSeries(
 func (s *Services) FindPaginatedPublishedSeriesWithProgress(
 	ctx context.Context,
 	opts FindPaginatedSeriesOptions,
-) ([]db.SeriesDTO, int64, *ServiceError) {
+) ([]db.SeriesModel, int64, *ServiceError) {
 	log := s.log.WithGroup("service.series.findPaginatedPublishedSeriesWithProgress")
 	log.InfoContext(ctx, "Getting published series with progress...")
 
@@ -246,7 +246,7 @@ func (s *Services) FindPaginatedPublishedSeriesWithProgress(
 		return nil, 0, serviceErr
 	}
 
-	seriesDTOs := make([]db.SeriesDTO, 0, count)
+	seriesDTOs := make([]db.SeriesModel, 0, count)
 	if count == 0 {
 		return seriesDTOs, 0, nil
 	}
@@ -266,7 +266,7 @@ func (s *Services) FindPaginatedPublishedSeriesWithProgress(
 		}
 
 		for _, row := range series {
-			seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+			seriesDTOs = append(seriesDTOs, *row.ToSeriesModel())
 		}
 
 		return seriesDTOs, count, nil
@@ -286,7 +286,7 @@ func (s *Services) FindPaginatedPublishedSeriesWithProgress(
 	}
 
 	for _, row := range series {
-		seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+		seriesDTOs = append(seriesDTOs, *row.ToSeriesModel())
 	}
 
 	return seriesDTOs, count, nil
@@ -295,7 +295,7 @@ func (s *Services) FindPaginatedPublishedSeriesWithProgress(
 func (s *Services) FindPaginatedSeries(
 	ctx context.Context,
 	opts FindPaginatedSeriesOptions,
-) ([]db.SeriesDTO, int64, *ServiceError) {
+) ([]db.SeriesModel, int64, *ServiceError) {
 	log := s.log.WithGroup("service.series.GetSeries")
 	log.InfoContext(ctx, "Getting series...")
 
@@ -310,7 +310,7 @@ func (s *Services) FindPaginatedSeries(
 		return nil, 0, FromDBError(err)
 	}
 
-	seriesDTOs := make([]db.SeriesDTO, 0, count)
+	seriesDTOs := make([]db.SeriesModel, 0, count)
 	if count == 0 {
 		return seriesDTOs, 0, nil
 	}
@@ -327,7 +327,7 @@ func (s *Services) FindPaginatedSeries(
 		}
 
 		for _, row := range series {
-			seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+			seriesDTOs = append(seriesDTOs, *row.ToSeriesModel())
 		}
 
 		return seriesDTOs, count, nil
@@ -344,7 +344,7 @@ func (s *Services) FindPaginatedSeries(
 	}
 
 	for _, row := range series {
-		seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+		seriesDTOs = append(seriesDTOs, *row.ToSeriesModel())
 	}
 
 	return seriesDTOs, count, nil
@@ -384,7 +384,7 @@ func (s *Services) findFilteredPublishedCount(
 func (s *Services) FindFilteredPublishedSeries(
 	ctx context.Context,
 	opts FindFilteredSeriesOptions,
-) ([]db.SeriesDTO, int64, *ServiceError) {
+) ([]db.SeriesModel, int64, *ServiceError) {
 	log := s.log.WithGroup("service.series.FindFilteredPublishedSeries").With(
 		"search", opts.Search,
 		"languageSlug", opts.LanguageSlug,
@@ -400,7 +400,7 @@ func (s *Services) FindFilteredPublishedSeries(
 		return nil, 0, serviceErr
 	}
 
-	seriesDTOs := make([]db.SeriesDTO, 0, count)
+	seriesDTOs := make([]db.SeriesModel, 0, count)
 	if count == 0 {
 		return seriesDTOs, 0, nil
 	}
@@ -421,7 +421,7 @@ func (s *Services) FindFilteredPublishedSeries(
 		}
 
 		for _, row := range series {
-			seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+			seriesDTOs = append(seriesDTOs, *row.ToSeriesModel())
 		}
 
 		return seriesDTOs, count, nil
@@ -442,7 +442,7 @@ func (s *Services) FindFilteredPublishedSeries(
 	}
 
 	for _, row := range series {
-		seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+		seriesDTOs = append(seriesDTOs, *row.ToSeriesModel())
 	}
 
 	return seriesDTOs, count, nil
@@ -451,7 +451,7 @@ func (s *Services) FindFilteredPublishedSeries(
 func (s *Services) FindFilteredPublishedSeriesWithProgress(
 	ctx context.Context,
 	opts FindFilteredSeriesOptions,
-) ([]db.SeriesDTO, int64, *ServiceError) {
+) ([]db.SeriesModel, int64, *ServiceError) {
 	log := s.log.WithGroup("service.series.FindFilteredPublishedSeriesWithProgress").With(
 		"search", opts.Search,
 		"languageSlug", opts.LanguageSlug,
@@ -467,7 +467,7 @@ func (s *Services) FindFilteredPublishedSeriesWithProgress(
 		return nil, 0, serviceErr
 	}
 
-	seriesDTOs := make([]db.SeriesDTO, 0, count)
+	seriesDTOs := make([]db.SeriesModel, 0, count)
 	if count == 0 {
 		return seriesDTOs, 0, nil
 	}
@@ -488,7 +488,7 @@ func (s *Services) FindFilteredPublishedSeriesWithProgress(
 		}
 
 		for _, row := range series {
-			seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+			seriesDTOs = append(seriesDTOs, *row.ToSeriesModel())
 		}
 
 		return seriesDTOs, count, nil
@@ -509,7 +509,7 @@ func (s *Services) FindFilteredPublishedSeriesWithProgress(
 	}
 
 	for _, row := range series {
-		seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+		seriesDTOs = append(seriesDTOs, *row.ToSeriesModel())
 	}
 
 	return seriesDTOs, count, nil
@@ -518,7 +518,7 @@ func (s *Services) FindFilteredPublishedSeriesWithProgress(
 func (s *Services) FindFilteredSeries(
 	ctx context.Context,
 	opts FindFilteredSeriesOptions,
-) ([]db.SeriesDTO, int64, *ServiceError) {
+) ([]db.SeriesModel, int64, *ServiceError) {
 	log := s.log.WithGroup("service.series.FindFilteredSeries").With(
 		"search", opts.Search,
 		"languageSlug", opts.LanguageSlug,
@@ -543,7 +543,7 @@ func (s *Services) FindFilteredSeries(
 		return nil, 0, FromDBError(err)
 	}
 
-	seriesDTOs := make([]db.SeriesDTO, 0, count)
+	seriesDTOs := make([]db.SeriesModel, 0, count)
 	if count == 0 {
 		return seriesDTOs, 0, nil
 	}
@@ -564,7 +564,7 @@ func (s *Services) FindFilteredSeries(
 		}
 
 		for _, row := range series {
-			seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+			seriesDTOs = append(seriesDTOs, *row.ToSeriesModel())
 		}
 
 		return seriesDTOs, count, nil
@@ -585,7 +585,7 @@ func (s *Services) FindFilteredSeries(
 	}
 
 	for _, row := range series {
-		seriesDTOs = append(seriesDTOs, *row.ToSeriesDTO())
+		seriesDTOs = append(seriesDTOs, *row.ToSeriesModel())
 	}
 
 	return seriesDTOs, count, nil
@@ -670,7 +670,7 @@ func (s *Services) DeleteSeries(ctx context.Context, opts DeleteSeriesOptions) *
 		return serviceErr
 	}
 
-	if series.PartsCount > 0 {
+	if series.SectionsCount > 0 {
 		log.Warn("Series has parts")
 		// TODO: update this to be a constraint error
 		return NewValidationError("series has parts")
@@ -713,7 +713,7 @@ func (s *Services) UpdateSeriesIsPublished(ctx context.Context, options UpdateSe
 		log.InfoContext(ctx, "Series already published")
 		return series, nil
 	}
-	if series.PartsCount == 0 && options.IsPublished {
+	if series.SectionsCount == 0 && options.IsPublished {
 		errMsg := "Series must have parts to be published"
 		log.Warn("Series has no parts", "error", errMsg)
 		return nil, NewValidationError(errMsg)

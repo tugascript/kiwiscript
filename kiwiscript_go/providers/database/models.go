@@ -18,14 +18,14 @@ type AuthProvider struct {
 }
 
 type Certificate struct {
-	ID          int32
-	Reference   uuid.UUID
-	UserID      int32
-	LanguageID  int32
-	SeriesID    int32
-	CompletedAt pgtype.Timestamp
-	CreatedAt   pgtype.Timestamp
-	UpdatedAt   pgtype.Timestamp
+	ID           uuid.UUID
+	UserID       int32
+	LanguageSlug string
+	SeriesTitle  string
+	SeriesSlug   string
+	CompletedAt  pgtype.Timestamp
+	CreatedAt    pgtype.Timestamp
+	UpdatedAt    pgtype.Timestamp
 }
 
 type Donation struct {
@@ -51,17 +51,16 @@ type Language struct {
 }
 
 type LanguageProgress struct {
-	ID               int32
-	UserID           int32
-	LanguageSlug     string
-	CompletedSeries  int16
-	InProgressSeries int16
-	IsCurrent        bool
-	CreatedAt        pgtype.Timestamp
-	UpdatedAt        pgtype.Timestamp
+	ID              int32
+	UserID          int32
+	LanguageSlug    string
+	CompletedSeries int16
+	ViewedAt        pgtype.Timestamp
+	CreatedAt       pgtype.Timestamp
+	UpdatedAt       pgtype.Timestamp
 }
 
-type Lecture struct {
+type Lesson struct {
 	ID               int32
 	Title            string
 	Position         int16
@@ -71,50 +70,51 @@ type Lecture struct {
 	AuthorID         int32
 	LanguageSlug     string
 	SeriesSlug       string
-	SeriesPartID     int32
+	SectionID        int32
 	CreatedAt        pgtype.Timestamp
 	UpdatedAt        pgtype.Timestamp
 }
 
-type LectureArticle struct {
+type LessonArticle struct {
 	ID              int32
-	LectureID       int32
-	ReadTimeSeconds int32
+	LessonID        int32
+	AuthorID        int32
 	Content         string
+	ReadTimeSeconds int32
 	CreatedAt       pgtype.Timestamp
 	UpdatedAt       pgtype.Timestamp
 }
 
-type LectureFile struct {
-	ID        int32
-	LectureID int32
+type LessonFile struct {
+	ID        uuid.UUID
+	LessonID  int32
 	AuthorID  int32
-	File      uuid.UUID
 	Ext       string
-	Filename  string
+	Name      string
 	CreatedAt pgtype.Timestamp
 	UpdatedAt pgtype.Timestamp
 }
 
-type LectureProgress struct {
-	ID                   int32
-	UserID               int32
-	LanguageSlug         string
-	SeriesSlug           string
-	SeriesPartID         int32
-	LectureID            int32
-	LanguageProgressID   int32
-	SeriesProgressID     int32
-	SeriesPartProgressID int32
-	IsCurrent            bool
-	CompletedAt          pgtype.Timestamp
-	CreatedAt            pgtype.Timestamp
-	UpdatedAt            pgtype.Timestamp
+type LessonProgress struct {
+	ID                 int32
+	UserID             int32
+	LanguageSlug       string
+	SeriesSlug         string
+	SectionID          int32
+	LessonID           int32
+	LanguageProgressID int32
+	SeriesProgressID   int32
+	SectionProgressID  int32
+	CompletedAt        pgtype.Timestamp
+	ViewedAt           pgtype.Timestamp
+	CreatedAt          pgtype.Timestamp
+	UpdatedAt          pgtype.Timestamp
 }
 
-type LectureVideo struct {
+type LessonVideo struct {
 	ID               int32
-	LectureID        int32
+	LessonID         int32
+	AuthorID         int32
 	Url              string
 	WatchTimeSeconds int32
 	CreatedAt        pgtype.Timestamp
@@ -132,13 +132,44 @@ type Payment struct {
 	UpdatedAt  pgtype.Timestamp
 }
 
+type Section struct {
+	ID               int32
+	Title            string
+	LanguageSlug     string
+	SeriesSlug       string
+	Description      string
+	Position         int16
+	LessonsCount     int16
+	WatchTimeSeconds int32
+	ReadTimeSeconds  int32
+	IsPublished      bool
+	AuthorID         int32
+	CreatedAt        pgtype.Timestamp
+	UpdatedAt        pgtype.Timestamp
+}
+
+type SectionProgress struct {
+	ID                 int32
+	UserID             int32
+	LanguageSlug       string
+	SeriesSlug         string
+	SectionID          int32
+	LanguageProgressID int32
+	SeriesProgressID   int32
+	CompletedLessons   int16
+	CompletedAt        pgtype.Timestamp
+	ViewedAt           pgtype.Timestamp
+	CreatedAt          pgtype.Timestamp
+	UpdatedAt          pgtype.Timestamp
+}
+
 type Series struct {
 	ID               int32
 	Title            string
 	Slug             string
 	Description      string
-	PartsCount       int16
-	LecturesCount    int16
+	SectionsCount    int16
+	LessonsCount     int16
 	WatchTimeSeconds int32
 	ReadTimeSeconds  int32
 	IsPublished      bool
@@ -158,51 +189,17 @@ type SeriesImage struct {
 	UpdatedAt pgtype.Timestamp
 }
 
-type SeriesPart struct {
-	ID               int32
-	Title            string
-	LanguageSlug     string
-	SeriesSlug       string
-	Description      string
-	Position         int16
-	LecturesCount    int16
-	WatchTimeSeconds int32
-	ReadTimeSeconds  int32
-	IsPublished      bool
-	AuthorID         int32
-	CreatedAt        pgtype.Timestamp
-	UpdatedAt        pgtype.Timestamp
-}
-
-type SeriesPartProgress struct {
-	ID                 int32
-	UserID             int32
-	LanguageSlug       string
-	SeriesSlug         string
-	SeriesPartID       int32
-	LanguageProgressID int32
-	SeriesProgressID   int32
-	InProgressLectures int16
-	CompletedLectures  int16
-	IsCurrent          bool
-	CompletedAt        pgtype.Timestamp
-	CreatedAt          pgtype.Timestamp
-	UpdatedAt          pgtype.Timestamp
-}
-
 type SeriesProgress struct {
 	ID                 int32
 	UserID             int32
 	SeriesSlug         string
 	LanguageSlug       string
 	LanguageProgressID int32
-	InProgressParts    int16
-	CompletedParts     int16
-	InProgressLectures int16
-	CompletedLectures  int16
+	CompletedSections  int16
+	CompletedLessons   int16
 	PartsCount         int16
-	IsCurrent          bool
 	CompletedAt        pgtype.Timestamp
+	ViewedAt           pgtype.Timestamp
 	CreatedAt          pgtype.Timestamp
 	UpdatedAt          pgtype.Timestamp
 }

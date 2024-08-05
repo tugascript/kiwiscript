@@ -70,14 +70,7 @@ func (s *Services) createSeriesProgress(
 	)
 	log.InfoContext(ctx, "Creating series progress...")
 
-	qrs, txn, err := s.database.BeginTx(ctx)
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return nil, FromDBError(err)
-	}
-	defer s.database.FinalizeTx(ctx, txn, err)
-
-	seriesProgress, err := qrs.CreateSeriesProgress(ctx, db.CreateSeriesProgressParams{
+	seriesProgress, err := s.database.CreateSeriesProgress(ctx, db.CreateSeriesProgressParams{
 		UserID:             opts.UserID,
 		LanguageSlug:       opts.LanguageSlug,
 		SeriesSlug:         opts.SeriesSlug,
@@ -85,15 +78,6 @@ func (s *Services) createSeriesProgress(
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Error creating series progress", "error", err)
-		return nil, FromDBError(err)
-	}
-
-	params := db.SetLanguageProgressIsCurrentFalseParams{
-		UserID:       opts.UserID,
-		LanguageSlug: opts.LanguageSlug,
-	}
-	if err := qrs.SetLanguageProgressIsCurrentFalse(ctx, params); err != nil {
-		log.ErrorContext(ctx, "Error setting language progress is current false", "error", err)
 		return nil, FromDBError(err)
 	}
 
@@ -109,7 +93,7 @@ type CreateOrUpdateSeriesProgressOptions struct {
 func (s *Services) CreateOrUpdateSeriesProgress(
 	ctx context.Context,
 	opts CreateOrUpdateSeriesProgressOptions,
-) (db.ToSeriesDTOWithProgress, *db.SeriesProgress, *ServiceError) {
+) (db.ToSeriesModelWithProgress, *db.SeriesProgress, *ServiceError) {
 	log := s.log.WithGroup("service.series.CreateOrUpdateSeriesProgress").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -154,30 +138,9 @@ func (s *Services) CreateOrUpdateSeriesProgress(
 
 		return series, seriesProgress, nil
 	}
-	if seriesProgress.IsCurrent {
-		log.InfoContext(ctx, "Series progress already updated")
-		return series, seriesProgress, nil
-	}
 
-	qrs, txn, err := s.database.BeginTx(ctx)
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return nil, nil, FromDBError(err)
-	}
-	defer s.database.FinalizeTx(ctx, txn, err)
-
-	*seriesProgress, err = qrs.SetSeriesProgressIsCurrentTrue(ctx, seriesProgress.ID)
-	if err != nil {
-		log.ErrorContext(ctx, "Error updating series progress", "error", err)
-		return nil, nil, FromDBError(err)
-	}
-
-	params := db.SetLanguageProgressIsCurrentFalseParams{
-		UserID:       opts.UserID,
-		LanguageSlug: opts.LanguageSlug,
-	}
-	if err := qrs.SetLanguageProgressIsCurrentFalse(ctx, params); err != nil {
-		log.ErrorContext(ctx, "Error setting language progress is current false", "error", err)
+	if err := s.database.UpdateSeriesProgressViewedAt(ctx, seriesProgress.ID); err != nil {
+		log.ErrorContext(ctx, "Error updating series progress viewed at", "error", err)
 		return nil, nil, FromDBError(err)
 	}
 
@@ -215,27 +178,30 @@ func (s *Services) DeleteSeriesProgress(ctx context.Context, opts DeleteSeriesPr
 		return serviceError
 	}
 
-	qrs, txn, err := s.database.BeginTx(ctx)
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return FromDBError(err)
-	}
-	defer s.database.FinalizeTx(ctx, txn, err)
-
-	if err := qrs.DeleteSeriesProgress(ctx, seriesProgress.ID); err != nil {
-		log.ErrorContext(ctx, "Error deleting series progress", "error", err)
-		return FromDBError(err)
-	}
 	if seriesProgress.CompletedAt.Valid {
+		qrs, txn, err := s.database.BeginTx(ctx)
+		if err != nil {
+			log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
+			return FromDBError(err)
+		}
+		defer s.database.FinalizeTx(ctx, txn, err)
+
+		if err := qrs.DeleteSeriesProgress(ctx, seriesProgress.ID); err != nil {
+			log.ErrorContext(ctx, "Error deleting series progress", "error", err)
+			return FromDBError(err)
+		}
 		if err := qrs.DecrementLanguageProgressCompletedSeries(ctx, seriesProgress.LanguageProgressID); err != nil {
 			log.ErrorContext(ctx, "Error decrementing language progress completed series", "error", err)
 			return FromDBError(err)
 		}
-	} else {
-		if err := qrs.DecrementLanguageProgressInProgressSeries(ctx, seriesProgress.LanguageProgressID); err != nil {
-			log.ErrorContext(ctx, "Error decrementing language progress in progress series", "error", err)
-			return FromDBError(err)
-		}
+
+		log.InfoContext(ctx, "Series progress deleted")
+		return nil
+	}
+
+	if err := s.database.DeleteSeriesProgress(ctx, seriesProgress.ID); err != nil {
+		log.ErrorContext(ctx, "Error deleting series progress", "error", err)
+		return FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Series progress deleted")

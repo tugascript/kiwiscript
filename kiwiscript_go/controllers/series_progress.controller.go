@@ -19,6 +19,7 @@ package controllers
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"github.com/kiwiscript/kiwiscript_go/dtos"
 	"github.com/kiwiscript/kiwiscript_go/services"
 )
 
@@ -35,7 +36,7 @@ func (c *Controllers) CreateOrUpdateSeriesProgress(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(NewRequestError(services.NewUnauthorizedError()))
 	}
 
-	params := SeriesParams{
+	params := dtos.SeriesPathParams{
 		LanguageSlug: languageSlug,
 		SeriesSlug:   seriesSlug,
 	}
@@ -55,7 +56,7 @@ func (c *Controllers) CreateOrUpdateSeriesProgress(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(c.NewSeriesResponse(series.ToSeriesDTOWithProgress(seriesProgress)))
+	return ctx.JSON(dtos.NewSeriesResponse(c.backendDomain, series.ToSeriesModelWithProgress(seriesProgress)))
 }
 
 func (c *Controllers) ResetSeriesProgress(ctx *fiber.Ctx) error {
@@ -71,7 +72,7 @@ func (c *Controllers) ResetSeriesProgress(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(NewRequestError(services.NewUnauthorizedError()))
 	}
 
-	params := SeriesParams{
+	params := dtos.SeriesPathParams{
 		LanguageSlug: languageSlug,
 		SeriesSlug:   seriesSlug,
 	}

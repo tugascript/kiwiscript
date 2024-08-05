@@ -11,8 +11,7 @@ import (
 
 const addLanguageProgressCompletedSeries = `-- name: AddLanguageProgressCompletedSeries :exec
 UPDATE "language_progress" SET
-  "completed_series" = "completed_series" + 1,
-  "in_progress_series" = "in_progress_series" - 1
+  "completed_series" = "completed_series" + 1
 WHERE "id" = $1
 `
 
@@ -25,13 +24,11 @@ const createLanguageProgress = `-- name: CreateLanguageProgress :one
 
 INSERT INTO "language_progress" (
   "language_slug",
-  "user_id",
-  "is_current"
+  "user_id"
 ) VALUES (
   $1,
-  $2,
-  true
-) RETURNING id, user_id, language_slug, completed_series, in_progress_series, is_current, created_at, updated_at
+  $2
+) RETURNING id, user_id, language_slug, completed_series, viewed_at, created_at, updated_at
 `
 
 type CreateLanguageProgressParams struct {
@@ -63,8 +60,7 @@ func (q *Queries) CreateLanguageProgress(ctx context.Context, arg CreateLanguage
 		&i.UserID,
 		&i.LanguageSlug,
 		&i.CompletedSeries,
-		&i.InProgressSeries,
-		&i.IsCurrent,
+		&i.ViewedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -82,17 +78,6 @@ func (q *Queries) DecrementLanguageProgressCompletedSeries(ctx context.Context, 
 	return err
 }
 
-const decrementLanguageProgressInProgressSeries = `-- name: DecrementLanguageProgressInProgressSeries :exec
-UPDATE "language_progress" SET
-  "in_progress_series" = "in_progress_series" - 1
-WHERE "id" = $1
-`
-
-func (q *Queries) DecrementLanguageProgressInProgressSeries(ctx context.Context, id int32) error {
-	_, err := q.db.Exec(ctx, decrementLanguageProgressInProgressSeries, id)
-	return err
-}
-
 const deleteLanguageProgressByID = `-- name: DeleteLanguageProgressByID :exec
 DELETE FROM "language_progress"
 WHERE "id" = $1
@@ -104,7 +89,7 @@ func (q *Queries) DeleteLanguageProgressByID(ctx context.Context, id int32) erro
 }
 
 const findLanguageProgressBySlugAndUserID = `-- name: FindLanguageProgressBySlugAndUserID :one
-SELECT id, user_id, language_slug, completed_series, in_progress_series, is_current, created_at, updated_at FROM "language_progress"
+SELECT id, user_id, language_slug, completed_series, viewed_at, created_at, updated_at FROM "language_progress"
 WHERE "language_slug" = $1 AND "user_id" = $2 LIMIT 1
 `
 
@@ -121,72 +106,20 @@ func (q *Queries) FindLanguageProgressBySlugAndUserID(ctx context.Context, arg F
 		&i.UserID,
 		&i.LanguageSlug,
 		&i.CompletedSeries,
-		&i.InProgressSeries,
-		&i.IsCurrent,
+		&i.ViewedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
-const incrementLanguageProgressInProgressSeries = `-- name: IncrementLanguageProgressInProgressSeries :exec
+const updateLanguageProgressViewedAt = `-- name: UpdateLanguageProgressViewedAt :exec
 UPDATE "language_progress" SET
-  "in_progress_series" = "in_progress_series" + 1
+  "viewed_at" = NOW()
 WHERE "id" = $1
 `
 
-func (q *Queries) IncrementLanguageProgressInProgressSeries(ctx context.Context, id int32) error {
-	_, err := q.db.Exec(ctx, incrementLanguageProgressInProgressSeries, id)
+func (q *Queries) UpdateLanguageProgressViewedAt(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, updateLanguageProgressViewedAt, id)
 	return err
-}
-
-const removeLanguageProgressCompletedSeries = `-- name: RemoveLanguageProgressCompletedSeries :exec
-UPDATE "language_progress" SET
-  "completed_series" = "completed_series" - 1,
-  "in_progress_series" = "in_progress_series" + 1
-WHERE "id" = $1
-`
-
-func (q *Queries) RemoveLanguageProgressCompletedSeries(ctx context.Context, id int32) error {
-	_, err := q.db.Exec(ctx, removeLanguageProgressCompletedSeries, id)
-	return err
-}
-
-const setLanguageProgressIsCurrentFalse = `-- name: SetLanguageProgressIsCurrentFalse :exec
-UPDATE "language_progress" SET
-  "is_current" = false
-WHERE "user_id" = $1 AND "language_slug" <> $2
-`
-
-type SetLanguageProgressIsCurrentFalseParams struct {
-	UserID       int32
-	LanguageSlug string
-}
-
-func (q *Queries) SetLanguageProgressIsCurrentFalse(ctx context.Context, arg SetLanguageProgressIsCurrentFalseParams) error {
-	_, err := q.db.Exec(ctx, setLanguageProgressIsCurrentFalse, arg.UserID, arg.LanguageSlug)
-	return err
-}
-
-const setLanguageProgressIsCurrentTrue = `-- name: SetLanguageProgressIsCurrentTrue :one
-UPDATE "language_progress" SET
-  "is_current" = true
-WHERE "id" = $1
-RETURNING id, user_id, language_slug, completed_series, in_progress_series, is_current, created_at, updated_at
-`
-
-func (q *Queries) SetLanguageProgressIsCurrentTrue(ctx context.Context, id int32) (LanguageProgress, error) {
-	row := q.db.QueryRow(ctx, setLanguageProgressIsCurrentTrue, id)
-	var i LanguageProgress
-	err := row.Scan(
-		&i.ID,
-		&i.UserID,
-		&i.LanguageSlug,
-		&i.CompletedSeries,
-		&i.InProgressSeries,
-		&i.IsCurrent,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
 }

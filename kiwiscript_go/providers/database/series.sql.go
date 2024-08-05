@@ -11,33 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const addSeriesPartsCount = `-- name: AddSeriesPartsCount :exec
-UPDATE "series" SET
-  "series_parts_count" = "series_parts_count" + 1,
-  "lectures_count" = "lectures_count" + $2,
-  "watch_time_seconds" = "watch_time_seconds" + $3,
-  "read_time_seconds" = "read_time_seconds" + $4,
-  "updated_at" = now()
-WHERE "slug" = $1
-`
-
-type AddSeriesPartsCountParams struct {
-	Slug             string
-	LecturesCount    int16
-	WatchTimeSeconds int32
-	ReadTimeSeconds  int32
-}
-
-func (q *Queries) AddSeriesPartsCount(ctx context.Context, arg AddSeriesPartsCountParams) error {
-	_, err := q.db.Exec(ctx, addSeriesPartsCount,
-		arg.Slug,
-		arg.LecturesCount,
-		arg.WatchTimeSeconds,
-		arg.ReadTimeSeconds,
-	)
-	return err
-}
-
 const addSeriesReadTime = `-- name: AddSeriesReadTime :exec
 UPDATE "series" SET
   "read_time_seconds" = "read_time_seconds" + $1,
@@ -52,6 +25,33 @@ type AddSeriesReadTimeParams struct {
 
 func (q *Queries) AddSeriesReadTime(ctx context.Context, arg AddSeriesReadTimeParams) error {
 	_, err := q.db.Exec(ctx, addSeriesReadTime, arg.ReadTimeSeconds, arg.Slug)
+	return err
+}
+
+const addSeriesSectionsCount = `-- name: AddSeriesSectionsCount :exec
+UPDATE "series" SET
+  "series_sections_count" = "series_sections_count" + 1,
+  "lessons_count" = "lessons_count" + $2,
+  "watch_time_seconds" = "watch_time_seconds" + $3,
+  "read_time_seconds" = "read_time_seconds" + $4,
+  "updated_at" = now()
+WHERE "slug" = $1
+`
+
+type AddSeriesSectionsCountParams struct {
+	Slug             string
+	LessonsCount     int16
+	WatchTimeSeconds int32
+	ReadTimeSeconds  int32
+}
+
+func (q *Queries) AddSeriesSectionsCount(ctx context.Context, arg AddSeriesSectionsCountParams) error {
+	_, err := q.db.Exec(ctx, addSeriesSectionsCount,
+		arg.Slug,
+		arg.LessonsCount,
+		arg.WatchTimeSeconds,
+		arg.ReadTimeSeconds,
+	)
 	return err
 }
 
@@ -161,7 +161,7 @@ INSERT INTO "series" (
   $3,
   $4,
   $5
-) RETURNING id, title, slug, description, parts_count, lectures_count, watch_time_seconds, read_time_seconds, is_published, language_slug, author_id, created_at, updated_at
+) RETURNING id, title, slug, description, sections_count, lessons_count, watch_time_seconds, read_time_seconds, is_published, language_slug, author_id, created_at, updated_at
 `
 
 type CreateSeriesParams struct {
@@ -202,8 +202,8 @@ func (q *Queries) CreateSeries(ctx context.Context, arg CreateSeriesParams) (Ser
 		&i.Title,
 		&i.Slug,
 		&i.Description,
-		&i.PartsCount,
-		&i.LecturesCount,
+		&i.SectionsCount,
+		&i.LessonsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.IsPublished,
@@ -215,47 +215,47 @@ func (q *Queries) CreateSeries(ctx context.Context, arg CreateSeriesParams) (Ser
 	return i, err
 }
 
-const decrementSeriesLecturesCount = `-- name: DecrementSeriesLecturesCount :exec
+const decrementSeriesLessonsCount = `-- name: DecrementSeriesLessonsCount :exec
 UPDATE "series" SET
-  "lectures_count" = "lectures_count" - 1,
+  "lessons_count" = "lessons_count" - 1,
   "watch_time_seconds" = "watch_time_seconds" + $2,
   "read_time_seconds" = "read_time_seconds" + $3,
   "updated_at" = now()
 WHERE "slug" = $1
 `
 
-type DecrementSeriesLecturesCountParams struct {
+type DecrementSeriesLessonsCountParams struct {
 	Slug             string
 	WatchTimeSeconds int32
 	ReadTimeSeconds  int32
 }
 
-func (q *Queries) DecrementSeriesLecturesCount(ctx context.Context, arg DecrementSeriesLecturesCountParams) error {
-	_, err := q.db.Exec(ctx, decrementSeriesLecturesCount, arg.Slug, arg.WatchTimeSeconds, arg.ReadTimeSeconds)
+func (q *Queries) DecrementSeriesLessonsCount(ctx context.Context, arg DecrementSeriesLessonsCountParams) error {
+	_, err := q.db.Exec(ctx, decrementSeriesLessonsCount, arg.Slug, arg.WatchTimeSeconds, arg.ReadTimeSeconds)
 	return err
 }
 
-const decrementSeriesPartsCount = `-- name: DecrementSeriesPartsCount :exec
+const decrementSeriesSectionsCount = `-- name: DecrementSeriesSectionsCount :exec
 UPDATE "series" SET
-  "series_parts_count" = "series_parts_count" - 1,
-  "lectures_count" = "lectures_count" - $2,
+  "series_sections_count" = "series_sections_count" - 1,
+  "lessons_count" = "lessons_count" - $2,
   "watch_time_seconds" = "watch_time_seconds" - $3,
   "read_time_seconds" = "read_time_seconds" - $4,
   "updated_at" = now()
 WHERE "slug" = $1
 `
 
-type DecrementSeriesPartsCountParams struct {
+type DecrementSeriesSectionsCountParams struct {
 	Slug             string
-	LecturesCount    int16
+	LessonsCount     int16
 	WatchTimeSeconds int32
 	ReadTimeSeconds  int32
 }
 
-func (q *Queries) DecrementSeriesPartsCount(ctx context.Context, arg DecrementSeriesPartsCountParams) error {
-	_, err := q.db.Exec(ctx, decrementSeriesPartsCount,
+func (q *Queries) DecrementSeriesSectionsCount(ctx context.Context, arg DecrementSeriesSectionsCountParams) error {
+	_, err := q.db.Exec(ctx, decrementSeriesSectionsCount,
 		arg.Slug,
-		arg.LecturesCount,
+		arg.LessonsCount,
 		arg.WatchTimeSeconds,
 		arg.ReadTimeSeconds,
 	)
@@ -274,15 +274,12 @@ func (q *Queries) DeleteSeriesById(ctx context.Context, id int32) error {
 
 const findFilteredPublishedSeriesWithAuthorAndProgressSortByID = `-- name: FindFilteredPublishedSeriesWithAuthorAndProgressSortByID :many
 SELECT
-  series.id, series.title, series.slug, series.description, series.parts_count, series.lectures_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
+  series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name",
   "series_progress"."id" AS "series_progress_id",
-  "series_progress"."is_current" AS "series_progress_is_current",
-  "series_progress"."completed_parts" AS "series_progress_completed_parts",
-  "series_progress"."in_progress_parts" AS "series_progress_in_progress_parts",
-  "series_progress"."completed_lectures" AS "series_progress_completed_lectures",
-  "series_progress"."in_progress_lectures" AS "series_progress_in_progress_lectures"
+  "series_progress"."completed_sections" AS "series_progress_completed_sections",
+  "series_progress"."completed_lessons" AS "series_progress_completed_lessons"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_progress" ON (
@@ -310,27 +307,24 @@ type FindFilteredPublishedSeriesWithAuthorAndProgressSortByIDParams struct {
 }
 
 type FindFilteredPublishedSeriesWithAuthorAndProgressSortByIDRow struct {
-	ID                               int32
-	Title                            string
-	Slug                             string
-	Description                      string
-	PartsCount                       int16
-	LecturesCount                    int16
-	WatchTimeSeconds                 int32
-	ReadTimeSeconds                  int32
-	IsPublished                      bool
-	LanguageSlug                     string
-	AuthorID                         int32
-	CreatedAt                        pgtype.Timestamp
-	UpdatedAt                        pgtype.Timestamp
-	AuthorFirstName                  string
-	AuthorLastName                   string
-	SeriesProgressID                 pgtype.Int4
-	SeriesProgressIsCurrent          pgtype.Bool
-	SeriesProgressCompletedParts     pgtype.Int2
-	SeriesProgressInProgressParts    pgtype.Int2
-	SeriesProgressCompletedLectures  pgtype.Int2
-	SeriesProgressInProgressLectures pgtype.Int2
+	ID                              int32
+	Title                           string
+	Slug                            string
+	Description                     string
+	SectionsCount                   int16
+	LessonsCount                    int16
+	WatchTimeSeconds                int32
+	ReadTimeSeconds                 int32
+	IsPublished                     bool
+	LanguageSlug                    string
+	AuthorID                        int32
+	CreatedAt                       pgtype.Timestamp
+	UpdatedAt                       pgtype.Timestamp
+	AuthorFirstName                 string
+	AuthorLastName                  string
+	SeriesProgressID                pgtype.Int4
+	SeriesProgressCompletedSections pgtype.Int2
+	SeriesProgressCompletedLessons  pgtype.Int2
 }
 
 func (q *Queries) FindFilteredPublishedSeriesWithAuthorAndProgressSortByID(ctx context.Context, arg FindFilteredPublishedSeriesWithAuthorAndProgressSortByIDParams) ([]FindFilteredPublishedSeriesWithAuthorAndProgressSortByIDRow, error) {
@@ -353,8 +347,8 @@ func (q *Queries) FindFilteredPublishedSeriesWithAuthorAndProgressSortByID(ctx c
 			&i.Title,
 			&i.Slug,
 			&i.Description,
-			&i.PartsCount,
-			&i.LecturesCount,
+			&i.SectionsCount,
+			&i.LessonsCount,
 			&i.WatchTimeSeconds,
 			&i.ReadTimeSeconds,
 			&i.IsPublished,
@@ -365,11 +359,8 @@ func (q *Queries) FindFilteredPublishedSeriesWithAuthorAndProgressSortByID(ctx c
 			&i.AuthorFirstName,
 			&i.AuthorLastName,
 			&i.SeriesProgressID,
-			&i.SeriesProgressIsCurrent,
-			&i.SeriesProgressCompletedParts,
-			&i.SeriesProgressInProgressParts,
-			&i.SeriesProgressCompletedLectures,
-			&i.SeriesProgressInProgressLectures,
+			&i.SeriesProgressCompletedSections,
+			&i.SeriesProgressCompletedLessons,
 		); err != nil {
 			return nil, err
 		}
@@ -383,15 +374,12 @@ func (q *Queries) FindFilteredPublishedSeriesWithAuthorAndProgressSortByID(ctx c
 
 const findFilteredPublishedSeriesWithAuthorAndProgressSortBySlug = `-- name: FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlug :many
 SELECT
-  series.id, series.title, series.slug, series.description, series.parts_count, series.lectures_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
+  series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name",
   "series_progress"."id" AS "series_progress_id",
-  "series_progress"."is_current" AS "series_progress_is_current",
-  "series_progress"."completed_parts" AS "series_progress_completed_parts",
-  "series_progress"."in_progress_parts" AS "series_progress_in_progress_parts",
-  "series_progress"."completed_lectures" AS "series_progress_completed_lectures",
-  "series_progress"."in_progress_lectures" AS "series_progress_in_progress_lectures"
+  "series_progress"."completed_sections" AS "series_progress_completed_sections",
+  "series_progress"."completed_lessons" AS "series_progress_completed_lessons"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_progress" ON (
@@ -419,27 +407,24 @@ type FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlugParams struct {
 }
 
 type FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlugRow struct {
-	ID                               int32
-	Title                            string
-	Slug                             string
-	Description                      string
-	PartsCount                       int16
-	LecturesCount                    int16
-	WatchTimeSeconds                 int32
-	ReadTimeSeconds                  int32
-	IsPublished                      bool
-	LanguageSlug                     string
-	AuthorID                         int32
-	CreatedAt                        pgtype.Timestamp
-	UpdatedAt                        pgtype.Timestamp
-	AuthorFirstName                  string
-	AuthorLastName                   string
-	SeriesProgressID                 pgtype.Int4
-	SeriesProgressIsCurrent          pgtype.Bool
-	SeriesProgressCompletedParts     pgtype.Int2
-	SeriesProgressInProgressParts    pgtype.Int2
-	SeriesProgressCompletedLectures  pgtype.Int2
-	SeriesProgressInProgressLectures pgtype.Int2
+	ID                              int32
+	Title                           string
+	Slug                            string
+	Description                     string
+	SectionsCount                   int16
+	LessonsCount                    int16
+	WatchTimeSeconds                int32
+	ReadTimeSeconds                 int32
+	IsPublished                     bool
+	LanguageSlug                    string
+	AuthorID                        int32
+	CreatedAt                       pgtype.Timestamp
+	UpdatedAt                       pgtype.Timestamp
+	AuthorFirstName                 string
+	AuthorLastName                  string
+	SeriesProgressID                pgtype.Int4
+	SeriesProgressCompletedSections pgtype.Int2
+	SeriesProgressCompletedLessons  pgtype.Int2
 }
 
 func (q *Queries) FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlug(ctx context.Context, arg FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlugParams) ([]FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlugRow, error) {
@@ -462,8 +447,8 @@ func (q *Queries) FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlug(ctx
 			&i.Title,
 			&i.Slug,
 			&i.Description,
-			&i.PartsCount,
-			&i.LecturesCount,
+			&i.SectionsCount,
+			&i.LessonsCount,
 			&i.WatchTimeSeconds,
 			&i.ReadTimeSeconds,
 			&i.IsPublished,
@@ -474,11 +459,8 @@ func (q *Queries) FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlug(ctx
 			&i.AuthorFirstName,
 			&i.AuthorLastName,
 			&i.SeriesProgressID,
-			&i.SeriesProgressIsCurrent,
-			&i.SeriesProgressCompletedParts,
-			&i.SeriesProgressInProgressParts,
-			&i.SeriesProgressCompletedLectures,
-			&i.SeriesProgressInProgressLectures,
+			&i.SeriesProgressCompletedSections,
+			&i.SeriesProgressCompletedLessons,
 		); err != nil {
 			return nil, err
 		}
@@ -492,7 +474,7 @@ func (q *Queries) FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlug(ctx
 
 const findFilteredPublishedSeriesWithAuthorSortByID = `-- name: FindFilteredPublishedSeriesWithAuthorSortByID :many
 SELECT
-  series.id, series.title, series.slug, series.description, series.parts_count, series.lectures_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
+  series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name"
 FROM "series"
@@ -521,8 +503,8 @@ type FindFilteredPublishedSeriesWithAuthorSortByIDRow struct {
 	Title            string
 	Slug             string
 	Description      string
-	PartsCount       int16
-	LecturesCount    int16
+	SectionsCount    int16
+	LessonsCount     int16
 	WatchTimeSeconds int32
 	ReadTimeSeconds  int32
 	IsPublished      bool
@@ -553,8 +535,8 @@ func (q *Queries) FindFilteredPublishedSeriesWithAuthorSortByID(ctx context.Cont
 			&i.Title,
 			&i.Slug,
 			&i.Description,
-			&i.PartsCount,
-			&i.LecturesCount,
+			&i.SectionsCount,
+			&i.LessonsCount,
 			&i.WatchTimeSeconds,
 			&i.ReadTimeSeconds,
 			&i.IsPublished,
@@ -577,7 +559,7 @@ func (q *Queries) FindFilteredPublishedSeriesWithAuthorSortByID(ctx context.Cont
 
 const findFilteredPublishedSeriesWithAuthorSortBySlug = `-- name: FindFilteredPublishedSeriesWithAuthorSortBySlug :many
 SELECT
-  series.id, series.title, series.slug, series.description, series.parts_count, series.lectures_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
+  series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name"
 FROM "series"
@@ -606,8 +588,8 @@ type FindFilteredPublishedSeriesWithAuthorSortBySlugRow struct {
 	Title            string
 	Slug             string
 	Description      string
-	PartsCount       int16
-	LecturesCount    int16
+	SectionsCount    int16
+	LessonsCount     int16
 	WatchTimeSeconds int32
 	ReadTimeSeconds  int32
 	IsPublished      bool
@@ -638,8 +620,8 @@ func (q *Queries) FindFilteredPublishedSeriesWithAuthorSortBySlug(ctx context.Co
 			&i.Title,
 			&i.Slug,
 			&i.Description,
-			&i.PartsCount,
-			&i.LecturesCount,
+			&i.SectionsCount,
+			&i.LessonsCount,
 			&i.WatchTimeSeconds,
 			&i.ReadTimeSeconds,
 			&i.IsPublished,
@@ -662,7 +644,7 @@ func (q *Queries) FindFilteredPublishedSeriesWithAuthorSortBySlug(ctx context.Co
 
 const findFilteredSeriesWithAuthorSortByID = `-- name: FindFilteredSeriesWithAuthorSortByID :many
 SELECT
-  series.id, series.title, series.slug, series.description, series.parts_count, series.lectures_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
+  series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name"
 FROM "series"
@@ -690,8 +672,8 @@ type FindFilteredSeriesWithAuthorSortByIDRow struct {
 	Title            string
 	Slug             string
 	Description      string
-	PartsCount       int16
-	LecturesCount    int16
+	SectionsCount    int16
+	LessonsCount     int16
 	WatchTimeSeconds int32
 	ReadTimeSeconds  int32
 	IsPublished      bool
@@ -722,8 +704,8 @@ func (q *Queries) FindFilteredSeriesWithAuthorSortByID(ctx context.Context, arg 
 			&i.Title,
 			&i.Slug,
 			&i.Description,
-			&i.PartsCount,
-			&i.LecturesCount,
+			&i.SectionsCount,
+			&i.LessonsCount,
 			&i.WatchTimeSeconds,
 			&i.ReadTimeSeconds,
 			&i.IsPublished,
@@ -746,7 +728,7 @@ func (q *Queries) FindFilteredSeriesWithAuthorSortByID(ctx context.Context, arg 
 
 const findFilteredSeriesWithAuthorSortBySlug = `-- name: FindFilteredSeriesWithAuthorSortBySlug :many
 SELECT
-  series.id, series.title, series.slug, series.description, series.parts_count, series.lectures_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
+  series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name"
 FROM "series"
@@ -774,8 +756,8 @@ type FindFilteredSeriesWithAuthorSortBySlugRow struct {
 	Title            string
 	Slug             string
 	Description      string
-	PartsCount       int16
-	LecturesCount    int16
+	SectionsCount    int16
+	LessonsCount     int16
 	WatchTimeSeconds int32
 	ReadTimeSeconds  int32
 	IsPublished      bool
@@ -806,8 +788,8 @@ func (q *Queries) FindFilteredSeriesWithAuthorSortBySlug(ctx context.Context, ar
 			&i.Title,
 			&i.Slug,
 			&i.Description,
-			&i.PartsCount,
-			&i.LecturesCount,
+			&i.SectionsCount,
+			&i.LessonsCount,
 			&i.WatchTimeSeconds,
 			&i.ReadTimeSeconds,
 			&i.IsPublished,
@@ -830,15 +812,12 @@ func (q *Queries) FindFilteredSeriesWithAuthorSortBySlug(ctx context.Context, ar
 
 const findPaginatedPublishedSeriesWithAuthorAndProgressSortByID = `-- name: FindPaginatedPublishedSeriesWithAuthorAndProgressSortByID :many
 SELECT
-  series.id, series.title, series.slug, series.description, series.parts_count, series.lectures_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
+  series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name",
   "series_progress"."id" AS "series_progress_id",
-  "series_progress"."is_current" AS "series_progress_is_current",
-  "series_progress"."completed_parts" AS "series_progress_completed_parts",
-  "series_progress"."in_progress_parts" AS "series_progress_in_progress_parts",
-  "series_progress"."completed_lectures" AS "series_progress_completed_lectures",
-  "series_progress"."in_progress_lectures" AS "series_progress_in_progress_lectures"
+  "series_progress"."completed_sections" AS "series_progress_completed_sections",
+  "series_progress"."completed_lessons" AS "series_progress_completed_lessons"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_progress" ON (
@@ -860,27 +839,24 @@ type FindPaginatedPublishedSeriesWithAuthorAndProgressSortByIDParams struct {
 }
 
 type FindPaginatedPublishedSeriesWithAuthorAndProgressSortByIDRow struct {
-	ID                               int32
-	Title                            string
-	Slug                             string
-	Description                      string
-	PartsCount                       int16
-	LecturesCount                    int16
-	WatchTimeSeconds                 int32
-	ReadTimeSeconds                  int32
-	IsPublished                      bool
-	LanguageSlug                     string
-	AuthorID                         int32
-	CreatedAt                        pgtype.Timestamp
-	UpdatedAt                        pgtype.Timestamp
-	AuthorFirstName                  string
-	AuthorLastName                   string
-	SeriesProgressID                 pgtype.Int4
-	SeriesProgressIsCurrent          pgtype.Bool
-	SeriesProgressCompletedParts     pgtype.Int2
-	SeriesProgressInProgressParts    pgtype.Int2
-	SeriesProgressCompletedLectures  pgtype.Int2
-	SeriesProgressInProgressLectures pgtype.Int2
+	ID                              int32
+	Title                           string
+	Slug                            string
+	Description                     string
+	SectionsCount                   int16
+	LessonsCount                    int16
+	WatchTimeSeconds                int32
+	ReadTimeSeconds                 int32
+	IsPublished                     bool
+	LanguageSlug                    string
+	AuthorID                        int32
+	CreatedAt                       pgtype.Timestamp
+	UpdatedAt                       pgtype.Timestamp
+	AuthorFirstName                 string
+	AuthorLastName                  string
+	SeriesProgressID                pgtype.Int4
+	SeriesProgressCompletedSections pgtype.Int2
+	SeriesProgressCompletedLessons  pgtype.Int2
 }
 
 func (q *Queries) FindPaginatedPublishedSeriesWithAuthorAndProgressSortByID(ctx context.Context, arg FindPaginatedPublishedSeriesWithAuthorAndProgressSortByIDParams) ([]FindPaginatedPublishedSeriesWithAuthorAndProgressSortByIDRow, error) {
@@ -902,8 +878,8 @@ func (q *Queries) FindPaginatedPublishedSeriesWithAuthorAndProgressSortByID(ctx 
 			&i.Title,
 			&i.Slug,
 			&i.Description,
-			&i.PartsCount,
-			&i.LecturesCount,
+			&i.SectionsCount,
+			&i.LessonsCount,
 			&i.WatchTimeSeconds,
 			&i.ReadTimeSeconds,
 			&i.IsPublished,
@@ -914,11 +890,8 @@ func (q *Queries) FindPaginatedPublishedSeriesWithAuthorAndProgressSortByID(ctx 
 			&i.AuthorFirstName,
 			&i.AuthorLastName,
 			&i.SeriesProgressID,
-			&i.SeriesProgressIsCurrent,
-			&i.SeriesProgressCompletedParts,
-			&i.SeriesProgressInProgressParts,
-			&i.SeriesProgressCompletedLectures,
-			&i.SeriesProgressInProgressLectures,
+			&i.SeriesProgressCompletedSections,
+			&i.SeriesProgressCompletedLessons,
 		); err != nil {
 			return nil, err
 		}
@@ -932,15 +905,12 @@ func (q *Queries) FindPaginatedPublishedSeriesWithAuthorAndProgressSortByID(ctx 
 
 const findPaginatedPublishedSeriesWithAuthorAndProgressSortBySlug = `-- name: FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlug :many
 SELECT
-  series.id, series.title, series.slug, series.description, series.parts_count, series.lectures_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
+  series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name",
   "series_progress"."id" AS "series_progress_id",
-  "series_progress"."is_current" AS "series_progress_is_current",
-  "series_progress"."completed_parts" AS "series_progress_completed_parts",
-  "series_progress"."in_progress_parts" AS "series_progress_in_progress_parts",
-  "series_progress"."completed_lectures" AS "series_progress_completed_lectures",
-  "series_progress"."in_progress_lectures" AS "series_progress_in_progress_lectures"
+  "series_progress"."completed_sections" AS "series_progress_completed_sections",
+  "series_progress"."completed_lessons" AS "series_progress_completed_lessons"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_progress" ON (
@@ -962,27 +932,24 @@ type FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlugParams struct {
 }
 
 type FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlugRow struct {
-	ID                               int32
-	Title                            string
-	Slug                             string
-	Description                      string
-	PartsCount                       int16
-	LecturesCount                    int16
-	WatchTimeSeconds                 int32
-	ReadTimeSeconds                  int32
-	IsPublished                      bool
-	LanguageSlug                     string
-	AuthorID                         int32
-	CreatedAt                        pgtype.Timestamp
-	UpdatedAt                        pgtype.Timestamp
-	AuthorFirstName                  string
-	AuthorLastName                   string
-	SeriesProgressID                 pgtype.Int4
-	SeriesProgressIsCurrent          pgtype.Bool
-	SeriesProgressCompletedParts     pgtype.Int2
-	SeriesProgressInProgressParts    pgtype.Int2
-	SeriesProgressCompletedLectures  pgtype.Int2
-	SeriesProgressInProgressLectures pgtype.Int2
+	ID                              int32
+	Title                           string
+	Slug                            string
+	Description                     string
+	SectionsCount                   int16
+	LessonsCount                    int16
+	WatchTimeSeconds                int32
+	ReadTimeSeconds                 int32
+	IsPublished                     bool
+	LanguageSlug                    string
+	AuthorID                        int32
+	CreatedAt                       pgtype.Timestamp
+	UpdatedAt                       pgtype.Timestamp
+	AuthorFirstName                 string
+	AuthorLastName                  string
+	SeriesProgressID                pgtype.Int4
+	SeriesProgressCompletedSections pgtype.Int2
+	SeriesProgressCompletedLessons  pgtype.Int2
 }
 
 func (q *Queries) FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlug(ctx context.Context, arg FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlugParams) ([]FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlugRow, error) {
@@ -1004,8 +971,8 @@ func (q *Queries) FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlug(ct
 			&i.Title,
 			&i.Slug,
 			&i.Description,
-			&i.PartsCount,
-			&i.LecturesCount,
+			&i.SectionsCount,
+			&i.LessonsCount,
 			&i.WatchTimeSeconds,
 			&i.ReadTimeSeconds,
 			&i.IsPublished,
@@ -1016,11 +983,8 @@ func (q *Queries) FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlug(ct
 			&i.AuthorFirstName,
 			&i.AuthorLastName,
 			&i.SeriesProgressID,
-			&i.SeriesProgressIsCurrent,
-			&i.SeriesProgressCompletedParts,
-			&i.SeriesProgressInProgressParts,
-			&i.SeriesProgressCompletedLectures,
-			&i.SeriesProgressInProgressLectures,
+			&i.SeriesProgressCompletedSections,
+			&i.SeriesProgressCompletedLessons,
 		); err != nil {
 			return nil, err
 		}
@@ -1034,7 +998,7 @@ func (q *Queries) FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlug(ct
 
 const findPaginatedPublishedSeriesWithAuthorSortByID = `-- name: FindPaginatedPublishedSeriesWithAuthorSortByID :many
 SELECT
-  series.id, series.title, series.slug, series.description, series.parts_count, series.lectures_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
+  series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name"
 FROM "series"
@@ -1057,8 +1021,8 @@ type FindPaginatedPublishedSeriesWithAuthorSortByIDRow struct {
 	Title            string
 	Slug             string
 	Description      string
-	PartsCount       int16
-	LecturesCount    int16
+	SectionsCount    int16
+	LessonsCount     int16
 	WatchTimeSeconds int32
 	ReadTimeSeconds  int32
 	IsPublished      bool
@@ -1084,8 +1048,8 @@ func (q *Queries) FindPaginatedPublishedSeriesWithAuthorSortByID(ctx context.Con
 			&i.Title,
 			&i.Slug,
 			&i.Description,
-			&i.PartsCount,
-			&i.LecturesCount,
+			&i.SectionsCount,
+			&i.LessonsCount,
 			&i.WatchTimeSeconds,
 			&i.ReadTimeSeconds,
 			&i.IsPublished,
@@ -1108,7 +1072,7 @@ func (q *Queries) FindPaginatedPublishedSeriesWithAuthorSortByID(ctx context.Con
 
 const findPaginatedPublishedSeriesWithAuthorSortBySlug = `-- name: FindPaginatedPublishedSeriesWithAuthorSortBySlug :many
 SELECT
-  series.id, series.title, series.slug, series.description, series.parts_count, series.lectures_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
+  series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name"
 FROM "series"
@@ -1131,8 +1095,8 @@ type FindPaginatedPublishedSeriesWithAuthorSortBySlugRow struct {
 	Title            string
 	Slug             string
 	Description      string
-	PartsCount       int16
-	LecturesCount    int16
+	SectionsCount    int16
+	LessonsCount     int16
 	WatchTimeSeconds int32
 	ReadTimeSeconds  int32
 	IsPublished      bool
@@ -1158,8 +1122,8 @@ func (q *Queries) FindPaginatedPublishedSeriesWithAuthorSortBySlug(ctx context.C
 			&i.Title,
 			&i.Slug,
 			&i.Description,
-			&i.PartsCount,
-			&i.LecturesCount,
+			&i.SectionsCount,
+			&i.LessonsCount,
 			&i.WatchTimeSeconds,
 			&i.ReadTimeSeconds,
 			&i.IsPublished,
@@ -1182,7 +1146,7 @@ func (q *Queries) FindPaginatedPublishedSeriesWithAuthorSortBySlug(ctx context.C
 
 const findPaginatedSeriesWithAuthorSortByID = `-- name: FindPaginatedSeriesWithAuthorSortByID :many
 SELECT
-  series.id, series.title, series.slug, series.description, series.parts_count, series.lectures_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
+  series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name"
 FROM "series"
@@ -1203,8 +1167,8 @@ type FindPaginatedSeriesWithAuthorSortByIDRow struct {
 	Title            string
 	Slug             string
 	Description      string
-	PartsCount       int16
-	LecturesCount    int16
+	SectionsCount    int16
+	LessonsCount     int16
 	WatchTimeSeconds int32
 	ReadTimeSeconds  int32
 	IsPublished      bool
@@ -1230,8 +1194,8 @@ func (q *Queries) FindPaginatedSeriesWithAuthorSortByID(ctx context.Context, arg
 			&i.Title,
 			&i.Slug,
 			&i.Description,
-			&i.PartsCount,
-			&i.LecturesCount,
+			&i.SectionsCount,
+			&i.LessonsCount,
 			&i.WatchTimeSeconds,
 			&i.ReadTimeSeconds,
 			&i.IsPublished,
@@ -1254,7 +1218,7 @@ func (q *Queries) FindPaginatedSeriesWithAuthorSortByID(ctx context.Context, arg
 
 const findPaginatedSeriesWithAuthorSortBySlug = `-- name: FindPaginatedSeriesWithAuthorSortBySlug :many
 SELECT
-  series.id, series.title, series.slug, series.description, series.parts_count, series.lectures_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
+  series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name"
 FROM "series"
@@ -1275,8 +1239,8 @@ type FindPaginatedSeriesWithAuthorSortBySlugRow struct {
 	Title            string
 	Slug             string
 	Description      string
-	PartsCount       int16
-	LecturesCount    int16
+	SectionsCount    int16
+	LessonsCount     int16
 	WatchTimeSeconds int32
 	ReadTimeSeconds  int32
 	IsPublished      bool
@@ -1302,8 +1266,8 @@ func (q *Queries) FindPaginatedSeriesWithAuthorSortBySlug(ctx context.Context, a
 			&i.Title,
 			&i.Slug,
 			&i.Description,
-			&i.PartsCount,
-			&i.LecturesCount,
+			&i.SectionsCount,
+			&i.LessonsCount,
 			&i.WatchTimeSeconds,
 			&i.ReadTimeSeconds,
 			&i.IsPublished,
@@ -1325,7 +1289,7 @@ func (q *Queries) FindPaginatedSeriesWithAuthorSortBySlug(ctx context.Context, a
 }
 
 const findPublishedSeriesBySlugAndLanguageSlug = `-- name: FindPublishedSeriesBySlugAndLanguageSlug :one
-SELECT id, title, slug, description, parts_count, lectures_count, watch_time_seconds, read_time_seconds, is_published, language_slug, author_id, created_at, updated_at FROM "series"
+SELECT id, title, slug, description, sections_count, lessons_count, watch_time_seconds, read_time_seconds, is_published, language_slug, author_id, created_at, updated_at FROM "series"
 WHERE
     "slug" = $1 AND
     "language_slug" = $2 AND
@@ -1346,8 +1310,8 @@ func (q *Queries) FindPublishedSeriesBySlugAndLanguageSlug(ctx context.Context, 
 		&i.Title,
 		&i.Slug,
 		&i.Description,
-		&i.PartsCount,
-		&i.LecturesCount,
+		&i.SectionsCount,
+		&i.LessonsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.IsPublished,
@@ -1361,15 +1325,12 @@ func (q *Queries) FindPublishedSeriesBySlugAndLanguageSlug(ctx context.Context, 
 
 const findPublishedSeriesBySlugWithAuthorAndProgress = `-- name: FindPublishedSeriesBySlugWithAuthorAndProgress :one
 SELECT
-    series.id, series.title, series.slug, series.description, series.parts_count, series.lectures_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
+    series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
     "users"."first_name" AS "author_first_name",
     "users"."last_name" AS "author_last_name",
     "series_progress"."id" AS "series_progress_id",
-    "series_progress"."is_current" AS "series_progress_is_current",
-    "series_progress"."completed_parts" AS "series_progress_completed_parts",
-    "series_progress"."in_progress_parts" AS "series_progress_in_progress_parts",
-    "series_progress"."completed_lectures" AS "series_progress_completed_lectures",
-    "series_progress"."in_progress_lectures" AS "series_progress_in_progress_lectures"
+    "series_progress"."completed_sections" AS "series_progress_completed_sections",
+    "series_progress"."completed_lessons" AS "series_progress_completed_lessons"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_progress" ON (
@@ -1390,27 +1351,24 @@ type FindPublishedSeriesBySlugWithAuthorAndProgressParams struct {
 }
 
 type FindPublishedSeriesBySlugWithAuthorAndProgressRow struct {
-	ID                               int32
-	Title                            string
-	Slug                             string
-	Description                      string
-	PartsCount                       int16
-	LecturesCount                    int16
-	WatchTimeSeconds                 int32
-	ReadTimeSeconds                  int32
-	IsPublished                      bool
-	LanguageSlug                     string
-	AuthorID                         int32
-	CreatedAt                        pgtype.Timestamp
-	UpdatedAt                        pgtype.Timestamp
-	AuthorFirstName                  string
-	AuthorLastName                   string
-	SeriesProgressID                 pgtype.Int4
-	SeriesProgressIsCurrent          pgtype.Bool
-	SeriesProgressCompletedParts     pgtype.Int2
-	SeriesProgressInProgressParts    pgtype.Int2
-	SeriesProgressCompletedLectures  pgtype.Int2
-	SeriesProgressInProgressLectures pgtype.Int2
+	ID                              int32
+	Title                           string
+	Slug                            string
+	Description                     string
+	SectionsCount                   int16
+	LessonsCount                    int16
+	WatchTimeSeconds                int32
+	ReadTimeSeconds                 int32
+	IsPublished                     bool
+	LanguageSlug                    string
+	AuthorID                        int32
+	CreatedAt                       pgtype.Timestamp
+	UpdatedAt                       pgtype.Timestamp
+	AuthorFirstName                 string
+	AuthorLastName                  string
+	SeriesProgressID                pgtype.Int4
+	SeriesProgressCompletedSections pgtype.Int2
+	SeriesProgressCompletedLessons  pgtype.Int2
 }
 
 func (q *Queries) FindPublishedSeriesBySlugWithAuthorAndProgress(ctx context.Context, arg FindPublishedSeriesBySlugWithAuthorAndProgressParams) (FindPublishedSeriesBySlugWithAuthorAndProgressRow, error) {
@@ -1421,8 +1379,8 @@ func (q *Queries) FindPublishedSeriesBySlugWithAuthorAndProgress(ctx context.Con
 		&i.Title,
 		&i.Slug,
 		&i.Description,
-		&i.PartsCount,
-		&i.LecturesCount,
+		&i.SectionsCount,
+		&i.LessonsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.IsPublished,
@@ -1433,18 +1391,15 @@ func (q *Queries) FindPublishedSeriesBySlugWithAuthorAndProgress(ctx context.Con
 		&i.AuthorFirstName,
 		&i.AuthorLastName,
 		&i.SeriesProgressID,
-		&i.SeriesProgressIsCurrent,
-		&i.SeriesProgressCompletedParts,
-		&i.SeriesProgressInProgressParts,
-		&i.SeriesProgressCompletedLectures,
-		&i.SeriesProgressInProgressLectures,
+		&i.SeriesProgressCompletedSections,
+		&i.SeriesProgressCompletedLessons,
 	)
 	return i, err
 }
 
 const findPublishedSeriesBySlugsWithAuthor = `-- name: FindPublishedSeriesBySlugsWithAuthor :one
 SELECT
-  series.id, series.title, series.slug, series.description, series.parts_count, series.lectures_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
+  series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name"
 FROM "series"
@@ -1466,8 +1421,8 @@ type FindPublishedSeriesBySlugsWithAuthorRow struct {
 	Title            string
 	Slug             string
 	Description      string
-	PartsCount       int16
-	LecturesCount    int16
+	SectionsCount    int16
+	LessonsCount     int16
 	WatchTimeSeconds int32
 	ReadTimeSeconds  int32
 	IsPublished      bool
@@ -1487,8 +1442,8 @@ func (q *Queries) FindPublishedSeriesBySlugsWithAuthor(ctx context.Context, arg 
 		&i.Title,
 		&i.Slug,
 		&i.Description,
-		&i.PartsCount,
-		&i.LecturesCount,
+		&i.SectionsCount,
+		&i.LessonsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.IsPublished,
@@ -1503,7 +1458,7 @@ func (q *Queries) FindPublishedSeriesBySlugsWithAuthor(ctx context.Context, arg 
 }
 
 const findSeriesById = `-- name: FindSeriesById :one
-SELECT id, title, slug, description, parts_count, lectures_count, watch_time_seconds, read_time_seconds, is_published, language_slug, author_id, created_at, updated_at FROM "series"
+SELECT id, title, slug, description, sections_count, lessons_count, watch_time_seconds, read_time_seconds, is_published, language_slug, author_id, created_at, updated_at FROM "series"
 WHERE "id" = $1 LIMIT 1
 `
 
@@ -1515,8 +1470,8 @@ func (q *Queries) FindSeriesById(ctx context.Context, id int32) (Series, error) 
 		&i.Title,
 		&i.Slug,
 		&i.Description,
-		&i.PartsCount,
-		&i.LecturesCount,
+		&i.SectionsCount,
+		&i.LessonsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.IsPublished,
@@ -1529,7 +1484,7 @@ func (q *Queries) FindSeriesById(ctx context.Context, id int32) (Series, error) 
 }
 
 const findSeriesBySlugAndLanguageSlug = `-- name: FindSeriesBySlugAndLanguageSlug :one
-SELECT id, title, slug, description, parts_count, lectures_count, watch_time_seconds, read_time_seconds, is_published, language_slug, author_id, created_at, updated_at FROM "series"
+SELECT id, title, slug, description, sections_count, lessons_count, watch_time_seconds, read_time_seconds, is_published, language_slug, author_id, created_at, updated_at FROM "series"
 WHERE "slug" = $1 AND "language_slug" = $2
 LIMIT 1
 `
@@ -1547,8 +1502,8 @@ func (q *Queries) FindSeriesBySlugAndLanguageSlug(ctx context.Context, arg FindS
 		&i.Title,
 		&i.Slug,
 		&i.Description,
-		&i.PartsCount,
-		&i.LecturesCount,
+		&i.SectionsCount,
+		&i.LessonsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.IsPublished,
@@ -1562,7 +1517,7 @@ func (q *Queries) FindSeriesBySlugAndLanguageSlug(ctx context.Context, arg FindS
 
 const findSeriesBySlugWithAuthor = `-- name: FindSeriesBySlugWithAuthor :one
 SELECT
-  series.id, series.title, series.slug, series.description, series.parts_count, series.lectures_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
+  series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name"
 FROM "series"
@@ -1583,8 +1538,8 @@ type FindSeriesBySlugWithAuthorRow struct {
 	Title            string
 	Slug             string
 	Description      string
-	PartsCount       int16
-	LecturesCount    int16
+	SectionsCount    int16
+	LessonsCount     int16
 	WatchTimeSeconds int32
 	ReadTimeSeconds  int32
 	IsPublished      bool
@@ -1604,8 +1559,8 @@ func (q *Queries) FindSeriesBySlugWithAuthor(ctx context.Context, arg FindSeries
 		&i.Title,
 		&i.Slug,
 		&i.Description,
-		&i.PartsCount,
-		&i.LecturesCount,
+		&i.SectionsCount,
+		&i.LessonsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.IsPublished,
@@ -1619,23 +1574,23 @@ func (q *Queries) FindSeriesBySlugWithAuthor(ctx context.Context, arg FindSeries
 	return i, err
 }
 
-const incrementSeriesLecturesCount = `-- name: IncrementSeriesLecturesCount :exec
+const incrementSeriesLessonsCount = `-- name: IncrementSeriesLessonsCount :exec
 UPDATE "series" SET
-  "lectures_count" = "lectures_count" + 1,
+  "lessons_count" = "lessons_count" + 1,
   "watch_time_seconds" = "watch_time_seconds" + $2,
   "read_time_seconds" = "read_time_seconds" + $3,
   "updated_at" = now()
 WHERE "slug" = $1
 `
 
-type IncrementSeriesLecturesCountParams struct {
+type IncrementSeriesLessonsCountParams struct {
 	Slug             string
 	WatchTimeSeconds int32
 	ReadTimeSeconds  int32
 }
 
-func (q *Queries) IncrementSeriesLecturesCount(ctx context.Context, arg IncrementSeriesLecturesCountParams) error {
-	_, err := q.db.Exec(ctx, incrementSeriesLecturesCount, arg.Slug, arg.WatchTimeSeconds, arg.ReadTimeSeconds)
+func (q *Queries) IncrementSeriesLessonsCount(ctx context.Context, arg IncrementSeriesLessonsCountParams) error {
+	_, err := q.db.Exec(ctx, incrementSeriesLessonsCount, arg.Slug, arg.WatchTimeSeconds, arg.ReadTimeSeconds)
 	return err
 }
 
@@ -1646,7 +1601,7 @@ UPDATE "series" SET
   "description" = $3,
   "updated_at" = now()
 WHERE "id" = $4
-RETURNING id, title, slug, description, parts_count, lectures_count, watch_time_seconds, read_time_seconds, is_published, language_slug, author_id, created_at, updated_at
+RETURNING id, title, slug, description, sections_count, lessons_count, watch_time_seconds, read_time_seconds, is_published, language_slug, author_id, created_at, updated_at
 `
 
 type UpdateSeriesParams struct {
@@ -1669,8 +1624,8 @@ func (q *Queries) UpdateSeries(ctx context.Context, arg UpdateSeriesParams) (Ser
 		&i.Title,
 		&i.Slug,
 		&i.Description,
-		&i.PartsCount,
-		&i.LecturesCount,
+		&i.SectionsCount,
+		&i.LessonsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.IsPublished,
@@ -1687,7 +1642,7 @@ UPDATE "series" SET
   "is_published" = $1,
   "updated_at" = now()
 WHERE "id" = $2
-RETURNING id, title, slug, description, parts_count, lectures_count, watch_time_seconds, read_time_seconds, is_published, language_slug, author_id, created_at, updated_at
+RETURNING id, title, slug, description, sections_count, lessons_count, watch_time_seconds, read_time_seconds, is_published, language_slug, author_id, created_at, updated_at
 `
 
 type UpdateSeriesIsPublishedParams struct {
@@ -1703,8 +1658,8 @@ func (q *Queries) UpdateSeriesIsPublished(ctx context.Context, arg UpdateSeriesI
 		&i.Title,
 		&i.Slug,
 		&i.Description,
-		&i.PartsCount,
-		&i.LecturesCount,
+		&i.SectionsCount,
+		&i.LessonsCount,
 		&i.WatchTimeSeconds,
 		&i.ReadTimeSeconds,
 		&i.IsPublished,

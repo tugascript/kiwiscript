@@ -9,33 +9,19 @@ import (
 	"context"
 )
 
-const addSeriesProgressCompletedParts = `-- name: AddSeriesProgressCompletedParts :exec
-UPDATE "series_progress" SET
-  "completed_parts" = "completed_parts" + 1,
-  "in_progress_parts" = "in_progress_parts" - 1
-WHERE "id" = $1
-`
-
-func (q *Queries) AddSeriesProgressCompletedParts(ctx context.Context, id int32) error {
-	_, err := q.db.Exec(ctx, addSeriesProgressCompletedParts, id)
-	return err
-}
-
 const createSeriesProgress = `-- name: CreateSeriesProgress :one
 
 INSERT INTO "series_progress" (
   "language_slug",
   "series_slug",
   "language_progress_id",
-  "user_id",
-  "is_current"
+  "user_id"
 ) VALUES (
   $1,
   $2,
   $3,
-  $4,
-  true
-) RETURNING id, user_id, series_slug, language_slug, language_progress_id, in_progress_parts, completed_parts, in_progress_lectures, completed_lectures, parts_count, is_current, completed_at, created_at, updated_at
+  $4
+) RETURNING id, user_id, series_slug, language_slug, language_progress_id, completed_sections, completed_lessons, parts_count, completed_at, viewed_at, created_at, updated_at
 `
 
 type CreateSeriesProgressParams struct {
@@ -75,38 +61,42 @@ func (q *Queries) CreateSeriesProgress(ctx context.Context, arg CreateSeriesProg
 		&i.SeriesSlug,
 		&i.LanguageSlug,
 		&i.LanguageProgressID,
-		&i.InProgressParts,
-		&i.CompletedParts,
-		&i.InProgressLectures,
-		&i.CompletedLectures,
+		&i.CompletedSections,
+		&i.CompletedLessons,
 		&i.PartsCount,
-		&i.IsCurrent,
 		&i.CompletedAt,
+		&i.ViewedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
-const decrementSeriesProgressCompletedParts = `-- name: DecrementSeriesProgressCompletedParts :exec
+const decrementSeriesProgressCompletedLessons = `-- name: DecrementSeriesProgressCompletedLessons :exec
 UPDATE "series_progress" SET
-  "completed_parts" = "completed_parts" - 1
+  "completed_lessons" = "completed_lessons" - 1
 WHERE "id" = $1
 `
 
-func (q *Queries) DecrementSeriesProgressCompletedParts(ctx context.Context, id int32) error {
-	_, err := q.db.Exec(ctx, decrementSeriesProgressCompletedParts, id)
+func (q *Queries) DecrementSeriesProgressCompletedLessons(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, decrementSeriesProgressCompletedLessons, id)
 	return err
 }
 
-const decrementSeriesProgressInProgressParts = `-- name: DecrementSeriesProgressInProgressParts :exec
+const decrementSeriesProgressCompletedSections = `-- name: DecrementSeriesProgressCompletedSections :exec
 UPDATE "series_progress" SET
-  "in_progress_parts" = "in_progress_parts" - 1
-WHERE "id" = $1
+  "completed_sections" = "completed_sections" - 1,
+  "completed_lessons" = "completed_lessons" - $1
+WHERE "id" = $2
 `
 
-func (q *Queries) DecrementSeriesProgressInProgressParts(ctx context.Context, id int32) error {
-	_, err := q.db.Exec(ctx, decrementSeriesProgressInProgressParts, id)
+type DecrementSeriesProgressCompletedSectionsParams struct {
+	CompletedLessons int16
+	ID               int32
+}
+
+func (q *Queries) DecrementSeriesProgressCompletedSections(ctx context.Context, arg DecrementSeriesProgressCompletedSectionsParams) error {
+	_, err := q.db.Exec(ctx, decrementSeriesProgressCompletedSections, arg.CompletedLessons, arg.ID)
 	return err
 }
 
@@ -121,9 +111,9 @@ func (q *Queries) DeleteSeriesProgress(ctx context.Context, id int32) error {
 }
 
 const findSeriesProgressByLanguageProgressID = `-- name: FindSeriesProgressByLanguageProgressID :many
-SELECT id, user_id, series_slug, language_slug, language_progress_id, in_progress_parts, completed_parts, in_progress_lectures, completed_lectures, parts_count, is_current, completed_at, created_at, updated_at FROM "series_progress"
+SELECT id, user_id, series_slug, language_slug, language_progress_id, completed_sections, completed_lessons, parts_count, completed_at, viewed_at, created_at, updated_at FROM "series_progress"
 WHERE "language_progress_id" = $1
-ORDER BY "id" DESC
+ORDER BY "viewed_at" DESC
 `
 
 func (q *Queries) FindSeriesProgressByLanguageProgressID(ctx context.Context, languageProgressID int32) ([]SeriesProgress, error) {
@@ -141,13 +131,11 @@ func (q *Queries) FindSeriesProgressByLanguageProgressID(ctx context.Context, la
 			&i.SeriesSlug,
 			&i.LanguageSlug,
 			&i.LanguageProgressID,
-			&i.InProgressParts,
-			&i.CompletedParts,
-			&i.InProgressLectures,
-			&i.CompletedLectures,
+			&i.CompletedSections,
+			&i.CompletedLessons,
 			&i.PartsCount,
-			&i.IsCurrent,
 			&i.CompletedAt,
+			&i.ViewedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -162,7 +150,7 @@ func (q *Queries) FindSeriesProgressByLanguageProgressID(ctx context.Context, la
 }
 
 const findSeriesProgressBySlugAndUserID = `-- name: FindSeriesProgressBySlugAndUserID :one
-SELECT id, user_id, series_slug, language_slug, language_progress_id, in_progress_parts, completed_parts, in_progress_lectures, completed_lectures, parts_count, is_current, completed_at, created_at, updated_at FROM "series_progress"
+SELECT id, user_id, series_slug, language_slug, language_progress_id, completed_sections, completed_lessons, parts_count, completed_at, viewed_at, created_at, updated_at FROM "series_progress"
 WHERE
     "language_slug" = $1 AND
     "series_slug" = $2 AND
@@ -185,68 +173,45 @@ func (q *Queries) FindSeriesProgressBySlugAndUserID(ctx context.Context, arg Fin
 		&i.SeriesSlug,
 		&i.LanguageSlug,
 		&i.LanguageProgressID,
-		&i.InProgressParts,
-		&i.CompletedParts,
-		&i.InProgressLectures,
-		&i.CompletedLectures,
+		&i.CompletedSections,
+		&i.CompletedLessons,
 		&i.PartsCount,
-		&i.IsCurrent,
 		&i.CompletedAt,
+		&i.ViewedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
-const incrementSeriesProgressInProgressParts = `-- name: IncrementSeriesProgressInProgressParts :exec
+const incrementSeriesProgressCompletedLessons = `-- name: IncrementSeriesProgressCompletedLessons :exec
 UPDATE "series_progress" SET
-  "in_progress_parts" = "in_progress_parts" + 1
+  "completed_lessons" = "completed_lessons" + 1
 WHERE "id" = $1
 `
 
-func (q *Queries) IncrementSeriesProgressInProgressParts(ctx context.Context, id int32) error {
-	_, err := q.db.Exec(ctx, incrementSeriesProgressInProgressParts, id)
+func (q *Queries) IncrementSeriesProgressCompletedLessons(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, incrementSeriesProgressCompletedLessons, id)
 	return err
 }
 
-const removeSeriesProgressCompletedParts = `-- name: RemoveSeriesProgressCompletedParts :exec
+const incrementSeriesProgressCompletedSections = `-- name: IncrementSeriesProgressCompletedSections :one
 UPDATE "series_progress" SET
-  "completed_parts" = "completed_parts" - 1,
-  "in_progress_parts" = "in_progress_parts" + 1
+    "completed_sections" = "series_progress"."completed_sections" + 1,
+    "completed_lessons" = "series_progress"."completed_lessons" + 1,
+    "completed_at" = CASE
+        WHEN (
+            "series"."sections_count" + 1 > "series_progress"."completed_sections" AND
+            "series_progress"."completed_at" IS NULL
+        ) THEN (NOW())
+        ELSE "series_progress"."completed_at"
+    END
 WHERE "id" = $1
+RETURNING id, user_id, series_slug, language_slug, language_progress_id, completed_sections, completed_lessons, parts_count, completed_at, viewed_at, created_at, updated_at
 `
 
-func (q *Queries) RemoveSeriesProgressCompletedParts(ctx context.Context, id int32) error {
-	_, err := q.db.Exec(ctx, removeSeriesProgressCompletedParts, id)
-	return err
-}
-
-const setSeriesProgressIsCurrentFalse = `-- name: SetSeriesProgressIsCurrentFalse :exec
-UPDATE "series_progress" SET
-  "is_current" = false
-WHERE "user_id" = $1 AND "language_slug" = $2 AND "series_slug" <> $3
-`
-
-type SetSeriesProgressIsCurrentFalseParams struct {
-	UserID       int32
-	LanguageSlug string
-	SeriesSlug   string
-}
-
-func (q *Queries) SetSeriesProgressIsCurrentFalse(ctx context.Context, arg SetSeriesProgressIsCurrentFalseParams) error {
-	_, err := q.db.Exec(ctx, setSeriesProgressIsCurrentFalse, arg.UserID, arg.LanguageSlug, arg.SeriesSlug)
-	return err
-}
-
-const setSeriesProgressIsCurrentTrue = `-- name: SetSeriesProgressIsCurrentTrue :one
-UPDATE "series_progress" SET
-  "is_current" = true
-WHERE "id" = $1
-RETURNING id, user_id, series_slug, language_slug, language_progress_id, in_progress_parts, completed_parts, in_progress_lectures, completed_lectures, parts_count, is_current, completed_at, created_at, updated_at
-`
-
-func (q *Queries) SetSeriesProgressIsCurrentTrue(ctx context.Context, id int32) (SeriesProgress, error) {
-	row := q.db.QueryRow(ctx, setSeriesProgressIsCurrentTrue, id)
+func (q *Queries) IncrementSeriesProgressCompletedSections(ctx context.Context, id int32) (SeriesProgress, error) {
+	row := q.db.QueryRow(ctx, incrementSeriesProgressCompletedSections, id)
 	var i SeriesProgress
 	err := row.Scan(
 		&i.ID,
@@ -254,15 +219,40 @@ func (q *Queries) SetSeriesProgressIsCurrentTrue(ctx context.Context, id int32) 
 		&i.SeriesSlug,
 		&i.LanguageSlug,
 		&i.LanguageProgressID,
-		&i.InProgressParts,
-		&i.CompletedParts,
-		&i.InProgressLectures,
-		&i.CompletedLectures,
+		&i.CompletedSections,
+		&i.CompletedLessons,
 		&i.PartsCount,
-		&i.IsCurrent,
 		&i.CompletedAt,
+		&i.ViewedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const removeSeriesProgressCompletedLessons = `-- name: RemoveSeriesProgressCompletedLessons :exec
+UPDATE "series_progress" SET
+  "completed_lessons" = "completed_lessons" - $1
+WHERE "id" = $2
+`
+
+type RemoveSeriesProgressCompletedLessonsParams struct {
+	CompletedLessons int16
+	ID               int32
+}
+
+func (q *Queries) RemoveSeriesProgressCompletedLessons(ctx context.Context, arg RemoveSeriesProgressCompletedLessonsParams) error {
+	_, err := q.db.Exec(ctx, removeSeriesProgressCompletedLessons, arg.CompletedLessons, arg.ID)
+	return err
+}
+
+const updateSeriesProgressViewedAt = `-- name: UpdateSeriesProgressViewedAt :exec
+UPDATE "series_progress" SET
+  "viewed_at" = NOW()
+WHERE "id" = $1
+`
+
+func (q *Queries) UpdateSeriesProgressViewedAt(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, updateSeriesProgressViewedAt, id)
+	return err
 }

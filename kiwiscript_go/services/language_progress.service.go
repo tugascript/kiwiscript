@@ -56,28 +56,12 @@ func (s *Services) createLanguageProgress(ctx context.Context, opts CreateOrUpda
 	log := s.log.WithGroup("service.language.CreateLanguageProgress").With("userID", opts.UserID, "languageSlug", opts.LanguageSlug)
 	log.InfoContext(ctx, "Creating language progress")
 
-	qrs, txn, err := s.database.BeginTx(ctx)
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return nil, FromDBError(err)
-	}
-	defer s.database.FinalizeTx(ctx, txn, err)
-
-	languageProgress, err := qrs.CreateLanguageProgress(ctx, db.CreateLanguageProgressParams{
+	languageProgress, err := s.database.CreateLanguageProgress(ctx, db.CreateLanguageProgressParams{
 		UserID:       opts.UserID,
 		LanguageSlug: opts.LanguageSlug,
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Error creating language progress", "error", err)
-		return nil, FromDBError(err)
-	}
-
-	params := db.SetLanguageProgressIsCurrentFalseParams{
-		UserID:       opts.UserID,
-		LanguageSlug: opts.LanguageSlug,
-	}
-	if err := qrs.SetLanguageProgressIsCurrentFalse(ctx, params); err != nil {
-		log.ErrorContext(ctx, "Error setting language progress is current false", "error", err)
 		return nil, FromDBError(err)
 	}
 
@@ -110,27 +94,9 @@ func (s *Services) CreateOrUpdateLanguageProgress(
 
 		return language, languageProgress, nil
 	}
-	if languageProgress.IsCurrent {
-		log.InfoContext(ctx, "Language progress already updated")
-		return language, languageProgress, nil
-	}
 
-	qrs, txn, err := s.database.BeginTx(ctx)
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return nil, nil, FromDBError(err)
-	}
-	defer s.database.FinalizeTx(ctx, txn, err)
-
-	*languageProgress, err = qrs.SetLanguageProgressIsCurrentTrue(ctx, languageProgress.ID)
-	if err != nil {
+	if err := s.database.UpdateLanguageProgressViewedAt(ctx, languageProgress.ID); err != nil {
 		log.ErrorContext(ctx, "Error updating language progress", "error", err)
-		return nil, nil, FromDBError(err)
-	}
-
-	params := db.SetSeriesProgressIsCurrentFalseParams{UserID: opts.UserID, LanguageSlug: opts.LanguageSlug}
-	if err := qrs.SetSeriesProgressIsCurrentFalse(ctx, params); err != nil {
-		log.ErrorContext(ctx, "Error setting series progress is current false", "error", err)
 		return nil, nil, FromDBError(err)
 	}
 

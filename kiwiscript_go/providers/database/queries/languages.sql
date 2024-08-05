@@ -47,9 +47,8 @@ WHERE "slug" = $1 LIMIT 1;
 -- name: FindLanguageBySlugWithLanguageProgress :one
 SELECT
     "languages".*,
-    "language_progress"."in_progress_series" AS "in_progress_series",
     "language_progress"."completed_series" AS "completed_series",
-    "language_progress"."is_current" AS "is_current"
+    "language_progress"."viewed_at" AS "viewed_at"
 FROM "languages"
 LEFT JOIN "language_progress" ON (
     "languages"."slug" = "language_progress"."language_slug" AND
@@ -79,9 +78,8 @@ LIMIT $2 OFFSET $3;
 -- name: FindPaginatedLanguagesWithLanguageProgress :many
 SELECT
     "languages".*,
-    "language_progress"."in_progress_series" AS "in_progress_series",
-    "language_progress"."completed_series" AS "completed_series",
-    "language_progress"."is_current" AS "is_current"
+    "language_progress"."completed_series" AS "language_progress_completed_series",
+    "language_progress"."viewed_at" AS "language_progress_viewed_at"
 FROM "languages"
 LEFT JOIN "language_progress" ON (
     "languages"."slug" = "language_progress"."language_slug" AND
@@ -93,9 +91,8 @@ LIMIT $2 OFFSET $3;
 -- name: FindFilteredPaginatedLanguagesWithLanguageProgress :many
 SELECT
     "languages".*,
-    "language_progress"."in_progress_series" AS "in_progress_series",
-    "language_progress"."completed_series" AS "completed_series",
-    "language_progress"."is_current" AS "is_current"
+    "language_progress"."completed_series" AS "language_progress_completed_series",
+    "language_progress"."viewed_at" AS "language_progress_viewed_at"
 FROM "languages"
 LEFT JOIN "language_progress" ON "languages"."slug" = "language_progress"."language_slug"
 WHERE "language_progress"."user_id" = $1 AND "languages"."name" ILIKE $2

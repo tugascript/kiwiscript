@@ -18,18 +18,16 @@
 -- name: CreateLanguageProgress :one
 INSERT INTO "language_progress" (
   "language_slug",
-  "user_id",
-  "is_current"
+  "user_id"
 ) VALUES (
   $1,
-  $2,
-  true
+  $2
 ) RETURNING *;
 
--- name: SetLanguageProgressIsCurrentFalse :exec
+-- name: UpdateLanguageProgressViewedAt :exec
 UPDATE "language_progress" SET
-  "is_current" = false
-WHERE "user_id" = $1 AND "language_slug" <> $2;
+  "viewed_at" = NOW()
+WHERE "id" = $1;
 
 -- name: FindLanguageProgressBySlugAndUserID :one
 SELECT * FROM "language_progress"
@@ -39,32 +37,9 @@ WHERE "language_slug" = $1 AND "user_id" = $2 LIMIT 1;
 DELETE FROM "language_progress"
 WHERE "id" = $1;
 
--- name: SetLanguageProgressIsCurrentTrue :one
-UPDATE "language_progress" SET
-  "is_current" = true
-WHERE "id" = $1
-RETURNING *;
-
--- name: IncrementLanguageProgressInProgressSeries :exec
-UPDATE "language_progress" SET
-  "in_progress_series" = "in_progress_series" + 1
-WHERE "id" = $1;
-
--- name: DecrementLanguageProgressInProgressSeries :exec
-UPDATE "language_progress" SET
-  "in_progress_series" = "in_progress_series" - 1
-WHERE "id" = $1;
-
 -- name: AddLanguageProgressCompletedSeries :exec
 UPDATE "language_progress" SET
-  "completed_series" = "completed_series" + 1,
-  "in_progress_series" = "in_progress_series" - 1
-WHERE "id" = $1;
-
--- name: RemoveLanguageProgressCompletedSeries :exec
-UPDATE "language_progress" SET
-  "completed_series" = "completed_series" - 1,
-  "in_progress_series" = "in_progress_series" + 1
+  "completed_series" = "completed_series" + 1
 WHERE "id" = $1;
 
 -- name: DecrementLanguageProgressCompletedSeries :exec

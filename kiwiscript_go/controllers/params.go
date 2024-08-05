@@ -17,34 +17,6 @@
 
 package controllers
 
-type LanguageParams struct {
-	LanguageSlug string `validate:"required,min=2,max=50,slug"`
-}
-
-type SeriesParams struct {
-	LanguageSlug string `validate:"required,min=2,max=50,slug"`
-	SeriesSlug   string `validate:"required,min=2,max=100,slug"`
-}
-
-type RemoveTagFromSeriesParams struct {
-	LanguageSlug string `validate:"required,min=2,max=50,slug"`
-	SeriesSlug   string `validate:"required,min=2,max=100,slug"`
-	Tag          string `validate:"required,min=2,max=50"`
-}
-
-type SeriesPartParams struct {
-	LanguageSlug string `validate:"required,min=2,max=50,slug"`
-	SeriesSlug   string `validate:"required,min=2,max=100,slug"`
-	SeriesPartID string `validate:"required,number,min=1"`
-}
-
-type LectureParams struct {
-	LanguageSlug string `validate:"required,min=2,max=50,slug"`
-	SeriesSlug   string `validate:"required,min=2,max=100,slug"`
-	SeriesPartID string `validate:"required,number,min=1"`
-	LectureID    string `validate:"required,number,min=1"`
-}
-
 type LectureFileParams struct {
 	LanguageSlug string `validate:"required,min=2,max=50,slug"`
 	SeriesSlug   string `validate:"required,min=2,max=100,slug"`

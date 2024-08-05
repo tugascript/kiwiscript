@@ -18,6 +18,7 @@
 package controllers
 
 import (
+	"github.com/kiwiscript/kiwiscript_go/dtos"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"strings"
 
@@ -30,7 +31,7 @@ import (
 func (c *Controllers) CreateLanguage(ctx *fiber.Ctx) error {
 	log := c.log.WithGroup("controllers.languages.CreateLanguage")
 	userCtx := ctx.UserContext()
-	var request LanguageRequest
+	var request dtos.LanguageBody
 	user, err := c.GetUserClaims(ctx)
 
 	if err != nil || !user.IsAdmin {
@@ -52,7 +53,7 @@ func (c *Controllers) CreateLanguage(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.Status(fiber.StatusCreated).JSON(c.NewLanguageResponse(language.ToLanguageDTO()))
+	return ctx.Status(fiber.StatusCreated).JSON(dtos.NewLanguageResponse(c.backendDomain, language.ToLanguageModel()))
 }
 
 func (c *Controllers) GetLanguage(ctx *fiber.Ctx) error {
@@ -60,7 +61,7 @@ func (c *Controllers) GetLanguage(ctx *fiber.Ctx) error {
 	userCtx := ctx.UserContext()
 	slug := ctx.Params("languageSlug")
 	log.InfoContext(userCtx, "get language", "slug", slug)
-	params := LanguageParams{slug}
+	params := dtos.LanguagePathParams{LanguageSlug: slug}
 
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
@@ -75,7 +76,7 @@ func (c *Controllers) GetLanguage(ctx *fiber.Ctx) error {
 			return c.serviceErrorResponse(serviceErr, ctx)
 		}
 
-		return ctx.JSON(c.NewLanguageResponse(language.ToLanguageDTO()))
+		return ctx.JSON(dtos.NewLanguageResponse(c.backendDomain, language.ToLanguageModel()))
 	}
 
 	language, serviceErr := c.services.FindLanguageBySlug(userCtx, slug)
@@ -83,16 +84,16 @@ func (c *Controllers) GetLanguage(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(c.NewLanguageResponse(language.ToLanguageDTO()))
+	return ctx.JSON(dtos.NewLanguageResponse(c.backendDomain, language.ToLanguageModel()))
 }
 
 func (c *Controllers) GetLanguages(ctx *fiber.Ctx) error {
 	log := c.log.WithGroup("controllers.languages.GetLanguages")
 	userCtx := ctx.UserContext()
 	log.InfoContext(userCtx, "get languages")
-	queryParams := GetLanguagesQueryParams{
-		Offset: int32(ctx.QueryInt("offset", OffsetDefault)),
-		Limit:  int32(ctx.QueryInt("limit", LimitDefault)),
+	queryParams := dtos.GetLanguagesQueryParams{
+		Offset: int32(ctx.QueryInt("offset", dtos.OffsetDefault)),
+		Limit:  int32(ctx.QueryInt("limit", dtos.LimitDefault)),
 		Search: ctx.Query("search"),
 	}
 
@@ -115,14 +116,14 @@ func (c *Controllers) GetLanguages(ctx *fiber.Ctx) error {
 				return c.serviceErrorResponse(serviceErr, ctx)
 			}
 
-			return ctx.JSON(NewPaginatedResponse(
+			return ctx.JSON(dtos.NewPaginatedResponse(
 				c.backendDomain,
 				paths.LanguagePathV1,
 				&queryParams,
 				count,
 				languages,
-				func(l *db.FindFilteredPaginatedLanguagesWithLanguageProgressRow) *LanguageResponse {
-					return c.NewLanguageResponse(l.ToLanguageDTO())
+				func(l *db.FindFilteredPaginatedLanguagesWithLanguageProgressRow) *dtos.LanguageResponse {
+					return dtos.NewLanguageResponse(c.backendDomain, l.ToLanguageModel())
 				},
 			))
 		}
@@ -138,14 +139,14 @@ func (c *Controllers) GetLanguages(ctx *fiber.Ctx) error {
 		if serviceErr != nil {
 			return c.serviceErrorResponse(serviceErr, ctx)
 		}
-		return ctx.JSON(NewPaginatedResponse(
+		return ctx.JSON(dtos.NewPaginatedResponse(
 			c.backendDomain,
 			paths.LanguagePathV1,
 			&queryParams,
 			count,
 			languages,
-			func(l *db.FindPaginatedLanguagesWithLanguageProgressRow) *LanguageResponse {
-				return c.NewLanguageResponse(l.ToLanguageDTO())
+			func(l *db.FindPaginatedLanguagesWithLanguageProgressRow) *dtos.LanguageResponse {
+				return dtos.NewLanguageResponse(c.backendDomain, l.ToLanguageModel())
 			},
 		))
 	}
@@ -159,14 +160,14 @@ func (c *Controllers) GetLanguages(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(NewPaginatedResponse(
+	return ctx.JSON(dtos.NewPaginatedResponse(
 		c.backendDomain,
 		paths.LanguagePathV1,
 		&queryParams,
 		count,
 		languages,
-		func(l *db.Language) *LanguageResponse {
-			return c.NewLanguageResponse(l.ToLanguageDTO())
+		func(l *db.Language) *dtos.LanguageResponse {
+			return dtos.NewLanguageResponse(c.backendDomain, l.ToLanguageModel())
 		},
 	))
 }
@@ -182,12 +183,12 @@ func (c *Controllers) UpdateLanguage(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
 	}
 
-	params := LanguageParams{slug}
+	params := dtos.LanguagePathParams{LanguageSlug: slug}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}
 
-	var request LanguageRequest
+	var request dtos.LanguageBody
 	if err := ctx.BodyParser(&request); err != nil {
 		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 	}
@@ -204,7 +205,7 @@ func (c *Controllers) UpdateLanguage(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(c.NewLanguageResponse(language.ToLanguageDTO()))
+	return ctx.JSON(dtos.NewLanguageResponse(c.backendDomain, language.ToLanguageModel()))
 }
 
 func (c *Controllers) DeleteLanguage(ctx *fiber.Ctx) error {
@@ -218,7 +219,7 @@ func (c *Controllers) DeleteLanguage(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
 	}
 
-	params := LanguageParams{slug}
+	params := dtos.LanguagePathParams{LanguageSlug: slug}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}

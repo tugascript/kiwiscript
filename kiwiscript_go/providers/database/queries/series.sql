@@ -216,11 +216,8 @@ SELECT
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name",
   "series_progress"."id" AS "series_progress_id",
-  "series_progress"."is_current" AS "series_progress_is_current",
-  "series_progress"."completed_parts" AS "series_progress_completed_parts",
-  "series_progress"."in_progress_parts" AS "series_progress_in_progress_parts",
-  "series_progress"."completed_lectures" AS "series_progress_completed_lectures",
-  "series_progress"."in_progress_lectures" AS "series_progress_in_progress_lectures"
+  "series_progress"."completed_sections" AS "series_progress_completed_sections",
+  "series_progress"."completed_lessons" AS "series_progress_completed_lessons"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_progress" ON (
@@ -239,11 +236,8 @@ SELECT
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name",
   "series_progress"."id" AS "series_progress_id",
-  "series_progress"."is_current" AS "series_progress_is_current",
-  "series_progress"."completed_parts" AS "series_progress_completed_parts",
-  "series_progress"."in_progress_parts" AS "series_progress_in_progress_parts",
-  "series_progress"."completed_lectures" AS "series_progress_completed_lectures",
-  "series_progress"."in_progress_lectures" AS "series_progress_in_progress_lectures"
+  "series_progress"."completed_sections" AS "series_progress_completed_sections",
+  "series_progress"."completed_lessons" AS "series_progress_completed_lessons"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_progress" ON (
@@ -262,11 +256,8 @@ SELECT
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name",
   "series_progress"."id" AS "series_progress_id",
-  "series_progress"."is_current" AS "series_progress_is_current",
-  "series_progress"."completed_parts" AS "series_progress_completed_parts",
-  "series_progress"."in_progress_parts" AS "series_progress_in_progress_parts",
-  "series_progress"."completed_lectures" AS "series_progress_completed_lectures",
-  "series_progress"."in_progress_lectures" AS "series_progress_in_progress_lectures"
+  "series_progress"."completed_sections" AS "series_progress_completed_sections",
+  "series_progress"."completed_lessons" AS "series_progress_completed_lessons"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_progress" ON (
@@ -290,11 +281,8 @@ SELECT
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name",
   "series_progress"."id" AS "series_progress_id",
-  "series_progress"."is_current" AS "series_progress_is_current",
-  "series_progress"."completed_parts" AS "series_progress_completed_parts",
-  "series_progress"."in_progress_parts" AS "series_progress_in_progress_parts",
-  "series_progress"."completed_lectures" AS "series_progress_completed_lectures",
-  "series_progress"."in_progress_lectures" AS "series_progress_in_progress_lectures"
+  "series_progress"."completed_sections" AS "series_progress_completed_sections",
+  "series_progress"."completed_lessons" AS "series_progress_completed_lessons"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_progress" ON (
@@ -312,35 +300,35 @@ WHERE
 ORDER BY "series"."slug" ASC
 LIMIT $4 OFFSET $5;
 
--- name: AddSeriesPartsCount :exec
+-- name: AddSeriesSectionsCount :exec
 UPDATE "series" SET
-  "series_parts_count" = "series_parts_count" + 1,
-  "lectures_count" = "lectures_count" + $2,
+  "series_sections_count" = "series_sections_count" + 1,
+  "lessons_count" = "lessons_count" + $2,
   "watch_time_seconds" = "watch_time_seconds" + $3,
   "read_time_seconds" = "read_time_seconds" + $4,
   "updated_at" = now()
 WHERE "slug" = $1;
 
--- name: DecrementSeriesPartsCount :exec
+-- name: DecrementSeriesSectionsCount :exec
 UPDATE "series" SET
-  "series_parts_count" = "series_parts_count" - 1,
-  "lectures_count" = "lectures_count" - $2,
+  "series_sections_count" = "series_sections_count" - 1,
+  "lessons_count" = "lessons_count" - $2,
   "watch_time_seconds" = "watch_time_seconds" - $3,
   "read_time_seconds" = "read_time_seconds" - $4,
   "updated_at" = now()
 WHERE "slug" = $1;
 
--- name: IncrementSeriesLecturesCount :exec
+-- name: IncrementSeriesLessonsCount :exec
 UPDATE "series" SET
-  "lectures_count" = "lectures_count" + 1,
+  "lessons_count" = "lessons_count" + 1,
   "watch_time_seconds" = "watch_time_seconds" + $2,
   "read_time_seconds" = "read_time_seconds" + $3,
   "updated_at" = now()
 WHERE "slug" = $1;
 
--- name: DecrementSeriesLecturesCount :exec
+-- name: DecrementSeriesLessonsCount :exec
 UPDATE "series" SET
-  "lectures_count" = "lectures_count" - 1,
+  "lessons_count" = "lessons_count" - 1,
   "watch_time_seconds" = "watch_time_seconds" + $2,
   "read_time_seconds" = "read_time_seconds" + $3,
   "updated_at" = now()
@@ -397,11 +385,8 @@ SELECT
     "users"."first_name" AS "author_first_name",
     "users"."last_name" AS "author_last_name",
     "series_progress"."id" AS "series_progress_id",
-    "series_progress"."is_current" AS "series_progress_is_current",
-    "series_progress"."completed_parts" AS "series_progress_completed_parts",
-    "series_progress"."in_progress_parts" AS "series_progress_in_progress_parts",
-    "series_progress"."completed_lectures" AS "series_progress_completed_lectures",
-    "series_progress"."in_progress_lectures" AS "series_progress_in_progress_lectures"
+    "series_progress"."completed_sections" AS "series_progress_completed_sections",
+    "series_progress"."completed_lessons" AS "series_progress_completed_lessons"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_progress" ON (

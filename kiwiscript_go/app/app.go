@@ -135,11 +135,11 @@ func CreateApp(
 	rtr.AuthPublicRoutes()
 	rtr.LanguagePublicRoutes()
 	rtr.SeriesPublicRoutes()
-	rtr.SeriesPartPublicRoutes()
-	rtr.LecturePublicRoutes()
-	rtr.LectureArticlePublicRoutes()
-	rtr.LectureVideoPublicRoutes()
-	rtr.LectureFilesPublicRoutes()
+	rtr.SectionPublicRoutes()
+	rtr.LessonPublicRoutes()
+	rtr.LessonArticlePublicRoutes()
+	rtr.LessonVideoPublicRoutes()
+	rtr.LessonFilesPublicRoutes()
 	log.Info("Successfully loaded public routes")
 
 	// Private routes
@@ -147,16 +147,17 @@ func CreateApp(
 	rtr.AuthPrivateRoutes()
 	rtr.LanguageProgressPrivateRoutes()
 	rtr.SeriesProgressPrivateRoutes()
+	rtr.SectionProgressPrivateRoutes()
 	log.Info("Successfully loaded private routes")
 
 	// Staff routes
 	log.Info("Loading staff routes...")
 	rtr.SeriesStaffRoutes()
-	rtr.SeriesPartStaffRoutes()
-	rtr.LectureStaffRoutes()
-	rtr.LectureArticleStaffRoutes()
-	rtr.LectureVideoStaffRoutes()
-	rtr.LectureFilesStaffRoutes()
+	rtr.SectionStaffRoutes()
+	rtr.LessonStaffRoutes()
+	rtr.LessonArticleStaffRoutes()
+	rtr.LessonVideoStaffRoutes()
+	rtr.LessonFilesStaffRoutes()
 	log.Info("Successfully loaded staff routes")
 
 	// Admin Routes

@@ -19,6 +19,7 @@ package controllers
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"github.com/kiwiscript/kiwiscript_go/dtos"
 	"github.com/kiwiscript/kiwiscript_go/services"
 )
 
@@ -34,7 +35,7 @@ func (c *Controllers) CreateOrUpdateLanguageProgress(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(NewRequestError(services.NewUnauthorizedError()))
 	}
 
-	params := LanguageParams{slug}
+	params := dtos.LessonPathParams{LanguageSlug: slug}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}
@@ -50,7 +51,7 @@ func (c *Controllers) CreateOrUpdateLanguageProgress(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(c.NewLanguageResponse(language.ToLanguageDTOWithProgress(languageProgress)))
+	return ctx.JSON(dtos.NewLanguageResponse(c.backendDomain, language.ToLanguageModelWithProgress(languageProgress)))
 }
 
 func (c *Controllers) ResetLanguageProgress(ctx *fiber.Ctx) error {
@@ -65,7 +66,7 @@ func (c *Controllers) ResetLanguageProgress(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(NewRequestError(services.NewUnauthorizedError()))
 	}
 
-	params := LanguageParams{slug}
+	params := dtos.LessonPathParams{LanguageSlug: slug}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}
