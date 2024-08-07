@@ -25,13 +25,13 @@ import (
 )
 
 func (c *Controllers) CreateOrUpdateSectionProgress(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.GetSingleSeries")
+	log := c.log.WithGroup("controllers.series.CreateOrUpdateSectionProgress")
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	log.InfoContext(
-		userCtx, "Getting series part...",
+		userCtx, "Created or updated section progress...",
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
 		"sectionID", sectionID,
@@ -87,7 +87,7 @@ func (c *Controllers) ResetSectionProgress(ctx *fiber.Ctx) error {
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	log.InfoContext(
-		userCtx, "Resetting series part progress",
+		userCtx, "Resetting section progress...",
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
 		"sectionID", sectionID,

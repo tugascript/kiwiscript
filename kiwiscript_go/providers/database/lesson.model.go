@@ -17,6 +17,8 @@
 
 package db
 
+import "time"
+
 type LessonModel struct {
 	ID               int32
 	Title            string
@@ -26,12 +28,17 @@ type LessonModel struct {
 	LanguageSlug     string
 	SeriesSlug       string
 	SectionID        int32
+	ViewedAt         string
 	IsPublished      bool
 	IsCompleted      bool
 }
 
 type ToLessonModel interface {
 	ToLessonModel() *LessonModel
+}
+
+type ToLessonModelWithProgress interface {
+	ToLessonModelWithProgress(progress *LessonProgress) *LessonModel
 }
 
 func (l *Lesson) ToLessonModel() *LessonModel {
@@ -46,6 +53,28 @@ func (l *Lesson) ToLessonModel() *LessonModel {
 		SectionID:        l.SectionID,
 		IsPublished:      l.IsPublished,
 		IsCompleted:      false,
+		ViewedAt:         "",
+	}
+}
+
+func (l *Lesson) ToLessonModelWithProgress(progress *LessonProgress) *LessonModel {
+	var viewedAt string
+	if progress.ViewedAt.Valid {
+		viewedAt = progress.ViewedAt.Time.Format(time.RFC3339)
+	}
+
+	return &LessonModel{
+		ID:               l.ID,
+		Title:            l.Title,
+		Position:         l.Position,
+		WatchTimeSeconds: l.WatchTimeSeconds,
+		ReadTimeSeconds:  l.ReadTimeSeconds,
+		LanguageSlug:     l.LanguageSlug,
+		SeriesSlug:       l.SeriesSlug,
+		SectionID:        l.SectionID,
+		ViewedAt:         viewedAt,
+		IsPublished:      l.IsPublished,
+		IsCompleted:      progress.CompletedAt.Valid,
 	}
 }
 

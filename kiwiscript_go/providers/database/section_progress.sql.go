@@ -80,6 +80,25 @@ func (q *Queries) CreateSectionProgress(ctx context.Context, arg CreateSectionPr
 	return i, err
 }
 
+const decrementSectionProgressCompletedLessons = `-- name: DecrementSectionProgressCompletedLessons :exec
+UPDATE "section_progress"
+SET
+    "completed_lessons" = "section_progress"."completed_lessons" -1,
+    "completed_at" = CASE
+        WHEN "section_progress"."completed_lessons" IS NOT NULL THEN (NULL)
+        ELSE "section_progress"."completed_at"
+    END
+FROM "sections"
+WHERE
+    "section_progress"."section_id" = "sections"."id" AND
+    "section_progress"."id" = $1
+`
+
+func (q *Queries) DecrementSectionProgressCompletedLessons(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, decrementSectionProgressCompletedLessons, id)
+	return err
+}
+
 const deleteSectionProgress = `-- name: DeleteSectionProgress :exec
 DELETE FROM "section_progress"
 WHERE "id" = $1
@@ -88,6 +107,32 @@ WHERE "id" = $1
 func (q *Queries) DeleteSectionProgress(ctx context.Context, id int32) error {
 	_, err := q.db.Exec(ctx, deleteSectionProgress, id)
 	return err
+}
+
+const findSectionProgressByID = `-- name: FindSectionProgressByID :one
+SELECT id, user_id, language_slug, series_slug, section_id, language_progress_id, series_progress_id, completed_lessons, completed_at, viewed_at, created_at, updated_at FROM "section_progress"
+WHERE "id" = $1
+LIMIT 1
+`
+
+func (q *Queries) FindSectionProgressByID(ctx context.Context, id int32) (SectionProgress, error) {
+	row := q.db.QueryRow(ctx, findSectionProgressByID, id)
+	var i SectionProgress
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.LanguageSlug,
+		&i.SeriesSlug,
+		&i.SectionID,
+		&i.LanguageProgressID,
+		&i.SeriesProgressID,
+		&i.CompletedLessons,
+		&i.CompletedAt,
+		&i.ViewedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const findSectionProgressBySlugsAndUserID = `-- name: FindSectionProgressBySlugsAndUserID :one

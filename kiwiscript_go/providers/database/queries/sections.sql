@@ -86,15 +86,6 @@ WHERE
     "id" = $3 
 LIMIT 1;
 
--- name: FindPublishedSectionBySlugsAndID :one
-SELECT * FROM "sections"
-WHERE
-    "language_slug" = $1 AND
-    "series_slug" = $2 AND
-    "id" = $3 AND
-    "is_published" = true
-LIMIT 1;
-
 -- name: FindPublishedSectionBySlugsAndIDWithProgress :one
 SELECT
     "sections".*,

@@ -12,4 +12,5 @@ const (
 	ArticlePath    = "/article"
 	FilesPath      = "/files"
 	ProgressPath   = "/progress"
+	CertificatesV1 = "/v1/certificates"
 )

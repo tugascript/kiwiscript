@@ -33,7 +33,7 @@ func (s *Services) FindSeriesBySlugs(ctx context.Context, opts FindSeriesBySlugs
 	log := s.
 		log.
 		WithGroup("service.series.FindSeriesBySlug").
-		With("laguageSlug", opts.LanguageSlug, "slug", opts.SeriesSlug)
+		With("languageSlug", opts.LanguageSlug, "slug", opts.SeriesSlug)
 	log.InfoContext(ctx, "Getting series by slug")
 
 	series, err := s.database.FindSeriesBySlugAndLanguageSlug(ctx, db.FindSeriesBySlugAndLanguageSlugParams{
@@ -47,6 +47,28 @@ func (s *Services) FindSeriesBySlugs(ctx context.Context, opts FindSeriesBySlugs
 
 	log.InfoContext(ctx, "Series found")
 	return &series, nil
+}
+
+func (s *Services) FindPublishedSeriesBySlugs(
+	ctx context.Context,
+	opts FindSeriesBySlugsOptions,
+) (*db.Series, *ServiceError) {
+	log := s.
+		log.
+		WithGroup("service.series.FindSeriesBySlug").
+		With("languageSlug", opts.LanguageSlug, "slug", opts.SeriesSlug)
+	log.InfoContext(ctx, "Getting published series by slugs")
+
+	series, serviceErr := s.FindSeriesBySlugs(ctx, opts)
+	if serviceErr != nil {
+		return nil, serviceErr
+	}
+	if !series.IsPublished {
+		log.WarnContext(ctx, "Series is not published")
+		return nil, NewNotFoundError()
+	}
+
+	return series, nil
 }
 
 func (s *Services) FindPublishedSeriesBySlugsWithAuthor(

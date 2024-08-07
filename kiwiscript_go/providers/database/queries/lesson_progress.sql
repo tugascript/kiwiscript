@@ -62,3 +62,7 @@ RETURNING *;
 UPDATE "lesson_progress"
 SET "completed_at" = NULL
 WHERE "id" = $1;
+
+-- name: DeleteLessonProgress :exec
+DELETE FROM "lesson_progress"
+WHERE "id" = $1;

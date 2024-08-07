@@ -18,25 +18,17 @@ type AuthProvider struct {
 }
 
 type Certificate struct {
-	ID           uuid.UUID
-	UserID       int32
-	LanguageSlug string
-	SeriesTitle  string
-	SeriesSlug   string
-	CompletedAt  pgtype.Timestamp
-	CreatedAt    pgtype.Timestamp
-	UpdatedAt    pgtype.Timestamp
-}
-
-type Donation struct {
-	ID           int32
-	UserID       int32
-	Amount       int64
-	Currency     string
-	Recurring    bool
-	RecurringRef pgtype.Text
-	CreatedAt    pgtype.Timestamp
-	UpdatedAt    pgtype.Timestamp
+	ID               uuid.UUID
+	UserID           int32
+	SeriesTitle      string
+	Lessons          int16
+	WatchTimeSeconds int32
+	ReadTimeSeconds  int32
+	LanguageSlug     string
+	SeriesSlug       string
+	CompletedAt      pgtype.Timestamp
+	CreatedAt        pgtype.Timestamp
+	UpdatedAt        pgtype.Timestamp
 }
 
 type Language struct {
@@ -121,17 +113,6 @@ type LessonVideo struct {
 	UpdatedAt        pgtype.Timestamp
 }
 
-type Payment struct {
-	ID         int32
-	PaymentRef string
-	UserID     int32
-	DonationID int32
-	Amount     int64
-	Currency   string
-	CreatedAt  pgtype.Timestamp
-	UpdatedAt  pgtype.Timestamp
-}
-
 type Section struct {
 	ID               int32
 	Title            string
@@ -179,11 +160,10 @@ type Series struct {
 	UpdatedAt        pgtype.Timestamp
 }
 
-type SeriesImage struct {
-	ID        int32
+type SeriesPicture struct {
+	ID        uuid.UUID
 	SeriesID  int32
 	AuthorID  int32
-	File      uuid.UUID
 	Ext       string
 	CreatedAt pgtype.Timestamp
 	UpdatedAt pgtype.Timestamp

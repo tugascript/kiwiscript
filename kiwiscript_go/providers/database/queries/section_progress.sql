@@ -46,6 +46,11 @@ WHERE
     "user_id" = $4
 LIMIT 1;
 
+-- name: FindSectionProgressByID :one
+SELECT * FROM "section_progress"
+WHERE "id" = $1
+LIMIT 1;
+
 -- name: DeleteSectionProgress :exec
 DELETE FROM "section_progress"
 WHERE "id" = $1;
@@ -63,3 +68,16 @@ WHERE
     "section_progress"."section_id" = "sections"."id" AND
     "section_progress"."id" = $1
 RETURNING "section_progress".*;
+
+-- name: DecrementSectionProgressCompletedLessons :exec
+UPDATE "section_progress"
+SET
+    "completed_lessons" = "section_progress"."completed_lessons" -1,
+    "completed_at" = CASE
+        WHEN "section_progress"."completed_lessons" IS NOT NULL THEN (NULL)
+        ELSE "section_progress"."completed_at"
+    END
+FROM "sections"
+WHERE
+    "section_progress"."section_id" = "sections"."id" AND
+    "section_progress"."id" = $1;

@@ -117,6 +117,16 @@ func (q *Queries) CreateLessonProgress(ctx context.Context, arg CreateLessonProg
 	return i, err
 }
 
+const deleteLessonProgress = `-- name: DeleteLessonProgress :exec
+DELETE FROM "lesson_progress"
+WHERE "id" = $1
+`
+
+func (q *Queries) DeleteLessonProgress(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, deleteLessonProgress, id)
+	return err
+}
+
 const findLessonProgressBySlugsIDsAndUserID = `-- name: FindLessonProgressBySlugsIDsAndUserID :one
 SELECT id, user_id, language_slug, series_slug, section_id, lesson_id, language_progress_id, series_progress_id, section_progress_id, completed_at, viewed_at, created_at, updated_at FROM "lesson_progress"
 WHERE

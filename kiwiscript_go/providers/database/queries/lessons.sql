@@ -85,16 +85,6 @@ WHERE
   "id" = $4
 LIMIT 1;
 
--- name: FindPublishedLessonBySlugsAndIDs :one
-SELECT * FROM "lessons"
-WHERE
-  "language_slug" = $1 AND
-  "series_slug" = $2 AND
-  "section_id" = $3 AND
-  "id" = $4 AND
-  "is_published" = true
-LIMIT 1;
-
 -- name: FindPaginatedLessonsBySlugsAndSectionID :many
 SELECT * FROM "lessons"
 WHERE
@@ -107,7 +97,8 @@ LIMIT $4 OFFSET $5;
 -- name: FindPaginatedPublishedLessonsBySlugsAndSectionIDWithProgress :many
 SELECT
     "lessons".*,
-    "lesson_progress"."completed_at" AS "lesson_progress_completed_at"
+    "lesson_progress"."completed_at" AS "lesson_progress_completed_at",
+    "lesson_progress"."viewed_at" AS "lesson_progress_viewed_at"
 FROM "lessons"
 LEFT JOIN "lesson_progress" ON (
     "lessons"."id" = "lesson_progress"."lesson_id" AND
@@ -136,6 +127,7 @@ LIMIT $4 OFFSET $5;
 SELECT
     "lessons".*,
     "lesson_progress"."completed_at" AS "lesson_progress_completed_at",
+    "lesson_progress"."viewed_at" AS "lesson_progress_viewed_at",
     "lesson_articles"."id" AS "lesson_acticle_id",
     "lesson_articles"."content" AS "lesson_article_content",
     "lesson_videos"."id" AS "lesson_video_id",

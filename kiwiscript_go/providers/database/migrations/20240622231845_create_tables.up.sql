@@ -1,6 +1,6 @@
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2024-08-03T15:51:27.214Z
+-- Generated at: 2024-08-07T05:54:26.563Z
 
 CREATE TABLE "users" (
   "id" serial PRIMARY KEY,
@@ -53,11 +53,10 @@ CREATE TABLE "series" (
   "updated_at" timestamp NOT NULL DEFAULT (now())
 );
 
-CREATE TABLE "series_images" (
-  "id" serial PRIMARY KEY,
+CREATE TABLE "series_pictures" (
+  "id" uuid PRIMARY KEY,
   "series_id" int NOT NULL,
   "author_id" int NOT NULL,
-  "file" uuid NOT NULL,
   "ext" varchar(10) NOT NULL,
   "created_at" timestamp NOT NULL DEFAULT (now()),
   "updated_at" timestamp NOT NULL DEFAULT (now())
@@ -183,32 +182,13 @@ CREATE TABLE "lesson_progress" (
 CREATE TABLE "certificates" (
   "id" uuid PRIMARY KEY,
   "user_id" int NOT NULL,
-  "language_slug" varchar(50) NOT NULL,
   "series_title" varchar(100) NOT NULL,
+  "lessons" smallint NOT NULL,
+  "watch_time_seconds" int NOT NULL,
+  "read_time_seconds" int NOT NULL,
+  "language_slug" varchar(50) NOT NULL,
   "series_slug" varchar(100) NOT NULL,
   "completed_at" timestamp NOT NULL,
-  "created_at" timestamp NOT NULL DEFAULT (now()),
-  "updated_at" timestamp NOT NULL DEFAULT (now())
-);
-
-CREATE TABLE "donations" (
-  "id" serial PRIMARY KEY,
-  "user_id" int NOT NULL,
-  "amount" bigint NOT NULL,
-  "currency" varchar(3) NOT NULL,
-  "recurring" boolean NOT NULL DEFAULT false,
-  "recurring_ref" varchar(250),
-  "created_at" timestamp NOT NULL DEFAULT (now()),
-  "updated_at" timestamp NOT NULL DEFAULT (now())
-);
-
-CREATE TABLE "payments" (
-  "id" serial PRIMARY KEY,
-  "payment_ref" varchar(250) NOT NULL,
-  "user_id" int NOT NULL,
-  "donation_id" int NOT NULL,
-  "amount" bigint NOT NULL,
-  "currency" varchar(3) NOT NULL,
   "created_at" timestamp NOT NULL DEFAULT (now()),
   "updated_at" timestamp NOT NULL DEFAULT (now())
 );
@@ -243,9 +223,9 @@ CREATE INDEX "series_id_language_slug_idx" ON "series" ("id", "language_slug");
 
 CREATE INDEX "series_author_id_idx" ON "series" ("author_id");
 
-CREATE UNIQUE INDEX "series_images_series_id_unique_idx" ON "series_images" ("series_id");
+CREATE UNIQUE INDEX "series_images_series_id_unique_idx" ON "series_pictures" ("series_id");
 
-CREATE INDEX "series_images_author_id_idx" ON "series_images" ("author_id");
+CREATE INDEX "series_images_author_id_idx" ON "series_pictures" ("author_id");
 
 CREATE UNIQUE INDEX "sections_title_series_slug_unique_idx" ON "sections" ("title", "series_slug");
 
@@ -367,12 +347,6 @@ CREATE INDEX "certificates_language_slug_idx" ON "certificates" ("language_slug"
 
 CREATE INDEX "certificates_series_slug_idx" ON "certificates" ("series_slug");
 
-CREATE INDEX "donations_user_id_idx" ON "donations" ("user_id");
-
-CREATE INDEX "payments_user_id_idx" ON "payments" ("user_id");
-
-CREATE INDEX "payments_donation_id_idx" ON "payments" ("donation_id");
-
 ALTER TABLE "auth_providers" ADD FOREIGN KEY ("email") REFERENCES "users" ("email") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "languages" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -380,6 +354,10 @@ ALTER TABLE "languages" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") 
 ALTER TABLE "series" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "series" ADD FOREIGN KEY ("language_slug") REFERENCES "languages" ("slug") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "series_pictures" ADD FOREIGN KEY ("author_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "series_pictures" ADD FOREIGN KEY ("series_id") REFERENCES "series" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "sections" ADD FOREIGN KEY ("language_slug") REFERENCES "languages" ("slug") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -450,9 +428,3 @@ ALTER TABLE "certificates" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id")
 ALTER TABLE "certificates" ADD FOREIGN KEY ("language_slug") REFERENCES "languages" ("slug") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "certificates" ADD FOREIGN KEY ("series_slug") REFERENCES "series" ("slug") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "donations" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "payments" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE "payments" ADD FOREIGN KEY ("donation_id") REFERENCES "donations" ("id") ON DELETE CASCADE ON UPDATE CASCADE;

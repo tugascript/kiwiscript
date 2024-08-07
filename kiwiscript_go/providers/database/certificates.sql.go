@@ -9,7 +9,22 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const countCertificatesByUserID = `-- name: CountCertificatesByUserID :one
+SELECT COUNT("id") AS "count"
+FROM "certificates"
+WHERE "user_id" = $1
+LIMIT 1
+`
+
+func (q *Queries) CountCertificatesByUserID(ctx context.Context, userID int32) (int64, error) {
+	row := q.db.QueryRow(ctx, countCertificatesByUserID, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
 
 const createCertificate = `-- name: CreateCertificate :one
 INSERT INTO "certificates" (
@@ -17,21 +32,33 @@ INSERT INTO "certificates" (
     "user_id",
     "language_slug",
     "series_slug",
+    "series_title",
+    "lessons",
+    "watch_time_seconds",
+    "read_time_seconds",
     "completed_at"
 ) VALUES (
     $1,
     $2,
     $3,
     $4,
+    $5,
+    $6,
+    $7,
+    $8,
     now()
-) RETURNING id, user_id, language_slug, series_title, series_slug, completed_at, created_at, updated_at
+) RETURNING id, user_id, series_title, lessons, watch_time_seconds, read_time_seconds, language_slug, series_slug, completed_at, created_at, updated_at
 `
 
 type CreateCertificateParams struct {
-	ID           uuid.UUID
-	UserID       int32
-	LanguageSlug string
-	SeriesSlug   string
+	ID               uuid.UUID
+	UserID           int32
+	LanguageSlug     string
+	SeriesSlug       string
+	SeriesTitle      string
+	Lessons          int16
+	WatchTimeSeconds int32
+	ReadTimeSeconds  int32
 }
 
 func (q *Queries) CreateCertificate(ctx context.Context, arg CreateCertificateParams) (Certificate, error) {
@@ -40,13 +67,20 @@ func (q *Queries) CreateCertificate(ctx context.Context, arg CreateCertificatePa
 		arg.UserID,
 		arg.LanguageSlug,
 		arg.SeriesSlug,
+		arg.SeriesTitle,
+		arg.Lessons,
+		arg.WatchTimeSeconds,
+		arg.ReadTimeSeconds,
 	)
 	var i Certificate
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.LanguageSlug,
 		&i.SeriesTitle,
+		&i.Lessons,
+		&i.WatchTimeSeconds,
+		&i.ReadTimeSeconds,
+		&i.LanguageSlug,
 		&i.SeriesSlug,
 		&i.CompletedAt,
 		&i.CreatedAt,
@@ -55,14 +89,69 @@ func (q *Queries) CreateCertificate(ctx context.Context, arg CreateCertificatePa
 	return i, err
 }
 
-const findCertificateBySeriesSlugAndUserID = `-- name: FindCertificateBySeriesSlugAndUserID :one
+const findCertificateByIDWithUserAndLanguage = `-- name: FindCertificateByIDWithUserAndLanguage :one
+SELECT
+    certificates.id, certificates.user_id, certificates.series_title, certificates.lessons, certificates.watch_time_seconds, certificates.read_time_seconds, certificates.language_slug, certificates.series_slug, certificates.completed_at, certificates.created_at, certificates.updated_at,
+    "languages"."id" AS "language_id",
+    "languages"."name" AS "language_name",
+    "users"."first_name" AS "author_first_name",
+    "users"."last_name" AS "author_last_name"
+FROM "certificates"
+INNER JOIN "languages" ON "certificates"."language_slug" = "languages"."slug"
+INNER JOIN "users" ON "certificates"."user_id" = "users"."id"
+WHERE "certificates"."id" = $1
+LIMIT 1
+`
 
-SELECT id, user_id, language_slug, series_title, series_slug, completed_at, created_at, updated_at FROM "certificates"
+type FindCertificateByIDWithUserAndLanguageRow struct {
+	ID               uuid.UUID
+	UserID           int32
+	SeriesTitle      string
+	Lessons          int16
+	WatchTimeSeconds int32
+	ReadTimeSeconds  int32
+	LanguageSlug     string
+	SeriesSlug       string
+	CompletedAt      pgtype.Timestamp
+	CreatedAt        pgtype.Timestamp
+	UpdatedAt        pgtype.Timestamp
+	LanguageID       int32
+	LanguageName     string
+	AuthorFirstName  string
+	AuthorLastName   string
+}
+
+func (q *Queries) FindCertificateByIDWithUserAndLanguage(ctx context.Context, id uuid.UUID) (FindCertificateByIDWithUserAndLanguageRow, error) {
+	row := q.db.QueryRow(ctx, findCertificateByIDWithUserAndLanguage, id)
+	var i FindCertificateByIDWithUserAndLanguageRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.SeriesTitle,
+		&i.Lessons,
+		&i.WatchTimeSeconds,
+		&i.ReadTimeSeconds,
+		&i.LanguageSlug,
+		&i.SeriesSlug,
+		&i.CompletedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LanguageID,
+		&i.LanguageName,
+		&i.AuthorFirstName,
+		&i.AuthorLastName,
+	)
+	return i, err
+}
+
+const findCertificateByUserIDAndSeriesSlug = `-- name: FindCertificateByUserIDAndSeriesSlug :one
+
+SELECT id, user_id, series_title, lessons, watch_time_seconds, read_time_seconds, language_slug, series_slug, completed_at, created_at, updated_at FROM "certificates"
 WHERE "user_id" = $1 AND "series_slug" = $2
 LIMIT 1
 `
 
-type FindCertificateBySeriesSlugAndUserIDParams struct {
+type FindCertificateByUserIDAndSeriesSlugParams struct {
 	UserID     int32
 	SeriesSlug string
 }
@@ -83,18 +172,89 @@ type FindCertificateBySeriesSlugAndUserIDParams struct {
 //
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
-func (q *Queries) FindCertificateBySeriesSlugAndUserID(ctx context.Context, arg FindCertificateBySeriesSlugAndUserIDParams) (Certificate, error) {
-	row := q.db.QueryRow(ctx, findCertificateBySeriesSlugAndUserID, arg.UserID, arg.SeriesSlug)
+func (q *Queries) FindCertificateByUserIDAndSeriesSlug(ctx context.Context, arg FindCertificateByUserIDAndSeriesSlugParams) (Certificate, error) {
+	row := q.db.QueryRow(ctx, findCertificateByUserIDAndSeriesSlug, arg.UserID, arg.SeriesSlug)
 	var i Certificate
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.LanguageSlug,
 		&i.SeriesTitle,
+		&i.Lessons,
+		&i.WatchTimeSeconds,
+		&i.ReadTimeSeconds,
+		&i.LanguageSlug,
 		&i.SeriesSlug,
 		&i.CompletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const findPaginatedCertificatesByUserID = `-- name: FindPaginatedCertificatesByUserID :many
+SELECT
+    certificates.id, certificates.user_id, certificates.series_title, certificates.lessons, certificates.watch_time_seconds, certificates.read_time_seconds, certificates.language_slug, certificates.series_slug, certificates.completed_at, certificates.created_at, certificates.updated_at,
+    "languages"."id" AS "language_id",
+    "languages"."name" AS "language_name"
+FROM "certificates"
+INNER JOIN "languages" ON "certificates"."language_slug" = "languages"."slug"
+WHERE "certificates"."user_id" = $1
+ORDER BY "certificates"."created_at" ASC
+LIMIT $2 OFFSET $3
+`
+
+type FindPaginatedCertificatesByUserIDParams struct {
+	UserID int32
+	Limit  int32
+	Offset int32
+}
+
+type FindPaginatedCertificatesByUserIDRow struct {
+	ID               uuid.UUID
+	UserID           int32
+	SeriesTitle      string
+	Lessons          int16
+	WatchTimeSeconds int32
+	ReadTimeSeconds  int32
+	LanguageSlug     string
+	SeriesSlug       string
+	CompletedAt      pgtype.Timestamp
+	CreatedAt        pgtype.Timestamp
+	UpdatedAt        pgtype.Timestamp
+	LanguageID       int32
+	LanguageName     string
+}
+
+func (q *Queries) FindPaginatedCertificatesByUserID(ctx context.Context, arg FindPaginatedCertificatesByUserIDParams) ([]FindPaginatedCertificatesByUserIDRow, error) {
+	rows, err := q.db.Query(ctx, findPaginatedCertificatesByUserID, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FindPaginatedCertificatesByUserIDRow{}
+	for rows.Next() {
+		var i FindPaginatedCertificatesByUserIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.SeriesTitle,
+			&i.Lessons,
+			&i.WatchTimeSeconds,
+			&i.ReadTimeSeconds,
+			&i.LanguageSlug,
+			&i.SeriesSlug,
+			&i.CompletedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.LanguageID,
+			&i.LanguageName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

@@ -148,6 +148,7 @@ func CreateApp(
 	rtr.LanguageProgressPrivateRoutes()
 	rtr.SeriesProgressPrivateRoutes()
 	rtr.SectionProgressPrivateRoutes()
+	rtr.LessonProgressPrivateRoutes()
 	log.Info("Successfully loaded private routes")
 
 	// Staff routes

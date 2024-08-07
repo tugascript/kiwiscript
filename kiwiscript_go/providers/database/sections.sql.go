@@ -392,43 +392,6 @@ func (q *Queries) FindPaginatedSectionsBySlugs(ctx context.Context, arg FindPagi
 	return items, nil
 }
 
-const findPublishedSectionBySlugsAndID = `-- name: FindPublishedSectionBySlugsAndID :one
-SELECT id, title, language_slug, series_slug, description, position, lessons_count, watch_time_seconds, read_time_seconds, is_published, author_id, created_at, updated_at FROM "sections"
-WHERE
-    "language_slug" = $1 AND
-    "series_slug" = $2 AND
-    "id" = $3 AND
-    "is_published" = true
-LIMIT 1
-`
-
-type FindPublishedSectionBySlugsAndIDParams struct {
-	LanguageSlug string
-	SeriesSlug   string
-	ID           int32
-}
-
-func (q *Queries) FindPublishedSectionBySlugsAndID(ctx context.Context, arg FindPublishedSectionBySlugsAndIDParams) (Section, error) {
-	row := q.db.QueryRow(ctx, findPublishedSectionBySlugsAndID, arg.LanguageSlug, arg.SeriesSlug, arg.ID)
-	var i Section
-	err := row.Scan(
-		&i.ID,
-		&i.Title,
-		&i.LanguageSlug,
-		&i.SeriesSlug,
-		&i.Description,
-		&i.Position,
-		&i.LessonsCount,
-		&i.WatchTimeSeconds,
-		&i.ReadTimeSeconds,
-		&i.IsPublished,
-		&i.AuthorID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const findPublishedSectionBySlugsAndIDWithProgress = `-- name: FindPublishedSectionBySlugsAndIDWithProgress :one
 SELECT
     sections.id, sections.title, sections.language_slug, sections.series_slug, sections.description, sections.position, sections.lessons_count, sections.watch_time_seconds, sections.read_time_seconds, sections.is_published, sections.author_id, sections.created_at, sections.updated_at,

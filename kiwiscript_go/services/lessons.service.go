@@ -33,8 +33,8 @@ type CreateLessonOptions struct {
 }
 
 func (s *Services) CreateLesson(ctx context.Context, opts CreateLessonOptions) (*db.Lesson, *ServiceError) {
-	log := s.log.WithGroup("services.lectures.CreateLesson").With("title", opts.Title)
-	log.InfoContext(ctx, "Creating lectures...")
+	log := s.log.WithGroup("services.lessons.CreateLesson").With("title", opts.Title)
+	log.InfoContext(ctx, "Creating lessons...")
 
 	servicePart, serviceErr := s.AssertSectionOwnership(ctx, AssertSectionOwnershipOptions{
 		UserID:       opts.UserID,
@@ -46,7 +46,7 @@ func (s *Services) CreateLesson(ctx context.Context, opts CreateLessonOptions) (
 		return nil, serviceErr
 	}
 
-	lecture, err := s.database.CreateLesson(ctx, db.CreateLessonParams{
+	lesson, err := s.database.CreateLesson(ctx, db.CreateLessonParams{
 		SectionID:    servicePart.ID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
@@ -54,26 +54,26 @@ func (s *Services) CreateLesson(ctx context.Context, opts CreateLessonOptions) (
 		AuthorID:     opts.UserID,
 	})
 	if err != nil {
-		log.ErrorContext(ctx, "Failed to create lecture", "error", err)
+		log.ErrorContext(ctx, "Failed to create lesson", "error", err)
 		return nil, FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Lesson created successfully")
-	return &lecture, nil
+	return &lesson, nil
 }
 
 func (s *Services) FindLessonsBySectionID(ctx context.Context, seriesPartID int32) ([]db.Lesson, *ServiceError) {
-	log := s.log.WithGroup("services.lectures.FindLessonsBySectionID").With("series_part_id", seriesPartID)
-	log.InfoContext(ctx, "Finding lectures by series part ID...")
+	log := s.log.WithGroup("services.lessons.FindLessonsBySectionID").With("series_part_id", seriesPartID)
+	log.InfoContext(ctx, "Finding lessons by series part ID...")
 
-	lectures, err := s.database.FindLessonsBySectionID(ctx, seriesPartID)
+	lessons, err := s.database.FindLessonsBySectionID(ctx, seriesPartID)
 	if err != nil {
-		log.ErrorContext(ctx, "Failed to find lectures", "error", err)
+		log.ErrorContext(ctx, "Failed to find lessons", "error", err)
 		return nil, FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Lessons found successfully")
-	return lectures, nil
+	return lessons, nil
 }
 
 type FindLessonOptions struct {
@@ -86,8 +86,8 @@ type FindLessonOptions struct {
 func (s *Services) FindLessonBySlugsAndIDs(ctx context.Context, opts FindLessonOptions) (*db.Lesson, *ServiceError) {
 	log := s.
 		log.
-		WithGroup("services.lectures.FindLessonBySlugsAndIDs").
-		With("lecture_id", opts.LessonID, "series_part_id", opts.SectionID)
+		WithGroup("services.lessons.FindLessonBySlugsAndIDs").
+		With("lesson_id", opts.LessonID, "series_part_id", opts.SectionID)
 	log.InfoContext(ctx, "Finding lesson...")
 
 	lesson, err := s.database.FindLessonBySlugsAndIDs(ctx, db.FindLessonBySlugsAndIDsParams{
@@ -105,13 +105,15 @@ func (s *Services) FindLessonBySlugsAndIDs(ctx context.Context, opts FindLessonO
 	return &lesson, nil
 }
 
+// TODO: fix by getting the series and sections first and check if it published
+
 func (s *Services) FindPublishedLessonBySlugsAndIDs(
 	ctx context.Context,
 	opts FindLessonOptions,
 ) (*db.Lesson, *ServiceError) {
 	log := s.
 		log.
-		WithGroup("services.lectures.FindPublishedLessonBySlugsAndIDs").
+		WithGroup("services.lessons.FindPublishedLessonBySlugsAndIDs").
 		With(
 			"languageSlug", opts.LanguageSlug,
 			"seriesSlug", opts.SeriesSlug,
@@ -119,6 +121,15 @@ func (s *Services) FindPublishedLessonBySlugsAndIDs(
 			"lessonId", opts.LessonID,
 		)
 	log.InfoContext(ctx, "Finding published lesson...")
+
+	sectionOpts := FindSectionBySlugsAndIDOptions{
+		LanguageSlug: opts.LanguageSlug,
+		SeriesSlug:   opts.SeriesSlug,
+		SectionID:    opts.SectionID,
+	}
+	if _, serviceErr := s.FindPublishedSectionBySlugsAndID(ctx, sectionOpts); serviceErr != nil {
+		return nil, serviceErr
+	}
 
 	lesson, serviceErr := s.FindLessonBySlugsAndIDs(ctx, opts)
 	if serviceErr != nil {
@@ -145,19 +156,19 @@ func (s *Services) FindPaginatedLessons(
 	ctx context.Context,
 	opts FindPaginatedLessonsOptions,
 ) ([]db.Lesson, int64, *ServiceError) {
-	log := s.log.WithGroup("services.lectures.FindLessons").With("series_slug", opts.SeriesSlug)
-	log.InfoContext(ctx, "Finding lectures...")
+	log := s.log.WithGroup("services.lessons.FindLessons").With("series_slug", opts.SeriesSlug)
+	log.InfoContext(ctx, "Finding lessons...")
 
 	count, err := s.database.CountLessonsBySectionID(ctx, opts.SectionID)
 	if err != nil {
-		log.ErrorContext(ctx, "Failed to count lectures", "error", err)
+		log.ErrorContext(ctx, "Failed to count lessons", "error", err)
 		return nil, 0, FromDBError(err)
 	}
 	if count == 0 {
 		return make([]db.Lesson, 0), 0, nil
 	}
 
-	lectures, err := s.database.FindPaginatedLessonsBySlugsAndSectionID(
+	lessons, err := s.database.FindPaginatedLessonsBySlugsAndSectionID(
 		ctx,
 		db.FindPaginatedLessonsBySlugsAndSectionIDParams{
 			LanguageSlug: opts.LanguageSlug,
@@ -168,12 +179,12 @@ func (s *Services) FindPaginatedLessons(
 		},
 	)
 	if err != nil {
-		log.ErrorContext(ctx, "Failed to find lectures", "error", err)
+		log.ErrorContext(ctx, "Failed to find lessons", "error", err)
 		return nil, 0, FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Lessons found successfully")
-	return lectures, count, nil
+	return lessons, count, nil
 }
 
 type FindPaginatedPublishedLessonsWithProgressOptions struct {
@@ -215,7 +226,7 @@ func (s *Services) FindPaginatedPublishedLessonsWithProgress(
 	ctx context.Context,
 	opts FindPaginatedPublishedLessonsWithProgressOptions,
 ) ([]db.FindPaginatedPublishedLessonsBySlugsAndSectionIDWithProgressRow, int64, *ServiceError) {
-	log := s.log.WithGroup("services.lectures.FindPaginatedPublishedLessonsWithProgress").With(
+	log := s.log.WithGroup("services.lessons.FindPaginatedPublishedLessonsWithProgress").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -256,7 +267,7 @@ func (s *Services) FindPaginatedPublishedLessons(
 	ctx context.Context,
 	opts FindPaginatedLessonsOptions,
 ) ([]db.Lesson, int64, *ServiceError) {
-	log := s.log.WithGroup("services.lectures.FindPaginatedPublishedLessonsWithProgress").With(
+	log := s.log.WithGroup("services.lessons.FindPaginatedPublishedLessonsWithProgress").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
 		"sectionId", opts.SectionID,
@@ -332,6 +343,15 @@ func (s *Services) FindPublishedLessonWithArticleAndVideo(
 	)
 	log.InfoContext(ctx, "Finding published lesson with article and video...")
 
+	sectionOpts := FindSectionBySlugsAndIDOptions{
+		LanguageSlug: opts.LanguageSlug,
+		SeriesSlug:   opts.SeriesSlug,
+		SectionID:    opts.SectionID,
+	}
+	if _, serviceErr := s.FindPublishedSectionBySlugsAndID(ctx, sectionOpts); serviceErr != nil {
+		return nil, serviceErr
+	}
+
 	lesson, serviceErr := s.FindLessonWithArticleAndVideo(ctx, opts)
 	if serviceErr != nil {
 		return nil, serviceErr
@@ -393,10 +413,10 @@ type AssertLessonOwnershipOptions struct {
 }
 
 func (s *Services) AssertLessonOwnership(ctx context.Context, opts AssertLessonOwnershipOptions) (*db.Lesson, *ServiceError) {
-	log := s.log.WithGroup("services.lectures.AssertLessonOwnership").With("lecture_id", opts.LessonID)
-	log.InfoContext(ctx, "Asserting lecture ownership...")
+	log := s.log.WithGroup("services.lessons.AssertLessonOwnership").With("lesson_id", opts.LessonID)
+	log.InfoContext(ctx, "Asserting lesson ownership...")
 
-	lecture, serviceErr := s.FindLessonBySlugsAndIDs(ctx, FindLessonOptions{
+	lesson, serviceErr := s.FindLessonBySlugsAndIDs(ctx, FindLessonOptions{
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
 		SectionID:    opts.SectionID,
@@ -406,12 +426,12 @@ func (s *Services) AssertLessonOwnership(ctx context.Context, opts AssertLessonO
 		return nil, serviceErr
 	}
 
-	if lecture.AuthorID != opts.UserID {
+	if lesson.AuthorID != opts.UserID {
 		log.Warn("User is not the author of the series")
 		return nil, NewForbiddenError()
 	}
 
-	return lecture, nil
+	return lesson, nil
 }
 
 type UpdateLessonOptions struct {
@@ -425,10 +445,10 @@ type UpdateLessonOptions struct {
 }
 
 func (s *Services) UpdateLesson(ctx context.Context, opts UpdateLessonOptions) (*db.Lesson, *ServiceError) {
-	log := s.log.WithGroup("services.lectures.UpdateLessons").With("title", opts.Title)
-	log.InfoContext(ctx, "Updating lectures...")
+	log := s.log.WithGroup("services.lessons.UpdateLessons").With("title", opts.Title)
+	log.InfoContext(ctx, "Updating lessons...")
 
-	lecture, serviceErr := s.AssertLessonOwnership(ctx, AssertLessonOwnershipOptions{
+	lesson, serviceErr := s.AssertLessonOwnership(ctx, AssertLessonOwnershipOptions{
 		UserID:       opts.UserID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
@@ -439,19 +459,19 @@ func (s *Services) UpdateLesson(ctx context.Context, opts UpdateLessonOptions) (
 		return nil, serviceErr
 	}
 
-	if opts.Position == 0 || lecture.Position == opts.Position {
+	if opts.Position == 0 || lesson.Position == opts.Position {
 		var err error
-		*lecture, err = s.database.UpdateLesson(ctx, db.UpdateLessonParams{
-			ID:    lecture.ID,
+		*lesson, err = s.database.UpdateLesson(ctx, db.UpdateLessonParams{
+			ID:    lesson.ID,
 			Title: opts.Title,
 		})
 		if err != nil {
-			log.ErrorContext(ctx, "Failed to update lecture", "error", err)
+			log.ErrorContext(ctx, "Failed to update lesson", "error", err)
 			return nil, FromDBError(err)
 		}
 
 		log.InfoContext(ctx, "Lesson updated successfully")
-		return lecture, nil
+		return lesson, nil
 	}
 
 	qrs, txn, err := s.database.BeginTx(ctx)
@@ -461,14 +481,14 @@ func (s *Services) UpdateLesson(ctx context.Context, opts UpdateLessonOptions) (
 	}
 	defer s.database.FinalizeTx(ctx, txn, err)
 
-	oldPosition := lecture.Position
-	*lecture, err = qrs.UpdateLessonWithPosition(ctx, db.UpdateLessonWithPositionParams{
-		ID:       lecture.ID,
+	oldPosition := lesson.Position
+	*lesson, err = qrs.UpdateLessonWithPosition(ctx, db.UpdateLessonWithPositionParams{
+		ID:       lesson.ID,
 		Title:    opts.Title,
 		Position: opts.Position,
 	})
 	if err != nil {
-		log.ErrorContext(ctx, "Failed to update lecture with position", "error", err)
+		log.ErrorContext(ctx, "Failed to update lesson with position", "error", err)
 		return nil, FromDBError(err)
 	}
 
@@ -479,7 +499,7 @@ func (s *Services) UpdateLesson(ctx context.Context, opts UpdateLessonOptions) (
 			Position_2: opts.Position,
 		}
 		if err := qrs.DecrementLessonPosition(ctx, params); err != nil {
-			log.ErrorContext(ctx, "Failed to decrement lecture position", "error", err)
+			log.ErrorContext(ctx, "Failed to decrement lesson position", "error", err)
 			return nil, FromDBError(err)
 		}
 	} else {
@@ -489,13 +509,13 @@ func (s *Services) UpdateLesson(ctx context.Context, opts UpdateLessonOptions) (
 			Position_2: oldPosition,
 		}
 		if err := qrs.IncrementLessonPosition(ctx, params); err != nil {
-			log.ErrorContext(ctx, "Failed to increment lecture position", "error", err)
+			log.ErrorContext(ctx, "Failed to increment lesson position", "error", err)
 			return nil, FromDBError(err)
 		}
 	}
 
 	log.InfoContext(ctx, "Lesson updated successfully")
-	return lecture, nil
+	return lesson, nil
 }
 
 type DeleteLessonOptions struct {
@@ -507,10 +527,10 @@ type DeleteLessonOptions struct {
 }
 
 func (s *Services) DeleteLesson(ctx context.Context, opts DeleteLessonOptions) *ServiceError {
-	log := s.log.WithGroup("services.lectures.DeleteLessons").With("lecture_id", opts.LessonID)
-	log.InfoContext(ctx, "Deleting lectures...")
+	log := s.log.WithGroup("services.lessons.DeleteLessons").With("lesson_id", opts.LessonID)
+	log.InfoContext(ctx, "Deleting lessons...")
 
-	lecture, serviceErr := s.AssertLessonOwnership(ctx, AssertLessonOwnershipOptions(opts))
+	lesson, serviceErr := s.AssertLessonOwnership(ctx, AssertLessonOwnershipOptions(opts))
 	if serviceErr != nil {
 		return serviceErr
 	}
@@ -522,18 +542,18 @@ func (s *Services) DeleteLesson(ctx context.Context, opts DeleteLessonOptions) *
 	}
 	defer s.database.FinalizeTx(ctx, txn, err)
 
-	if err := qrs.DeleteLessonByID(ctx, lecture.ID); err != nil {
-		log.ErrorContext(ctx, "Failed to delete lecture", "error", err)
+	if err := qrs.DeleteLessonByID(ctx, lesson.ID); err != nil {
+		log.ErrorContext(ctx, "Failed to delete lesson", "error", err)
 		return FromDBError(err)
 	}
 
 	params := db.DecrementLessonPositionParams{
 		SectionID:  opts.SectionID,
-		Position:   lecture.Position,
+		Position:   lesson.Position,
 		Position_2: 1,
 	}
 	if err := qrs.DecrementLessonPosition(ctx, params); err != nil {
-		log.ErrorContext(ctx, "Failed to decrement lecture position", "error", err)
+		log.ErrorContext(ctx, "Failed to decrement lesson position", "error", err)
 		return FromDBError(err)
 	}
 
@@ -551,10 +571,10 @@ type UpdateLessonIsPublishedOptions struct {
 }
 
 func (s *Services) UpdateLessonIsPublished(ctx context.Context, opts UpdateLessonIsPublishedOptions) (*db.Lesson, *ServiceError) {
-	log := s.log.WithGroup("services.lectures.UpdateLessonIsPublished").With("lecture_id", opts.LessonID)
-	log.InfoContext(ctx, "Updating lecture article is published...")
+	log := s.log.WithGroup("services.lessons.UpdateLessonIsPublished").With("lesson_id", opts.LessonID)
+	log.InfoContext(ctx, "Updating lesson article is published...")
 
-	lecture, serviceErr := s.AssertLessonOwnership(ctx, AssertLessonOwnershipOptions{
+	lesson, serviceErr := s.AssertLessonOwnership(ctx, AssertLessonOwnershipOptions{
 		UserID:       opts.UserID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
@@ -565,13 +585,13 @@ func (s *Services) UpdateLessonIsPublished(ctx context.Context, opts UpdateLesso
 		return nil, serviceErr
 	}
 
-	if lecture.IsPublished == opts.IsPublished {
+	if lesson.IsPublished == opts.IsPublished {
 		log.InfoContext(ctx, "Lesson article is already published")
-		return lecture, nil
+		return lesson, nil
 	}
-	if opts.IsPublished && lecture.ReadTimeSeconds == 0 && lecture.WatchTimeSeconds == 0 {
-		log.WarnContext(ctx, "Cannot publish lecture article without read time or watch time")
-		return nil, NewValidationError("Cannot publish lecture without content")
+	if opts.IsPublished && lesson.ReadTimeSeconds == 0 && lesson.WatchTimeSeconds == 0 {
+		log.WarnContext(ctx, "Cannot publish lesson article without read time or watch time")
+		return nil, NewValidationError("Cannot publish lesson without content")
 	}
 
 	qrs, txn, err := s.database.BeginTx(ctx)
@@ -581,56 +601,56 @@ func (s *Services) UpdateLessonIsPublished(ctx context.Context, opts UpdateLesso
 	}
 	defer s.database.FinalizeTx(ctx, txn, err)
 
-	*lecture, err = qrs.UpdateLessonIsPublished(ctx, db.UpdateLessonIsPublishedParams{
-		ID:          lecture.ID,
+	*lesson, err = qrs.UpdateLessonIsPublished(ctx, db.UpdateLessonIsPublishedParams{
+		ID:          lesson.ID,
 		IsPublished: opts.IsPublished,
 	})
 	if err != nil {
-		log.ErrorContext(ctx, "Failed to update lecture article is published", "error", err)
+		log.ErrorContext(ctx, "Failed to update lesson article is published", "error", err)
 		return nil, FromDBError(err)
 	}
 
 	if opts.IsPublished {
 		incPartParams := db.IncrementSectionLessonsCountParams{
 			ID:               opts.SectionID,
-			WatchTimeSeconds: lecture.WatchTimeSeconds,
-			ReadTimeSeconds:  lecture.ReadTimeSeconds,
+			WatchTimeSeconds: lesson.WatchTimeSeconds,
+			ReadTimeSeconds:  lesson.ReadTimeSeconds,
 		}
 		if err := qrs.IncrementSectionLessonsCount(ctx, incPartParams); err != nil {
-			log.ErrorContext(ctx, "Failed to increment series part lectures count", "error", err)
+			log.ErrorContext(ctx, "Failed to increment series part lessons count", "error", err)
 			return nil, FromDBError(err)
 		}
 
 		incSeriesParams := db.IncrementSeriesLessonsCountParams{
 			Slug:             opts.SeriesSlug,
-			WatchTimeSeconds: lecture.WatchTimeSeconds,
-			ReadTimeSeconds:  lecture.ReadTimeSeconds,
+			WatchTimeSeconds: lesson.WatchTimeSeconds,
+			ReadTimeSeconds:  lesson.ReadTimeSeconds,
 		}
 		if err := qrs.IncrementSeriesLessonsCount(ctx, incSeriesParams); err != nil {
-			log.ErrorContext(ctx, "Failed to increment series lectures count", "error", err)
+			log.ErrorContext(ctx, "Failed to increment series lessons count", "error", err)
 			return nil, FromDBError(err)
 		}
 	} else {
 		decPartParams := db.DecrementSectionLessonsCountParams{
 			ID:               opts.SectionID,
-			WatchTimeSeconds: lecture.WatchTimeSeconds,
-			ReadTimeSeconds:  lecture.ReadTimeSeconds,
+			WatchTimeSeconds: lesson.WatchTimeSeconds,
+			ReadTimeSeconds:  lesson.ReadTimeSeconds,
 		}
 		if err := qrs.DecrementSectionLessonsCount(ctx, decPartParams); err != nil {
-			log.ErrorContext(ctx, "Failed to decrement series part lectures count", "error", err)
+			log.ErrorContext(ctx, "Failed to decrement series part lessons count", "error", err)
 			return nil, FromDBError(err)
 		}
 
 		decSeriesParams := db.DecrementSeriesLessonsCountParams{
 			Slug:             opts.SeriesSlug,
-			WatchTimeSeconds: lecture.WatchTimeSeconds,
-			ReadTimeSeconds:  lecture.ReadTimeSeconds,
+			WatchTimeSeconds: lesson.WatchTimeSeconds,
+			ReadTimeSeconds:  lesson.ReadTimeSeconds,
 		}
 		if err := qrs.DecrementSeriesLessonsCount(ctx, decSeriesParams); err != nil {
-			log.ErrorContext(ctx, "Failed to decrement series lectures count", "error", err)
+			log.ErrorContext(ctx, "Failed to decrement series lessons count", "error", err)
 			return nil, FromDBError(err)
 		}
 	}
 
-	return lecture, nil
+	return lesson, nil
 }

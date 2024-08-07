@@ -24,6 +24,7 @@ import (
 	"github.com/kiwiscript/kiwiscript_go/paths"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/services"
+	"time"
 )
 
 // Path params
@@ -49,10 +50,11 @@ type UpdateLessonBody struct {
 // Responses
 
 type LessonLinks struct {
-	Self    LinkResponse  `json:"self"`
-	Section LinkResponse  `json:"section"`
-	Article *LinkResponse `json:"article,omitempty"`
-	Video   *LinkResponse `json:"video,omitempty"`
+	Self        LinkResponse  `json:"self"`
+	Section     LinkResponse  `json:"section"`
+	Article     *LinkResponse `json:"article,omitempty"`
+	Video       *LinkResponse `json:"video,omitempty"`
+	Certificate *LinkResponse `json:"certificate,omitempty"`
 }
 
 func newLessonLinks(
@@ -63,8 +65,9 @@ func newLessonLinks(
 	lessonID,
 	readTimeSeconds,
 	watchTimeSeconds int32,
+	certificateID *uuid.UUID,
 ) LessonLinks {
-	var article, video *LinkResponse
+	var article, video, certificate *LinkResponse
 
 	if readTimeSeconds > 0 {
 		article = &LinkResponse{
@@ -100,6 +103,11 @@ func newLessonLinks(
 			),
 		}
 	}
+	if certificateID != nil {
+		certificate = &LinkResponse{
+			Href: fmt.Sprintf("https://%s%s/%s", backendDomain, paths.CertificatesV1, certificateID.String()),
+		}
+	}
 
 	return LessonLinks{
 		Self: LinkResponse{
@@ -128,8 +136,9 @@ func newLessonLinks(
 				sectionID,
 			),
 		},
-		Article: article,
-		Video:   video,
+		Article:     article,
+		Video:       video,
+		Certificate: certificate,
 	}
 }
 
@@ -251,10 +260,50 @@ func newFileEmbedded(
 	}
 }
 
+type LessonCertificateEmbedded struct {
+	ID          uuid.UUID        `json:"id"`
+	SeriesTitle string           `json:"seriesTitle"`
+	Lessons     int16            `json:"lessons"`
+	WatchTime   int32            `json:"watchTime"`
+	ReadTime    int32            `json:"readTime"`
+	CompletedAt string           `json:"completedAt,omitempty"`
+	Links       SelfLinkResponse `json:"_links"`
+}
+
+func newCertificateEmbedded(
+	backendDomain string,
+	certificate *db.Certificate,
+) *LessonCertificateEmbedded {
+	var completedAt string
+	if certificate.CompletedAt.Valid {
+		completedAt = certificate.CompletedAt.Time.Format(time.RFC3339)
+	}
+
+	return &LessonCertificateEmbedded{
+		ID:          certificate.ID,
+		SeriesTitle: certificate.SeriesTitle,
+		Lessons:     certificate.Lessons,
+		WatchTime:   certificate.WatchTimeSeconds,
+		ReadTime:    certificate.ReadTimeSeconds,
+		CompletedAt: completedAt,
+		Links: SelfLinkResponse{
+			Self: LinkResponse{
+				Href: fmt.Sprintf(
+					"https://%s%s/%s",
+					backendDomain,
+					paths.CertificatesV1,
+					certificate.ID.String(),
+				),
+			},
+		},
+	}
+}
+
 type LessonEmbedded struct {
-	Article *LessonArticleEmbedded `json:"article,omitempty"`
-	Video   *LessonVideoEmbedded   `json:"video,omitempty"`
-	Files   []LessonFileEmbedded   `json:"files,omitempty"`
+	Article     *LessonArticleEmbedded     `json:"article,omitempty"`
+	Video       *LessonVideoEmbedded       `json:"video,omitempty"`
+	Files       []LessonFileEmbedded       `json:"files,omitempty"`
+	Certificate *LessonCertificateEmbedded `json:"certificate,omitempty"`
 }
 
 func newLessonEmbedded(
@@ -270,6 +319,12 @@ func newLessonEmbedded(
 		Article: article,
 		Video:   video,
 		Files:   files,
+	}
+}
+
+func newLessonEmbeddedCertificate(certificate *LessonCertificateEmbedded) *LessonEmbedded {
+	return &LessonEmbedded{
+		Certificate: certificate,
 	}
 }
 
@@ -302,27 +357,7 @@ func NewLessonResponse(backendDomain string, lesson *db.LessonModel) *LessonResp
 			lesson.ID,
 			lesson.ReadTimeSeconds,
 			lesson.WatchTimeSeconds,
-		),
-	}
-}
-
-func NewLessonResponseWithProgress(backendDomain string, lesson *db.LessonModel, isCompleted bool) *LessonResponse {
-	return &LessonResponse{
-		ID:          lesson.ID,
-		Title:       lesson.Title,
-		Position:    lesson.Position,
-		IsCompleted: isCompleted,
-		IsPublished: lesson.IsPublished,
-		WatchTime:   lesson.WatchTimeSeconds,
-		ReadTime:    lesson.ReadTimeSeconds,
-		Links: newLessonLinks(
-			backendDomain,
-			lesson.LanguageSlug,
-			lesson.SeriesSlug,
-			lesson.SectionID,
-			lesson.ID,
-			lesson.ReadTimeSeconds,
-			lesson.WatchTimeSeconds,
+			nil,
 		),
 	}
 }
@@ -363,11 +398,39 @@ func NewLessonResponseWithEmbeddedOptions(
 			lesson.ID,
 			lesson.ReadTimeSeconds,
 			lesson.WatchTimeSeconds,
+			nil,
 		),
 		Embedded: newLessonEmbedded(
 			newLessonArticleEmbedded(backendDomain, lesson, articleID, articleContent),
 			newLessonVideoEmbedded(backendDomain, lesson, videoID, videoURL),
 			embeddedFiles,
 		),
+	}
+}
+
+func NewLessonResponseWithCertificate(
+	backendDomain string,
+	lesson *db.LessonModel,
+	certificate *db.Certificate,
+) *LessonResponse {
+	return &LessonResponse{
+		ID:          lesson.ID,
+		Title:       lesson.Title,
+		Position:    lesson.Position,
+		IsCompleted: lesson.IsCompleted,
+		IsPublished: lesson.IsPublished,
+		WatchTime:   lesson.WatchTimeSeconds,
+		ReadTime:    lesson.ReadTimeSeconds,
+		Links: newLessonLinks(
+			backendDomain,
+			lesson.LanguageSlug,
+			lesson.SeriesSlug,
+			lesson.SectionID,
+			lesson.ID,
+			lesson.ReadTimeSeconds,
+			lesson.WatchTimeSeconds,
+			&certificate.ID,
+		),
+		Embedded: newLessonEmbeddedCertificate(newCertificateEmbedded(backendDomain, certificate)),
 	}
 }
