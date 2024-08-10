@@ -93,7 +93,7 @@ type CreateOrUpdateSeriesProgressOptions struct {
 func (s *Services) CreateOrUpdateSeriesProgress(
 	ctx context.Context,
 	opts CreateOrUpdateSeriesProgressOptions,
-) (db.ToSeriesModelWithProgress, *db.SeriesProgress, *ServiceError) {
+) (*db.FindPublishedSeriesBySlugsWithAuthorRow, *db.SeriesProgress, *ServiceError) {
 	log := s.log.WithGroup("service.series.CreateOrUpdateSeriesProgress").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,

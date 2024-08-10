@@ -56,7 +56,28 @@ func (c *Controllers) CreateOrUpdateSeriesProgress(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(dtos.NewSeriesResponse(c.backendDomain, series.ToSeriesModelWithProgress(seriesProgress)))
+	if series.PictureID.Valid && series.PictureExt.Valid {
+		fileUrl, serviceErr := c.services.FindFileURL(userCtx, services.FindFileURLOptions{
+			UserID:  series.AuthorID,
+			FileID:  series.PictureID.Bytes,
+			FileExt: series.PictureExt.String,
+		})
+		if serviceErr != nil {
+			return c.serviceErrorResponse(serviceErr, ctx)
+		}
+
+		return ctx.JSON(dtos.NewSeriesResponse(
+			c.backendDomain,
+			series.ToSeriesModelWithProgress(seriesProgress),
+			fileUrl,
+		))
+	}
+
+	return ctx.JSON(dtos.NewSeriesResponse(
+		c.backendDomain,
+		series.ToSeriesModelWithProgress(seriesProgress),
+		"",
+	))
 }
 
 func (c *Controllers) ResetSeriesProgress(ctx *fiber.Ctx) error {
