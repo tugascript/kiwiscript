@@ -13,4 +13,5 @@ const (
 	FilesPath      = "/files"
 	ProgressPath   = "/progress"
 	CertificatesV1 = "/v1/certificates"
+	PicturePath    = "/picture"
 )

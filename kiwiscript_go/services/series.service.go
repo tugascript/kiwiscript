@@ -106,7 +106,7 @@ type FindSeriesBySlugsWithProgressOptions struct {
 func (s *Services) FindPublishedSeriesBySlugsWithProgress(
 	ctx context.Context,
 	opts FindSeriesBySlugsWithProgressOptions,
-) (*db.SeriesModel, *ServiceError) {
+) (*db.FindPublishedSeriesBySlugWithAuthorAndProgressRow, *ServiceError) {
 	log := s.log.WithGroup("services.series.FindPublishedSeriesBySlugsWithProgress").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -128,7 +128,7 @@ func (s *Services) FindPublishedSeriesBySlugsWithProgress(
 	}
 
 	log.InfoContext(ctx, "Series found")
-	return series.ToSeriesModel(), nil
+	return &series, nil
 }
 
 type CreateSeriesOptions struct {

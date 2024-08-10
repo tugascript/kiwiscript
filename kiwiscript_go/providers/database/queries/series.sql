@@ -50,9 +50,12 @@ RETURNING *;
 SELECT
   "series".*,
   "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name"
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
   "series"."slug" = $1 AND
   "series"."language_slug" = $2 AND
@@ -63,9 +66,12 @@ LIMIT 1;
 SELECT
   "series".*,
   "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name"
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE "series"."language_slug" = $1
 ORDER BY "series"."id" DESC
 LIMIT $2 OFFSET $3;
@@ -74,9 +80,12 @@ LIMIT $2 OFFSET $3;
 SELECT
   "series".*,
   "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name"
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
     "series"."language_slug" = $1 AND
     "series"."is_published" = true
@@ -87,9 +96,12 @@ LIMIT $2 OFFSET $3;
 SELECT
   "series".*,
   "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name"
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
     "series"."language_slug" = $1 AND
     (
@@ -104,9 +116,12 @@ LIMIT $3 OFFSET $4;
 SELECT
   "series".*,
   "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name"
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
     "series"."language_slug" = $1 AND
     "series"."is_published" = true AND
@@ -155,9 +170,12 @@ WHERE
 SELECT
   "series".*,
   "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name"
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE "series"."language_slug" = $1
 ORDER BY "series"."slug" ASC
 LIMIT $2 OFFSET $3;
@@ -166,9 +184,12 @@ LIMIT $2 OFFSET $3;
 SELECT
   "series".*,
   "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name"
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
     "series"."language_slug" = $1 AND
     (
@@ -183,9 +204,12 @@ LIMIT $3 OFFSET $4;
 SELECT
   "series".*,
   "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name"
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
     "series"."language_slug" = $1 AND
     "series"."is_published" = true
@@ -196,9 +220,12 @@ LIMIT $2 OFFSET $3;
 SELECT
   "series".*,
   "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name"
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
     "series"."language_slug" = $1 AND
     "series"."is_published" = true AND
@@ -217,13 +244,16 @@ SELECT
   "users"."last_name" AS "author_last_name",
   "series_progress"."id" AS "series_progress_id",
   "series_progress"."completed_sections" AS "series_progress_completed_sections",
-  "series_progress"."completed_lessons" AS "series_progress_completed_lessons"
+  "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_progress" ON (
     "series"."slug" = "series_progress"."series_slug" AND
     "series_progress"."user_id" = $1
 )
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
   "series"."language_slug" = $2 AND
   "series"."is_published" = true
@@ -237,13 +267,16 @@ SELECT
   "users"."last_name" AS "author_last_name",
   "series_progress"."id" AS "series_progress_id",
   "series_progress"."completed_sections" AS "series_progress_completed_sections",
-  "series_progress"."completed_lessons" AS "series_progress_completed_lessons"
+  "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_progress" ON (
     "series"."slug" = "series_progress"."series_slug" AND
     "series_progress"."user_id" = $1
 )
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
   "series"."language_slug" = $2 AND
   "series"."is_published" = true
@@ -257,21 +290,24 @@ SELECT
   "users"."last_name" AS "author_last_name",
   "series_progress"."id" AS "series_progress_id",
   "series_progress"."completed_sections" AS "series_progress_completed_sections",
-  "series_progress"."completed_lessons" AS "series_progress_completed_lessons"
+  "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_progress" ON (
     "series"."slug" = "series_progress"."series_slug" AND
-    "series_progress"."user_id" = $1 AND
+    "series_progress"."user_id" = $1
+)
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
+WHERE
+    "series"."language_slug" = $3 AND
+    "series"."is_published" = true AND
     (
         "series"."title" ILIKE $2 OR
         "users"."first_name" ILIKE $2 OR
         "users"."last_name" ILIKE $2
     )
-)
-WHERE
-  "series"."language_slug" = $3 AND
-  "series"."is_published" = true
 ORDER BY "series"."id" DESC
 LIMIT $4 OFFSET $5;
 
@@ -282,21 +318,24 @@ SELECT
   "users"."last_name" AS "author_last_name",
   "series_progress"."id" AS "series_progress_id",
   "series_progress"."completed_sections" AS "series_progress_completed_sections",
-  "series_progress"."completed_lessons" AS "series_progress_completed_lessons"
+  "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_progress" ON (
     "series"."slug" = "series_progress"."series_slug" AND
-    "series_progress"."user_id" = $1 AND
-    (
-        "series"."title" ILIKE $2 OR
-        "users"."first_name" ILIKE $2 OR
-        "users"."last_name" ILIKE $2
-    )
+    "series_progress"."user_id" = $1
 )
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
   "series"."language_slug" = $3 AND
-  "series"."is_published" = true
+  "series"."is_published" = true AND
+  (
+    "series"."title" ILIKE $2 OR
+    "users"."first_name" ILIKE $2 OR
+    "users"."last_name" ILIKE $2
+  )
 ORDER BY "series"."slug" ASC
 LIMIT $4 OFFSET $5;
 
@@ -371,9 +410,12 @@ WHERE "id" = $1;
 SELECT
   "series".*,
   "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name"
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
   "series"."slug" = $1 AND
   "series"."language_slug" = $2
@@ -386,13 +428,16 @@ SELECT
     "users"."last_name" AS "author_last_name",
     "series_progress"."id" AS "series_progress_id",
     "series_progress"."completed_sections" AS "series_progress_completed_sections",
-    "series_progress"."completed_lessons" AS "series_progress_completed_lessons"
+    "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+    "series_pictures"."id" AS "picture_id",
+    "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_progress" ON (
     "series"."slug" = "series_progress"."series_slug" AND
     "series_progress"."user_id" = $1
 )
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
     "series"."slug" = $2 AND
     "series"."language_slug" = $3 AND

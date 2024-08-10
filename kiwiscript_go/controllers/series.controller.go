@@ -18,6 +18,7 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"github.com/kiwiscript/kiwiscript_go/dtos"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
@@ -67,6 +68,7 @@ func (c *Controllers) CreateSeries(ctx *fiber.Ctx) error {
 		dtos.NewSeriesResponse(
 			c.backendDomain,
 			series.ToSeriesModelWithAuthor(user.ID, user.FirstName, user.LastName),
+			"",
 		),
 	)
 }
@@ -101,15 +103,46 @@ func (c *Controllers) GetSingleSeries(ctx *fiber.Ctx) error {
 				return c.serviceErrorResponse(serviceErr, ctx)
 			}
 
+			picture, serviceErr := c.services.FindSeriesPictureBySeriesID(userCtx, series.ID)
+			if serviceErr != nil {
+				if serviceErr.Code != services.CodeNotFound {
+					return c.serviceErrorResponse(serviceErr, ctx)
+				}
+
+				return ctx.JSON(
+					dtos.NewSeriesResponse(
+						c.backendDomain,
+						series.ToSeriesModelWithAuthor(user.ID, user.FirstName, user.LastName),
+						"",
+					),
+				)
+			}
+
+			fileUrl, serviceErr := c.services.FindFileURL(userCtx, services.FindFileURLOptions{
+				UserID:  picture.AuthorID,
+				FileID:  picture.ID,
+				FileExt: picture.Ext,
+			})
+			if serviceErr != nil {
+				return c.serviceErrorResponse(serviceErr, ctx)
+			}
+
 			return ctx.JSON(
 				dtos.NewSeriesResponse(
 					c.backendDomain,
-					series.ToSeriesModelWithAuthor(user.ID, user.FirstName, user.LastName),
+					series.ToSeriesModelWithAuthorAndPicture(
+						user.ID,
+						user.FirstName,
+						user.LastName,
+						picture.ID,
+						picture.Ext,
+					),
+					fileUrl,
 				),
 			)
 		}
 
-		seriesModel, serviceErr := c.services.FindPublishedSeriesBySlugsWithProgress(
+		series, serviceErr := c.services.FindPublishedSeriesBySlugsWithProgress(
 			userCtx,
 			services.FindSeriesBySlugsWithProgressOptions{
 				UserID:       user.ID,
@@ -121,7 +154,20 @@ func (c *Controllers) GetSingleSeries(ctx *fiber.Ctx) error {
 			return c.serviceErrorResponse(serviceErr, ctx)
 		}
 
-		return ctx.JSON(dtos.NewSeriesResponse(c.backendDomain, seriesModel))
+		if series.PictureID.Valid && series.PictureExt.Valid {
+			fileUrl, serviceErr := c.services.FindFileURL(userCtx, services.FindFileURLOptions{
+				UserID:  series.AuthorID,
+				FileID:  series.PictureID.Bytes,
+				FileExt: series.PictureExt.String,
+			})
+			if serviceErr != nil {
+				return c.serviceErrorResponse(serviceErr, ctx)
+			}
+
+			return ctx.JSON(dtos.NewSeriesResponse(c.backendDomain, series.ToSeriesModel(), fileUrl))
+		}
+
+		return ctx.JSON(dtos.NewSeriesResponse(c.backendDomain, series.ToSeriesModel(), ""))
 	}
 
 	series, serviceErr := c.services.FindPublishedSeriesBySlugsWithAuthor(userCtx, services.FindSeriesBySlugsOptions{
@@ -132,7 +178,47 @@ func (c *Controllers) GetSingleSeries(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(dtos.NewSeriesResponse(c.backendDomain, series.ToSeriesModel()))
+	if series.PictureID.Valid && series.PictureExt.Valid {
+		fileUrl, serviceErr := c.services.FindFileURL(userCtx, services.FindFileURLOptions{
+			UserID:  series.AuthorID,
+			FileID:  series.PictureID.Bytes,
+			FileExt: series.PictureExt.String,
+		})
+		if serviceErr != nil {
+			return c.serviceErrorResponse(serviceErr, ctx)
+		}
+
+		return ctx.JSON(dtos.NewSeriesResponse(c.backendDomain, series.ToSeriesModel(), fileUrl))
+	}
+
+	return ctx.JSON(dtos.NewSeriesResponse(c.backendDomain, series.ToSeriesModel(), ""))
+}
+
+func (c *Controllers) findSeriesPictureURLs(
+	userCtx context.Context,
+	models []db.SeriesModel,
+) (*services.FileURLsContainer, *services.ServiceError) {
+	optsList := make([]services.FindFileURLOptions, 0)
+
+	for _, m := range models {
+		if m.Picture != nil {
+			optsList = append(optsList, services.FindFileURLOptions{
+				UserID:  m.ID,
+				FileID:  m.Picture.ID,
+				FileExt: m.Picture.EXT,
+			})
+		}
+	}
+	if len(optsList) == 0 {
+		return nil, nil
+	}
+
+	fileURLs, serviceErr := c.services.FindFileURLs(userCtx, optsList)
+	if serviceErr != nil {
+		return nil, serviceErr
+	}
+
+	return fileURLs, nil
 }
 
 func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
@@ -191,6 +277,26 @@ func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
 				return c.serviceErrorResponse(serviceErr, ctx)
 			}
 
+			fileURLs, serviceErr := c.findSeriesPictureURLs(userCtx, seriesModels)
+			if serviceErr != nil {
+				return c.serviceErrorResponse(serviceErr, ctx)
+			}
+
+			if fileURLs == nil {
+				return ctx.JSON(
+					dtos.NewPaginatedResponse(
+						c.backendDomain,
+						paginationPath,
+						&queryParams,
+						count,
+						seriesModels,
+						func(dto *db.SeriesModel) *dtos.SeriesResponse {
+							return dtos.NewSeriesResponse(c.backendDomain, dto, "")
+						},
+					),
+				)
+			}
+
 			return ctx.JSON(
 				dtos.NewPaginatedResponse(
 					c.backendDomain,
@@ -198,8 +304,14 @@ func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
 					&queryParams,
 					count,
 					seriesModels,
-					func(dto *db.SeriesModel) *dtos.SeriesResponse {
-						return dtos.NewSeriesResponse(c.backendDomain, dto)
+					func(model *db.SeriesModel) *dtos.SeriesResponse {
+						if model.Picture != nil {
+							if url, ok := fileURLs.Get(model.Picture.ID); ok {
+								return dtos.NewSeriesResponse(c.backendDomain, model, url)
+							}
+						}
+
+						return dtos.NewSeriesResponse(c.backendDomain, model, "")
 					},
 				),
 			)
@@ -231,6 +343,26 @@ func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
 			return c.serviceErrorResponse(serviceErr, ctx)
 		}
 
+		fileURLs, serviceErr := c.findSeriesPictureURLs(userCtx, seriesModels)
+		if serviceErr != nil {
+			return c.serviceErrorResponse(serviceErr, ctx)
+		}
+
+		if fileURLs == nil {
+			return ctx.JSON(
+				dtos.NewPaginatedResponse(
+					c.backendDomain,
+					paginationPath,
+					&queryParams,
+					count,
+					seriesModels,
+					func(dto *db.SeriesModel) *dtos.SeriesResponse {
+						return dtos.NewSeriesResponse(c.backendDomain, dto, "")
+					},
+				),
+			)
+		}
+
 		return ctx.JSON(
 			dtos.NewPaginatedResponse(
 				c.backendDomain,
@@ -238,8 +370,14 @@ func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
 				&queryParams,
 				count,
 				seriesModels,
-				func(dto *db.SeriesModel) *dtos.SeriesResponse {
-					return dtos.NewSeriesResponse(c.backendDomain, dto)
+				func(model *db.SeriesModel) *dtos.SeriesResponse {
+					if model.Picture != nil {
+						if url, ok := fileURLs.Get(model.Picture.ID); ok {
+							return dtos.NewSeriesResponse(c.backendDomain, model, url)
+						}
+					}
+
+					return dtos.NewSeriesResponse(c.backendDomain, model, "")
 				},
 			),
 		)
@@ -271,6 +409,26 @@ func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
+	fileURLs, serviceErr := c.findSeriesPictureURLs(userCtx, seriesModels)
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	if fileURLs == nil {
+		return ctx.JSON(
+			dtos.NewPaginatedResponse(
+				c.backendDomain,
+				paginationPath,
+				&queryParams,
+				count,
+				seriesModels,
+				func(dto *db.SeriesModel) *dtos.SeriesResponse {
+					return dtos.NewSeriesResponse(c.backendDomain, dto, "")
+				},
+			),
+		)
+	}
+
 	return ctx.JSON(
 		dtos.NewPaginatedResponse(
 			c.backendDomain,
@@ -278,8 +436,14 @@ func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
 			&queryParams,
 			count,
 			seriesModels,
-			func(dto *db.SeriesModel) *dtos.SeriesResponse {
-				return dtos.NewSeriesResponse(c.backendDomain, dto)
+			func(model *db.SeriesModel) *dtos.SeriesResponse {
+				if model.Picture != nil {
+					if url, ok := fileURLs.Get(model.Picture.ID); ok {
+						return dtos.NewSeriesResponse(c.backendDomain, model, url)
+					}
+				}
+
+				return dtos.NewSeriesResponse(c.backendDomain, model, "")
 			},
 		),
 	)
@@ -325,7 +489,43 @@ func (c *Controllers) UpdateSeries(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(dtos.NewSeriesResponse(c.backendDomain, series.ToSeriesModelWithAuthor(user.ID, user.FirstName, user.LastName)))
+	picture, serviceErr := c.services.FindSeriesPictureBySeriesID(userCtx, series.ID)
+	if serviceErr != nil {
+		if serviceErr.Code != services.CodeNotFound {
+			return c.serviceErrorResponse(serviceErr, ctx)
+		}
+
+		return ctx.JSON(
+			dtos.NewSeriesResponse(
+				c.backendDomain,
+				series.ToSeriesModelWithAuthor(user.ID, user.FirstName, user.LastName),
+				"",
+			),
+		)
+	}
+
+	fileUrl, serviceErr := c.services.FindFileURL(userCtx, services.FindFileURLOptions{
+		UserID:  picture.AuthorID,
+		FileID:  picture.ID,
+		FileExt: picture.Ext,
+	})
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	return ctx.JSON(
+		dtos.NewSeriesResponse(
+			c.backendDomain,
+			series.ToSeriesModelWithAuthorAndPicture(
+				user.ID,
+				user.FirstName,
+				user.LastName,
+				picture.ID,
+				picture.Ext,
+			),
+			fileUrl,
+		),
+	)
 }
 
 func (c *Controllers) UpdateSeriesIsPublished(ctx *fiber.Ctx) error {
@@ -367,7 +567,43 @@ func (c *Controllers) UpdateSeriesIsPublished(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(dtos.NewSeriesResponse(c.backendDomain, series.ToSeriesModelWithAuthor(user.ID, user.FirstName, user.LastName)))
+	picture, serviceErr := c.services.FindSeriesPictureBySeriesID(userCtx, series.ID)
+	if serviceErr != nil {
+		if serviceErr.Code != services.CodeNotFound {
+			return c.serviceErrorResponse(serviceErr, ctx)
+		}
+
+		return ctx.JSON(
+			dtos.NewSeriesResponse(
+				c.backendDomain,
+				series.ToSeriesModelWithAuthor(user.ID, user.FirstName, user.LastName),
+				"",
+			),
+		)
+	}
+
+	fileUrl, serviceErr := c.services.FindFileURL(userCtx, services.FindFileURLOptions{
+		UserID:  picture.AuthorID,
+		FileID:  picture.ID,
+		FileExt: picture.Ext,
+	})
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	return ctx.JSON(
+		dtos.NewSeriesResponse(
+			c.backendDomain,
+			series.ToSeriesModelWithAuthorAndPicture(
+				user.ID,
+				user.FirstName,
+				user.LastName,
+				picture.ID,
+				picture.Ext,
+			),
+			fileUrl,
+		),
+	)
 }
 
 func (c *Controllers) DeleteSeries(ctx *fiber.Ctx) error {

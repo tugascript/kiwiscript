@@ -19,6 +19,7 @@ package dtos
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/kiwiscript/kiwiscript_go/paths"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"net/url"
@@ -27,9 +28,8 @@ import (
 // Bodies
 
 type CreateSeriesBody struct {
-	Title       string   `json:"title" validate:"require,min=2,max=100"`
-	Description string   `json:"description" validate:"required,min=2"`
-	Tags        []string `json:"tags" validate:"required,max=5,unique,dive,min=2,max=50,slug"`
+	Title       string `json:"title" validate:"require,min=2,max=100"`
+	Description string `json:"description" validate:"required,min=2"`
 }
 
 type UpdateSeriesBody struct {
@@ -74,13 +74,29 @@ func (p SeriesQueryParams) GetOffset() int32 {
 }
 
 type SeriesLinks struct {
-	Self     LinkResponse `json:"self"`
-	Author   LinkResponse `json:"author"`
-	Language LinkResponse `json:"language"`
-	Parts    LinkResponse `json:"parts"`
+	Self     LinkResponse  `json:"self"`
+	Author   LinkResponse  `json:"author"`
+	Language LinkResponse  `json:"language"`
+	Parts    LinkResponse  `json:"parts"`
+	Picture  *LinkResponse `json:"picture,omitempty"`
 }
 
-func newSeriesLinks(backendDomain, languageSlug, seriesSlug string, authorID int32) SeriesLinks {
+func newSeriesLinks(backendDomain, languageSlug, seriesSlug string, authorID int32, withPicture bool) SeriesLinks {
+	var picture *LinkResponse
+	if withPicture {
+		picture = &LinkResponse{
+			Href: fmt.Sprintf(
+				"https://%s%s/%s%s/%s%s",
+				backendDomain,
+				paths.LanguagePathV1,
+				languageSlug,
+				paths.SeriesPath,
+				seriesSlug,
+				paths.PicturePath,
+			),
+		}
+	}
+
 	return SeriesLinks{
 		Self: LinkResponse{
 			fmt.Sprintf(
@@ -109,38 +125,70 @@ func newSeriesLinks(backendDomain, languageSlug, seriesSlug string, authorID int
 				paths.SectionsPath,
 			),
 		},
+		Picture: picture,
 	}
 }
 
-type SeriesAuthor struct {
+type SeriesAuthorEmbedded struct {
 	ID        int32            `json:"id"`
 	FirstName string           `json:"firstName"`
 	LastName  string           `json:"lastName"`
 	Links     SelfLinkResponse `json:"_links"`
 }
 
+type SeriesPictureEmbedded struct {
+	ID    uuid.UUID        `json:"ID"`
+	EXT   string           `json:"ext"`
+	URL   string           `json:"url"`
+	Links SelfLinkResponse `json:"_links"`
+}
+
 type SeriesEmbedded struct {
-	Author SeriesAuthor `json:"author"`
+	Author  SeriesAuthorEmbedded   `json:"author"`
+	Picture *SeriesPictureEmbedded `json:"picture,omitempty"`
 }
 
 func newSeriesEmbedded(
 	backendDomain string,
-	authorId int32,
-	authorFirstName,
-	authorLastName string,
-	languageSlug string,
+	author *db.SeriesAuthor,
+	picture *db.SeriesPictureIDAndEXT,
+	pictureURL,
+	languageSlug,
+	seriesSlug string,
 ) SeriesEmbedded {
+	var pictureEmbedded *SeriesPictureEmbedded
+	if picture != nil {
+		pictureEmbedded = &SeriesPictureEmbedded{
+			ID:  picture.ID,
+			EXT: picture.EXT,
+			URL: pictureURL,
+			Links: SelfLinkResponse{
+				Self: LinkResponse{
+					Href: fmt.Sprintf(
+						"https://%s%s/%s%s/%s",
+						backendDomain,
+						paths.LanguagePathV1,
+						languageSlug,
+						paths.SeriesPath,
+						seriesSlug,
+					),
+				},
+			},
+		}
+	}
+
 	return SeriesEmbedded{
-		Author: SeriesAuthor{
-			ID:        authorId,
-			FirstName: authorFirstName,
-			LastName:  authorLastName,
+		Author: SeriesAuthorEmbedded{
+			ID:        author.ID,
+			FirstName: author.FirstName,
+			LastName:  author.LastName,
 			Links: SelfLinkResponse{
 				LinkResponse{
-					fmt.Sprintf("https://%s%s/%d", backendDomain, paths.UsersPathV1, authorId),
+					fmt.Sprintf("https://%s%s/%d", backendDomain, paths.UsersPathV1, author.ID),
 				},
 			},
 		},
+		Picture: pictureEmbedded,
 	}
 }
 
@@ -160,7 +208,7 @@ type SeriesResponse struct {
 	Links             SeriesLinks    `json:"_links"`
 }
 
-func NewSeriesResponse(backendDomain string, model *db.SeriesModel) *SeriesResponse {
+func NewSeriesResponse(backendDomain string, model *db.SeriesModel, pictureURL string) *SeriesResponse {
 	return &SeriesResponse{
 		ID:                model.ID,
 		Title:             model.Title,
@@ -175,11 +223,18 @@ func NewSeriesResponse(backendDomain string, model *db.SeriesModel) *SeriesRespo
 		ReadTime:          model.ReadTime,
 		Embedded: newSeriesEmbedded(
 			backendDomain,
-			model.Author.ID,
-			model.Author.FirstName,
-			model.Author.LastName,
+			&model.Author,
+			model.Picture,
+			pictureURL,
 			model.LanguageSlug,
+			model.Slug,
 		),
-		Links: newSeriesLinks(backendDomain, model.LanguageSlug, model.Slug, model.Author.ID),
+		Links: newSeriesLinks(
+			backendDomain,
+			model.LanguageSlug,
+			model.Slug,
+			model.Author.ID,
+			pictureURL == "",
+		),
 	}
 }

@@ -17,10 +17,17 @@
 
 package db
 
+import "github.com/google/uuid"
+
 type SeriesAuthor struct {
 	ID        int32
 	FirstName string
 	LastName  string
+}
+
+type SeriesPictureIDAndEXT struct {
+	ID  uuid.UUID
+	EXT string
 }
 
 type SeriesModel struct {
@@ -37,6 +44,7 @@ type SeriesModel struct {
 	ReadTime          int32
 	IsPublished       bool
 	Author            SeriesAuthor
+	Picture           *SeriesPictureIDAndEXT
 }
 
 type ToSeriesModel interface {
@@ -73,7 +81,46 @@ func (s *Series) ToSeriesModelWithAuthor(authorID int32, firstName, lastName str
 	}
 }
 
+func (s *Series) ToSeriesModelWithAuthorAndPicture(
+	authorID int32,
+	firstName,
+	lastName string,
+	pictureID uuid.UUID,
+	pictureEXT string,
+) *SeriesModel {
+	return &SeriesModel{
+		ID:               s.ID,
+		Title:            s.Title,
+		Slug:             s.Slug,
+		LanguageSlug:     s.LanguageSlug,
+		Description:      s.Description,
+		TotalSections:    s.SectionsCount,
+		WatchTime:        s.WatchTimeSeconds,
+		ReadTime:         s.ReadTimeSeconds,
+		CompletedLessons: 0,
+		TotalLessons:     s.LessonsCount,
+		IsPublished:      s.IsPublished,
+		Author: SeriesAuthor{
+			ID:        authorID,
+			FirstName: firstName,
+			LastName:  lastName,
+		},
+		Picture: &SeriesPictureIDAndEXT{
+			ID:  pictureID,
+			EXT: pictureEXT,
+		},
+	}
+}
+
 func (s *FindSeriesBySlugWithAuthorRow) ToSeriesModel() *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
 	return &SeriesModel{
 		ID:               s.ID,
 		Title:            s.Title,
@@ -91,10 +138,19 @@ func (s *FindSeriesBySlugWithAuthorRow) ToSeriesModel() *SeriesModel {
 			FirstName: s.AuthorFirstName,
 			LastName:  s.AuthorLastName,
 		},
+		Picture: picture,
 	}
 }
 
 func (s *FindPublishedSeriesBySlugWithAuthorAndProgressRow) ToSeriesModel() *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
 	return &SeriesModel{
 		ID:               s.ID,
 		Title:            s.Title,
@@ -112,10 +168,19 @@ func (s *FindPublishedSeriesBySlugWithAuthorAndProgressRow) ToSeriesModel() *Ser
 			FirstName: s.AuthorFirstName,
 			LastName:  s.AuthorLastName,
 		},
+		Picture: picture,
 	}
 }
 
 func (s *FindPaginatedSeriesWithAuthorSortByIDRow) ToSeriesModel() *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
 	return &SeriesModel{
 		ID:               s.ID,
 		Title:            s.Title,
@@ -133,10 +198,19 @@ func (s *FindPaginatedSeriesWithAuthorSortByIDRow) ToSeriesModel() *SeriesModel 
 			FirstName: s.AuthorFirstName,
 			LastName:  s.AuthorLastName,
 		},
+		Picture: picture,
 	}
 }
 
 func (s *FindPaginatedPublishedSeriesWithAuthorSortByIDRow) ToSeriesModel() *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
 	return &SeriesModel{
 		ID:               s.ID,
 		Title:            s.Title,
@@ -154,10 +228,19 @@ func (s *FindPaginatedPublishedSeriesWithAuthorSortByIDRow) ToSeriesModel() *Ser
 			FirstName: s.AuthorFirstName,
 			LastName:  s.AuthorLastName,
 		},
+		Picture: picture,
 	}
 }
 
 func (s *FindFilteredPublishedSeriesWithAuthorSortByIDRow) ToSeriesModel() *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
 	return &SeriesModel{
 		ID:               s.ID,
 		Title:            s.Title,
@@ -175,10 +258,19 @@ func (s *FindFilteredPublishedSeriesWithAuthorSortByIDRow) ToSeriesModel() *Seri
 			FirstName: s.AuthorFirstName,
 			LastName:  s.AuthorLastName,
 		},
+		Picture: picture,
 	}
 }
 
 func (s *FindPaginatedSeriesWithAuthorSortBySlugRow) ToSeriesModel() *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
 	return &SeriesModel{
 		ID:               s.ID,
 		Title:            s.Title,
@@ -196,10 +288,19 @@ func (s *FindPaginatedSeriesWithAuthorSortBySlugRow) ToSeriesModel() *SeriesMode
 			FirstName: s.AuthorFirstName,
 			LastName:  s.AuthorLastName,
 		},
+		Picture: picture,
 	}
 }
 
 func (s *FindPaginatedPublishedSeriesWithAuthorSortBySlugRow) ToSeriesModel() *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
 	return &SeriesModel{
 		ID:               s.ID,
 		Title:            s.Title,
@@ -217,10 +318,19 @@ func (s *FindPaginatedPublishedSeriesWithAuthorSortBySlugRow) ToSeriesModel() *S
 			FirstName: s.AuthorFirstName,
 			LastName:  s.AuthorLastName,
 		},
+		Picture: picture,
 	}
 }
 
 func (s *FindFilteredPublishedSeriesWithAuthorSortBySlugRow) ToSeriesModel() *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
 	return &SeriesModel{
 		ID:               s.ID,
 		Title:            s.Title,
@@ -238,10 +348,19 @@ func (s *FindFilteredPublishedSeriesWithAuthorSortBySlugRow) ToSeriesModel() *Se
 			FirstName: s.AuthorFirstName,
 			LastName:  s.AuthorLastName,
 		},
+		Picture: picture,
 	}
 }
 
 func (s *FindFilteredSeriesWithAuthorSortBySlugRow) ToSeriesModel() *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
 	return &SeriesModel{
 		ID:               s.ID,
 		Title:            s.Title,
@@ -259,10 +378,19 @@ func (s *FindFilteredSeriesWithAuthorSortBySlugRow) ToSeriesModel() *SeriesModel
 			FirstName: s.AuthorFirstName,
 			LastName:  s.AuthorLastName,
 		},
+		Picture: picture,
 	}
 }
 
 func (s *FindFilteredSeriesWithAuthorSortByIDRow) ToSeriesModel() *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
 	return &SeriesModel{
 		ID:               s.ID,
 		Title:            s.Title,
@@ -280,10 +408,19 @@ func (s *FindFilteredSeriesWithAuthorSortByIDRow) ToSeriesModel() *SeriesModel {
 			FirstName: s.AuthorFirstName,
 			LastName:  s.AuthorLastName,
 		},
+		Picture: picture,
 	}
 }
 
 func (s *FindPaginatedPublishedSeriesWithAuthorAndProgressSortByIDRow) ToSeriesModel() *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
 	return &SeriesModel{
 		ID:                s.ID,
 		Title:             s.Title,
@@ -302,10 +439,19 @@ func (s *FindPaginatedPublishedSeriesWithAuthorAndProgressSortByIDRow) ToSeriesM
 			FirstName: s.AuthorFirstName,
 			LastName:  s.AuthorLastName,
 		},
+		Picture: picture,
 	}
 }
 
 func (s *FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlugRow) ToSeriesModel() *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
 	return &SeriesModel{
 		ID:                s.ID,
 		Title:             s.Title,
@@ -324,10 +470,19 @@ func (s *FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlugRow) ToSerie
 			FirstName: s.AuthorFirstName,
 			LastName:  s.AuthorLastName,
 		},
+		Picture: picture,
 	}
 }
 
 func (s *FindFilteredPublishedSeriesWithAuthorAndProgressSortByIDRow) ToSeriesModel() *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
 	return &SeriesModel{
 		ID:                s.ID,
 		Title:             s.Title,
@@ -346,10 +501,19 @@ func (s *FindFilteredPublishedSeriesWithAuthorAndProgressSortByIDRow) ToSeriesMo
 			FirstName: s.AuthorFirstName,
 			LastName:  s.AuthorLastName,
 		},
+		Picture: picture,
 	}
 }
 
 func (s *FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlugRow) ToSeriesModel() *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
 	return &SeriesModel{
 		ID:                s.ID,
 		Title:             s.Title,
@@ -368,10 +532,19 @@ func (s *FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlugRow) ToSeries
 			FirstName: s.AuthorFirstName,
 			LastName:  s.AuthorLastName,
 		},
+		Picture: picture,
 	}
 }
 
 func (s *FindPublishedSeriesBySlugsWithAuthorRow) ToSeriesModelWithProgress(progress *SeriesProgress) *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
 	return &SeriesModel{
 		ID:                s.ID,
 		Title:             s.Title,
@@ -390,10 +563,19 @@ func (s *FindPublishedSeriesBySlugsWithAuthorRow) ToSeriesModelWithProgress(prog
 			FirstName: s.AuthorFirstName,
 			LastName:  s.AuthorLastName,
 		},
+		Picture: picture,
 	}
 }
 
 func (s *FindPublishedSeriesBySlugsWithAuthorRow) ToSeriesModel() *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
 	return &SeriesModel{
 		ID:               s.ID,
 		Title:            s.Title,
@@ -411,5 +593,6 @@ func (s *FindPublishedSeriesBySlugsWithAuthorRow) ToSeriesModel() *SeriesModel {
 			FirstName: s.AuthorFirstName,
 			LastName:  s.AuthorLastName,
 		},
+		Picture: picture,
 	}
 }

@@ -279,21 +279,24 @@ SELECT
   "users"."last_name" AS "author_last_name",
   "series_progress"."id" AS "series_progress_id",
   "series_progress"."completed_sections" AS "series_progress_completed_sections",
-  "series_progress"."completed_lessons" AS "series_progress_completed_lessons"
+  "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_progress" ON (
     "series"."slug" = "series_progress"."series_slug" AND
-    "series_progress"."user_id" = $1 AND
+    "series_progress"."user_id" = $1
+)
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
+WHERE
+    "series"."language_slug" = $3 AND
+    "series"."is_published" = true AND
     (
         "series"."title" ILIKE $2 OR
         "users"."first_name" ILIKE $2 OR
         "users"."last_name" ILIKE $2
     )
-)
-WHERE
-  "series"."language_slug" = $3 AND
-  "series"."is_published" = true
 ORDER BY "series"."id" DESC
 LIMIT $4 OFFSET $5
 `
@@ -325,6 +328,8 @@ type FindFilteredPublishedSeriesWithAuthorAndProgressSortByIDRow struct {
 	SeriesProgressID                pgtype.Int4
 	SeriesProgressCompletedSections pgtype.Int2
 	SeriesProgressCompletedLessons  pgtype.Int2
+	PictureID                       pgtype.UUID
+	PictureExt                      pgtype.Text
 }
 
 func (q *Queries) FindFilteredPublishedSeriesWithAuthorAndProgressSortByID(ctx context.Context, arg FindFilteredPublishedSeriesWithAuthorAndProgressSortByIDParams) ([]FindFilteredPublishedSeriesWithAuthorAndProgressSortByIDRow, error) {
@@ -361,6 +366,8 @@ func (q *Queries) FindFilteredPublishedSeriesWithAuthorAndProgressSortByID(ctx c
 			&i.SeriesProgressID,
 			&i.SeriesProgressCompletedSections,
 			&i.SeriesProgressCompletedLessons,
+			&i.PictureID,
+			&i.PictureExt,
 		); err != nil {
 			return nil, err
 		}
@@ -379,21 +386,24 @@ SELECT
   "users"."last_name" AS "author_last_name",
   "series_progress"."id" AS "series_progress_id",
   "series_progress"."completed_sections" AS "series_progress_completed_sections",
-  "series_progress"."completed_lessons" AS "series_progress_completed_lessons"
+  "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_progress" ON (
     "series"."slug" = "series_progress"."series_slug" AND
-    "series_progress"."user_id" = $1 AND
-    (
-        "series"."title" ILIKE $2 OR
-        "users"."first_name" ILIKE $2 OR
-        "users"."last_name" ILIKE $2
-    )
+    "series_progress"."user_id" = $1
 )
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
   "series"."language_slug" = $3 AND
-  "series"."is_published" = true
+  "series"."is_published" = true AND
+  (
+    "series"."title" ILIKE $2 OR
+    "users"."first_name" ILIKE $2 OR
+    "users"."last_name" ILIKE $2
+  )
 ORDER BY "series"."slug" ASC
 LIMIT $4 OFFSET $5
 `
@@ -425,6 +435,8 @@ type FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlugRow struct {
 	SeriesProgressID                pgtype.Int4
 	SeriesProgressCompletedSections pgtype.Int2
 	SeriesProgressCompletedLessons  pgtype.Int2
+	PictureID                       pgtype.UUID
+	PictureExt                      pgtype.Text
 }
 
 func (q *Queries) FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlug(ctx context.Context, arg FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlugParams) ([]FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlugRow, error) {
@@ -461,6 +473,8 @@ func (q *Queries) FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlug(ctx
 			&i.SeriesProgressID,
 			&i.SeriesProgressCompletedSections,
 			&i.SeriesProgressCompletedLessons,
+			&i.PictureID,
+			&i.PictureExt,
 		); err != nil {
 			return nil, err
 		}
@@ -476,9 +490,12 @@ const findFilteredPublishedSeriesWithAuthorSortByID = `-- name: FindFilteredPubl
 SELECT
   series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name"
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
     "series"."language_slug" = $1 AND
     "series"."is_published" = true AND
@@ -514,6 +531,8 @@ type FindFilteredPublishedSeriesWithAuthorSortByIDRow struct {
 	UpdatedAt        pgtype.Timestamp
 	AuthorFirstName  string
 	AuthorLastName   string
+	PictureID        pgtype.UUID
+	PictureExt       pgtype.Text
 }
 
 func (q *Queries) FindFilteredPublishedSeriesWithAuthorSortByID(ctx context.Context, arg FindFilteredPublishedSeriesWithAuthorSortByIDParams) ([]FindFilteredPublishedSeriesWithAuthorSortByIDRow, error) {
@@ -546,6 +565,8 @@ func (q *Queries) FindFilteredPublishedSeriesWithAuthorSortByID(ctx context.Cont
 			&i.UpdatedAt,
 			&i.AuthorFirstName,
 			&i.AuthorLastName,
+			&i.PictureID,
+			&i.PictureExt,
 		); err != nil {
 			return nil, err
 		}
@@ -561,9 +582,12 @@ const findFilteredPublishedSeriesWithAuthorSortBySlug = `-- name: FindFilteredPu
 SELECT
   series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name"
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
     "series"."language_slug" = $1 AND
     "series"."is_published" = true AND
@@ -599,6 +623,8 @@ type FindFilteredPublishedSeriesWithAuthorSortBySlugRow struct {
 	UpdatedAt        pgtype.Timestamp
 	AuthorFirstName  string
 	AuthorLastName   string
+	PictureID        pgtype.UUID
+	PictureExt       pgtype.Text
 }
 
 func (q *Queries) FindFilteredPublishedSeriesWithAuthorSortBySlug(ctx context.Context, arg FindFilteredPublishedSeriesWithAuthorSortBySlugParams) ([]FindFilteredPublishedSeriesWithAuthorSortBySlugRow, error) {
@@ -631,6 +657,8 @@ func (q *Queries) FindFilteredPublishedSeriesWithAuthorSortBySlug(ctx context.Co
 			&i.UpdatedAt,
 			&i.AuthorFirstName,
 			&i.AuthorLastName,
+			&i.PictureID,
+			&i.PictureExt,
 		); err != nil {
 			return nil, err
 		}
@@ -646,9 +674,12 @@ const findFilteredSeriesWithAuthorSortByID = `-- name: FindFilteredSeriesWithAut
 SELECT
   series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name"
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
     "series"."language_slug" = $1 AND
     (
@@ -683,6 +714,8 @@ type FindFilteredSeriesWithAuthorSortByIDRow struct {
 	UpdatedAt        pgtype.Timestamp
 	AuthorFirstName  string
 	AuthorLastName   string
+	PictureID        pgtype.UUID
+	PictureExt       pgtype.Text
 }
 
 func (q *Queries) FindFilteredSeriesWithAuthorSortByID(ctx context.Context, arg FindFilteredSeriesWithAuthorSortByIDParams) ([]FindFilteredSeriesWithAuthorSortByIDRow, error) {
@@ -715,6 +748,8 @@ func (q *Queries) FindFilteredSeriesWithAuthorSortByID(ctx context.Context, arg 
 			&i.UpdatedAt,
 			&i.AuthorFirstName,
 			&i.AuthorLastName,
+			&i.PictureID,
+			&i.PictureExt,
 		); err != nil {
 			return nil, err
 		}
@@ -730,9 +765,12 @@ const findFilteredSeriesWithAuthorSortBySlug = `-- name: FindFilteredSeriesWithA
 SELECT
   series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name"
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
     "series"."language_slug" = $1 AND
     (
@@ -767,6 +805,8 @@ type FindFilteredSeriesWithAuthorSortBySlugRow struct {
 	UpdatedAt        pgtype.Timestamp
 	AuthorFirstName  string
 	AuthorLastName   string
+	PictureID        pgtype.UUID
+	PictureExt       pgtype.Text
 }
 
 func (q *Queries) FindFilteredSeriesWithAuthorSortBySlug(ctx context.Context, arg FindFilteredSeriesWithAuthorSortBySlugParams) ([]FindFilteredSeriesWithAuthorSortBySlugRow, error) {
@@ -799,6 +839,8 @@ func (q *Queries) FindFilteredSeriesWithAuthorSortBySlug(ctx context.Context, ar
 			&i.UpdatedAt,
 			&i.AuthorFirstName,
 			&i.AuthorLastName,
+			&i.PictureID,
+			&i.PictureExt,
 		); err != nil {
 			return nil, err
 		}
@@ -817,13 +859,16 @@ SELECT
   "users"."last_name" AS "author_last_name",
   "series_progress"."id" AS "series_progress_id",
   "series_progress"."completed_sections" AS "series_progress_completed_sections",
-  "series_progress"."completed_lessons" AS "series_progress_completed_lessons"
+  "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_progress" ON (
     "series"."slug" = "series_progress"."series_slug" AND
     "series_progress"."user_id" = $1
 )
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
   "series"."language_slug" = $2 AND
   "series"."is_published" = true
@@ -857,6 +902,8 @@ type FindPaginatedPublishedSeriesWithAuthorAndProgressSortByIDRow struct {
 	SeriesProgressID                pgtype.Int4
 	SeriesProgressCompletedSections pgtype.Int2
 	SeriesProgressCompletedLessons  pgtype.Int2
+	PictureID                       pgtype.UUID
+	PictureExt                      pgtype.Text
 }
 
 func (q *Queries) FindPaginatedPublishedSeriesWithAuthorAndProgressSortByID(ctx context.Context, arg FindPaginatedPublishedSeriesWithAuthorAndProgressSortByIDParams) ([]FindPaginatedPublishedSeriesWithAuthorAndProgressSortByIDRow, error) {
@@ -892,6 +939,8 @@ func (q *Queries) FindPaginatedPublishedSeriesWithAuthorAndProgressSortByID(ctx 
 			&i.SeriesProgressID,
 			&i.SeriesProgressCompletedSections,
 			&i.SeriesProgressCompletedLessons,
+			&i.PictureID,
+			&i.PictureExt,
 		); err != nil {
 			return nil, err
 		}
@@ -910,13 +959,16 @@ SELECT
   "users"."last_name" AS "author_last_name",
   "series_progress"."id" AS "series_progress_id",
   "series_progress"."completed_sections" AS "series_progress_completed_sections",
-  "series_progress"."completed_lessons" AS "series_progress_completed_lessons"
+  "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_progress" ON (
     "series"."slug" = "series_progress"."series_slug" AND
     "series_progress"."user_id" = $1
 )
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
   "series"."language_slug" = $2 AND
   "series"."is_published" = true
@@ -950,6 +1002,8 @@ type FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlugRow struct {
 	SeriesProgressID                pgtype.Int4
 	SeriesProgressCompletedSections pgtype.Int2
 	SeriesProgressCompletedLessons  pgtype.Int2
+	PictureID                       pgtype.UUID
+	PictureExt                      pgtype.Text
 }
 
 func (q *Queries) FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlug(ctx context.Context, arg FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlugParams) ([]FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlugRow, error) {
@@ -985,6 +1039,8 @@ func (q *Queries) FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlug(ct
 			&i.SeriesProgressID,
 			&i.SeriesProgressCompletedSections,
 			&i.SeriesProgressCompletedLessons,
+			&i.PictureID,
+			&i.PictureExt,
 		); err != nil {
 			return nil, err
 		}
@@ -1000,9 +1056,12 @@ const findPaginatedPublishedSeriesWithAuthorSortByID = `-- name: FindPaginatedPu
 SELECT
   series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name"
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
     "series"."language_slug" = $1 AND
     "series"."is_published" = true
@@ -1032,6 +1091,8 @@ type FindPaginatedPublishedSeriesWithAuthorSortByIDRow struct {
 	UpdatedAt        pgtype.Timestamp
 	AuthorFirstName  string
 	AuthorLastName   string
+	PictureID        pgtype.UUID
+	PictureExt       pgtype.Text
 }
 
 func (q *Queries) FindPaginatedPublishedSeriesWithAuthorSortByID(ctx context.Context, arg FindPaginatedPublishedSeriesWithAuthorSortByIDParams) ([]FindPaginatedPublishedSeriesWithAuthorSortByIDRow, error) {
@@ -1059,6 +1120,8 @@ func (q *Queries) FindPaginatedPublishedSeriesWithAuthorSortByID(ctx context.Con
 			&i.UpdatedAt,
 			&i.AuthorFirstName,
 			&i.AuthorLastName,
+			&i.PictureID,
+			&i.PictureExt,
 		); err != nil {
 			return nil, err
 		}
@@ -1074,9 +1137,12 @@ const findPaginatedPublishedSeriesWithAuthorSortBySlug = `-- name: FindPaginated
 SELECT
   series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name"
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
     "series"."language_slug" = $1 AND
     "series"."is_published" = true
@@ -1106,6 +1172,8 @@ type FindPaginatedPublishedSeriesWithAuthorSortBySlugRow struct {
 	UpdatedAt        pgtype.Timestamp
 	AuthorFirstName  string
 	AuthorLastName   string
+	PictureID        pgtype.UUID
+	PictureExt       pgtype.Text
 }
 
 func (q *Queries) FindPaginatedPublishedSeriesWithAuthorSortBySlug(ctx context.Context, arg FindPaginatedPublishedSeriesWithAuthorSortBySlugParams) ([]FindPaginatedPublishedSeriesWithAuthorSortBySlugRow, error) {
@@ -1133,6 +1201,8 @@ func (q *Queries) FindPaginatedPublishedSeriesWithAuthorSortBySlug(ctx context.C
 			&i.UpdatedAt,
 			&i.AuthorFirstName,
 			&i.AuthorLastName,
+			&i.PictureID,
+			&i.PictureExt,
 		); err != nil {
 			return nil, err
 		}
@@ -1148,9 +1218,12 @@ const findPaginatedSeriesWithAuthorSortByID = `-- name: FindPaginatedSeriesWithA
 SELECT
   series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name"
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE "series"."language_slug" = $1
 ORDER BY "series"."id" DESC
 LIMIT $2 OFFSET $3
@@ -1178,6 +1251,8 @@ type FindPaginatedSeriesWithAuthorSortByIDRow struct {
 	UpdatedAt        pgtype.Timestamp
 	AuthorFirstName  string
 	AuthorLastName   string
+	PictureID        pgtype.UUID
+	PictureExt       pgtype.Text
 }
 
 func (q *Queries) FindPaginatedSeriesWithAuthorSortByID(ctx context.Context, arg FindPaginatedSeriesWithAuthorSortByIDParams) ([]FindPaginatedSeriesWithAuthorSortByIDRow, error) {
@@ -1205,6 +1280,8 @@ func (q *Queries) FindPaginatedSeriesWithAuthorSortByID(ctx context.Context, arg
 			&i.UpdatedAt,
 			&i.AuthorFirstName,
 			&i.AuthorLastName,
+			&i.PictureID,
+			&i.PictureExt,
 		); err != nil {
 			return nil, err
 		}
@@ -1220,9 +1297,12 @@ const findPaginatedSeriesWithAuthorSortBySlug = `-- name: FindPaginatedSeriesWit
 SELECT
   series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name"
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE "series"."language_slug" = $1
 ORDER BY "series"."slug" ASC
 LIMIT $2 OFFSET $3
@@ -1250,6 +1330,8 @@ type FindPaginatedSeriesWithAuthorSortBySlugRow struct {
 	UpdatedAt        pgtype.Timestamp
 	AuthorFirstName  string
 	AuthorLastName   string
+	PictureID        pgtype.UUID
+	PictureExt       pgtype.Text
 }
 
 func (q *Queries) FindPaginatedSeriesWithAuthorSortBySlug(ctx context.Context, arg FindPaginatedSeriesWithAuthorSortBySlugParams) ([]FindPaginatedSeriesWithAuthorSortBySlugRow, error) {
@@ -1277,6 +1359,8 @@ func (q *Queries) FindPaginatedSeriesWithAuthorSortBySlug(ctx context.Context, a
 			&i.UpdatedAt,
 			&i.AuthorFirstName,
 			&i.AuthorLastName,
+			&i.PictureID,
+			&i.PictureExt,
 		); err != nil {
 			return nil, err
 		}
@@ -1330,13 +1414,16 @@ SELECT
     "users"."last_name" AS "author_last_name",
     "series_progress"."id" AS "series_progress_id",
     "series_progress"."completed_sections" AS "series_progress_completed_sections",
-    "series_progress"."completed_lessons" AS "series_progress_completed_lessons"
+    "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+    "series_pictures"."id" AS "picture_id",
+    "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 LEFT JOIN "series_progress" ON (
     "series"."slug" = "series_progress"."series_slug" AND
     "series_progress"."user_id" = $1
 )
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
     "series"."slug" = $2 AND
     "series"."language_slug" = $3 AND
@@ -1369,6 +1456,8 @@ type FindPublishedSeriesBySlugWithAuthorAndProgressRow struct {
 	SeriesProgressID                pgtype.Int4
 	SeriesProgressCompletedSections pgtype.Int2
 	SeriesProgressCompletedLessons  pgtype.Int2
+	PictureID                       pgtype.UUID
+	PictureExt                      pgtype.Text
 }
 
 func (q *Queries) FindPublishedSeriesBySlugWithAuthorAndProgress(ctx context.Context, arg FindPublishedSeriesBySlugWithAuthorAndProgressParams) (FindPublishedSeriesBySlugWithAuthorAndProgressRow, error) {
@@ -1393,6 +1482,8 @@ func (q *Queries) FindPublishedSeriesBySlugWithAuthorAndProgress(ctx context.Con
 		&i.SeriesProgressID,
 		&i.SeriesProgressCompletedSections,
 		&i.SeriesProgressCompletedLessons,
+		&i.PictureID,
+		&i.PictureExt,
 	)
 	return i, err
 }
@@ -1401,9 +1492,12 @@ const findPublishedSeriesBySlugsWithAuthor = `-- name: FindPublishedSeriesBySlug
 SELECT
   series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name"
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
   "series"."slug" = $1 AND
   "series"."language_slug" = $2 AND
@@ -1432,6 +1526,8 @@ type FindPublishedSeriesBySlugsWithAuthorRow struct {
 	UpdatedAt        pgtype.Timestamp
 	AuthorFirstName  string
 	AuthorLastName   string
+	PictureID        pgtype.UUID
+	PictureExt       pgtype.Text
 }
 
 func (q *Queries) FindPublishedSeriesBySlugsWithAuthor(ctx context.Context, arg FindPublishedSeriesBySlugsWithAuthorParams) (FindPublishedSeriesBySlugsWithAuthorRow, error) {
@@ -1453,6 +1549,8 @@ func (q *Queries) FindPublishedSeriesBySlugsWithAuthor(ctx context.Context, arg 
 		&i.UpdatedAt,
 		&i.AuthorFirstName,
 		&i.AuthorLastName,
+		&i.PictureID,
+		&i.PictureExt,
 	)
 	return i, err
 }
@@ -1519,9 +1617,12 @@ const findSeriesBySlugWithAuthor = `-- name: FindSeriesBySlugWithAuthor :one
 SELECT
   series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name"
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
 WHERE
   "series"."slug" = $1 AND
   "series"."language_slug" = $2
@@ -1549,6 +1650,8 @@ type FindSeriesBySlugWithAuthorRow struct {
 	UpdatedAt        pgtype.Timestamp
 	AuthorFirstName  string
 	AuthorLastName   string
+	PictureID        pgtype.UUID
+	PictureExt       pgtype.Text
 }
 
 func (q *Queries) FindSeriesBySlugWithAuthor(ctx context.Context, arg FindSeriesBySlugWithAuthorParams) (FindSeriesBySlugWithAuthorRow, error) {
@@ -1570,6 +1673,8 @@ func (q *Queries) FindSeriesBySlugWithAuthor(ctx context.Context, arg FindSeries
 		&i.UpdatedAt,
 		&i.AuthorFirstName,
 		&i.AuthorLastName,
+		&i.PictureID,
+		&i.PictureExt,
 	)
 	return i, err
 }

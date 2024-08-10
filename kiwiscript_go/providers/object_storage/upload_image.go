@@ -57,8 +57,18 @@ func decodeImage(f multipart.File) (image.Image, error) {
 	}
 }
 
-func (o *ObjectStorage) UploadImage(ctx context.Context, userId int32, f multipart.File) (uuid.UUID, string, error) {
+func (o *ObjectStorage) UploadImage(ctx context.Context, userId int32, fh *multipart.FileHeader) (uuid.UUID, string, error) {
+	log := o.log.WithGroup("providers.object_storage.UploadImage").With("userId", userId)
+	log.InfoContext(ctx, "Uploading image...")
 	fileId := uuid.UUID{}
+
+	f, err := fh.Open()
+	if err != nil {
+		log.ErrorContext(ctx, "Error opening file", "error", err)
+		return uuid.UUID{}, "", fmt.Errorf("error opening file")
+	}
+	defer o.closeFile(f)
+
 	if mimeType, err := readMimeType(f); err != nil || !valImgMime(mimeType) {
 		return fileId, "", fmt.Errorf("mime type not supported")
 	}
