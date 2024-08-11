@@ -19,12 +19,10 @@ package services
 
 import (
 	"context"
-	"strings"
-	"time"
-
 	"github.com/jackc/pgx/v5/pgtype"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/utils"
+	"strings"
 )
 
 type CreateUserOptions struct {
@@ -32,36 +30,33 @@ type CreateUserOptions struct {
 	LastName  string
 	Location  string
 	Email     string
-	BirthDate time.Time
 	Password  string
 	Provider  string
 }
 
-func (s *Services) CreateUser(ctx context.Context, options CreateUserOptions) (db.User, *ServiceError) {
-	log := s.log.WithGroup("services.users.CreateUser")
-	var birthDate pgtype.Date
-	var user db.User
-
-	err := birthDate.Scan(options.BirthDate)
-	if err != nil {
-		log.InfoContext(ctx, "birthdate is invalid date format", "birthdate", options.BirthDate)
-		return user, NewValidationError("'birthdate' is invalid date format")
-	}
-
+func (s *Services) CreateUser(ctx context.Context, options CreateUserOptions) (*db.User, *ServiceError) {
+	log := s.log.WithGroup("services.users.CreateUser").With(
+		"firstName", options.FirstName,
+		"lastName", options.LastName,
+		"location", options.Location,
+		"provider", options.Provider,
+	)
+	log.InfoContext(ctx, "Creating user...")
 	var provider string
 	var password pgtype.Text
 
 	switch options.Provider {
 	case utils.ProviderEmail:
 		provider = options.Provider
-		err := password.Scan(options.Password)
-		if err != nil {
-			return user, NewValidationError("'password' is invalid")
+		if err := password.Scan(options.Password); err != nil || options.Password == "" {
+			log.WarnContext(ctx, "Password is invalid")
+			return nil, NewValidationError("'password' is invalid")
 		}
-	case utils.ProviderFacebook, utils.ProviderGoogle:
+	case utils.ProviderGitHub, utils.ProviderGoogle:
 		provider = options.Provider
 	default:
-		return user, NewServerError("'provider' must be 'email', 'facebook' or 'google'")
+		log.ErrorContext(ctx, "Provider must be 'email', 'github' or 'google'", "provider", options.Provider)
+		return nil, NewServerError()
 	}
 
 	location := strings.ToUpper(options.Location)
@@ -71,16 +66,16 @@ func (s *Services) CreateUser(ctx context.Context, options CreateUserOptions) (d
 
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
-		return user, FromDBError(err)
+		return nil, FromDBError(err)
 	}
 	defer s.database.FinalizeTx(ctx, txn, err)
 
+	var user db.User
 	if provider == utils.ProviderEmail {
 		user, err = qrs.CreateUserWithPassword(ctx, db.CreateUserWithPasswordParams{
 			FirstName: options.FirstName,
 			LastName:  options.LastName,
 			Email:     options.Email,
-			BirthDate: birthDate,
 			Password:  password,
 			Location:  location,
 		})
@@ -89,60 +84,52 @@ func (s *Services) CreateUser(ctx context.Context, options CreateUserOptions) (d
 			FirstName: options.FirstName,
 			LastName:  options.LastName,
 			Email:     options.Email,
-			BirthDate: birthDate,
 			Location:  location,
 		})
 	}
-
 	if err != nil {
-		return user, FromDBError(err)
+		log.ErrorContext(ctx, "Failed to create user", "error", err)
+		return nil, FromDBError(err)
 	}
-	if err = qrs.CreateAuthProvider(ctx, db.CreateAuthProviderParams{
+
+	params := db.CreateAuthProviderParams{
 		Email:    user.Email,
 		Provider: provider,
-	}); err != nil {
-		return db.User{}, FromDBError(err)
+	}
+	if err = qrs.CreateAuthProvider(ctx, params); err != nil {
+		log.ErrorContext(ctx, "Failed to create auth provider", "error", err)
+		return nil, FromDBError(err)
 	}
 
-	return user, nil
+	log.InfoContext(ctx, "Created user successfully")
+	return &user, nil
 }
 
-func (s *Services) FindUserByEmail(ctx context.Context, email string) (db.User, *ServiceError) {
+func (s *Services) FindUserByEmail(ctx context.Context, email string) (*db.User, *ServiceError) {
+	log := s.log.WithGroup("services.users.FindUserByEmail")
+	log.InfoContext(ctx, "Finding user by email...")
 	user, err := s.database.FindUserByEmail(ctx, email)
 
 	if err != nil {
-		return user, FromDBError(err)
+		log.WarnContext(ctx, "User not found")
+		return nil, FromDBError(err)
 	}
 
-	return user, nil
+	log.InfoContext(ctx, "User found successfully")
+	return &user, nil
 }
 
-func (s *Services) FindUserByID(ctx context.Context, id int32) (db.User, *ServiceError) {
+func (s *Services) FindUserByID(ctx context.Context, id int32) (*db.User, *ServiceError) {
+	log := s.log.WithGroup("services.users.FindUserByID").With("id", id)
+	log.InfoContext(ctx, "Finding user by id...")
 	user, err := s.database.FindUserById(ctx, id)
 
 	if err != nil {
-		return db.User{}, FromDBError(err)
+		log.WarnContext(ctx, "User not found")
+		return nil, FromDBError(err)
 	}
 
-	return user, nil
-}
-
-type UpdateUserEmailOptions struct {
-	ID    int32
-	Email string
-}
-
-func (s *Services) UpdateUserEmail(ctx context.Context, options UpdateUserEmailOptions) (db.User, *ServiceError) {
-	user, err := s.database.UpdateUserEmail(ctx, db.UpdateUserEmailParams{
-		Email: options.Email,
-		ID:    options.ID,
-	})
-
-	if err != nil {
-		return user, FromDBError(err)
-	}
-
-	return user, nil
+	return &user, nil
 }
 
 type UpdateUserPasswordOptions struct {
@@ -150,39 +137,51 @@ type UpdateUserPasswordOptions struct {
 	Password string
 }
 
-func (s *Services) UpdateUserPassword(ctx context.Context, options UpdateUserPasswordOptions) (db.User, *ServiceError) {
+func (s *Services) UpdateUserPassword(ctx context.Context, opts UpdateUserPasswordOptions) (*db.User, *ServiceError) {
+	log := s.log.WithGroup("services.users.UpdateUserPassword").With("id", opts.ID)
+	log.InfoContext(ctx, "Updating user password...")
 	var password pgtype.Text
-	err := password.Scan(options.Password)
-	if err != nil {
-		return db.User{}, NewValidationError("'password' is invalid")
+	if err := password.Scan(opts.Password); err != nil || opts.Password == "" {
+		log.WarnContext(ctx, "Password is invalid")
+		return nil, NewValidationError("'password' is invalid")
 	}
 
-	var user db.User
-	user, err = s.database.UpdateUserPassword(ctx, db.UpdateUserPasswordParams{
+	user, err := s.database.UpdateUserPassword(ctx, db.UpdateUserPasswordParams{
 		Password: password,
-		ID:       options.ID,
+		ID:       opts.ID,
 	})
 	if err != nil {
-		return db.User{}, FromDBError(err)
+		log.ErrorContext(ctx, "Failed to update user password")
+		return nil, FromDBError(err)
 	}
 
-	return user, nil
+	return &user, nil
 }
 
-func (s *Services) ConfirmUser(ctx context.Context, id int32) (db.User, *ServiceError) {
+func (s *Services) ConfirmUser(ctx context.Context, id int32) (*db.User, *ServiceError) {
+	log := s.log.WithGroup("services.users.ConfirmUser").With("id", id)
+	log.InfoContext(ctx, "Confirming user...")
+
 	user, err := s.database.ConfirmUser(ctx, id)
 	if err != nil {
-		return db.User{}, FromDBError(err)
+		log.ErrorContext(ctx, "Failed to confirm user")
+		return nil, FromDBError(err)
 	}
 
-	return user, nil
+	log.InfoContext(ctx, "User confirmed successfully")
+	return &user, nil
 }
 
 func (s *Services) DeleteUser(ctx context.Context, id int32) *ServiceError {
+	log := s.log.WithGroup("services.users.DeleteUser").With("id", id)
+	log.InfoContext(ctx, "Deleting user...")
+
 	err := s.database.DeleteUserById(ctx, id)
 	if err != nil {
+		log.ErrorContext(ctx, "Failed to delete user", "error", err)
 		return FromDBError(err)
 	}
 
+	log.InfoContext(ctx, "Deleted user successfully")
 	return nil
 }

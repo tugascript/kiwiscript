@@ -132,7 +132,7 @@ func (s *Services) DeleteSeriesPicture(
 	}
 	if err := s.objStg.DeleteFile(ctx, opts.UserID, seriesPicture.ID, seriesPicture.Ext); err != nil {
 		log.ErrorContext(ctx, "Failed to delete file from object storage", "error", err)
-		return NewServerError("Failed to delete file from object storage")
+		return NewServerError()
 	}
 
 	return nil

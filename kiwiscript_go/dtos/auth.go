@@ -24,7 +24,6 @@ type SignUpBody struct {
 	FirstName string `json:"firstName" validate:"required,min=2,max=50"`
 	LastName  string `json:"lastName" validate:"required,min=2,max=50"`
 	Location  string `json:"location" validate:"required,min=3,max=3"`
-	BirthDate string `json:"birthDate" validate:"required"`
 	Password1 string `json:"password" validate:"required,min=8,max=50"`
 	Password2 string `json:"password2" validate:"required,eqfield=Password1"`
 }

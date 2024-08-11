@@ -65,7 +65,7 @@ func (s *Services) UploadLessonFile(
 	fileId, docExt, err := s.objStg.UploadDocument(ctx, opts.UserID, opts.FileHeader)
 	if err != nil {
 		log.ErrorContext(ctx, "Error uploading document", "error", err)
-		return nil, NewServerError("Error uploading document")
+		return nil, NewServerError()
 	}
 
 	lessonFile, err := s.database.CreateLessonFile(ctx, db.CreateLessonFileParams{
@@ -135,7 +135,7 @@ func (s *Services) DeleteLessonFile(
 	}
 	if err := s.objStg.DeleteFile(ctx, opts.UserID, opts.File, lessonFile.Ext); err != nil {
 		log.ErrorContext(ctx, "Failed to delete file from object storage", "error", err)
-		return NewServerError("Failed to delete file from object storage")
+		return NewServerError()
 	}
 
 	return nil

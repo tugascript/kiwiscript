@@ -34,10 +34,12 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/yuin/goldmark v1.7.4
 	golang.org/x/crypto v0.24.0
+	golang.org/x/oauth2 v0.22.0
 	golang.org/x/text v0.16.0
 )
 
 require (
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.3 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.9 // indirect

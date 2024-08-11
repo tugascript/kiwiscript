@@ -16,7 +16,7 @@ UPDATE "users" SET
   "is_confirmed" = true,
   "version" = "version" + 1
 WHERE "id" = $1
-RETURNING id, first_name, last_name, location, email, birth_date, version, is_admin, is_staff, is_confirmed, password, created_at, updated_at
+RETURNING id, first_name, last_name, location, email, version, is_admin, is_staff, is_confirmed, password, created_at, updated_at
 `
 
 func (q *Queries) ConfirmUser(ctx context.Context, id int32) (User, error) {
@@ -28,7 +28,6 @@ func (q *Queries) ConfirmUser(ctx context.Context, id int32) (User, error) {
 		&i.LastName,
 		&i.Location,
 		&i.Email,
-		&i.BirthDate,
 		&i.Version,
 		&i.IsAdmin,
 		&i.IsStaff,
@@ -47,7 +46,6 @@ INSERT INTO "users" (
   "last_name",
   "location",
   "email",
-  "birth_date",
   "password",
   "is_confirmed"
 ) VALUES (
@@ -56,9 +54,8 @@ INSERT INTO "users" (
   $3,
   $4,
   $5,
-  $6,
   false
-) RETURNING id, first_name, last_name, location, email, birth_date, version, is_admin, is_staff, is_confirmed, password, created_at, updated_at
+) RETURNING id, first_name, last_name, location, email, version, is_admin, is_staff, is_confirmed, password, created_at, updated_at
 `
 
 type CreateUserWithPasswordParams struct {
@@ -66,7 +63,6 @@ type CreateUserWithPasswordParams struct {
 	LastName  string
 	Location  string
 	Email     string
-	BirthDate pgtype.Date
 	Password  pgtype.Text
 }
 
@@ -92,7 +88,6 @@ func (q *Queries) CreateUserWithPassword(ctx context.Context, arg CreateUserWith
 		arg.LastName,
 		arg.Location,
 		arg.Email,
-		arg.BirthDate,
 		arg.Password,
 	)
 	var i User
@@ -102,7 +97,6 @@ func (q *Queries) CreateUserWithPassword(ctx context.Context, arg CreateUserWith
 		&i.LastName,
 		&i.Location,
 		&i.Email,
-		&i.BirthDate,
 		&i.Version,
 		&i.IsAdmin,
 		&i.IsStaff,
@@ -120,16 +114,14 @@ INSERT INTO "users" (
   "last_name",
   "location",
   "email",
-  "birth_date",
   "is_confirmed"
 ) VALUES (
   $1,
   $2,
   $3,
   $4,
-  $5,
   true
-) RETURNING id, first_name, last_name, location, email, birth_date, version, is_admin, is_staff, is_confirmed, password, created_at, updated_at
+) RETURNING id, first_name, last_name, location, email, version, is_admin, is_staff, is_confirmed, password, created_at, updated_at
 `
 
 type CreateUserWithoutPasswordParams struct {
@@ -137,7 +129,6 @@ type CreateUserWithoutPasswordParams struct {
 	LastName  string
 	Location  string
 	Email     string
-	BirthDate pgtype.Date
 }
 
 func (q *Queries) CreateUserWithoutPassword(ctx context.Context, arg CreateUserWithoutPasswordParams) (User, error) {
@@ -146,7 +137,6 @@ func (q *Queries) CreateUserWithoutPassword(ctx context.Context, arg CreateUserW
 		arg.LastName,
 		arg.Location,
 		arg.Email,
-		arg.BirthDate,
 	)
 	var i User
 	err := row.Scan(
@@ -155,7 +145,6 @@ func (q *Queries) CreateUserWithoutPassword(ctx context.Context, arg CreateUserW
 		&i.LastName,
 		&i.Location,
 		&i.Email,
-		&i.BirthDate,
 		&i.Version,
 		&i.IsAdmin,
 		&i.IsStaff,
@@ -187,7 +176,7 @@ func (q *Queries) DeleteUserById(ctx context.Context, id int32) error {
 }
 
 const findUserByEmail = `-- name: FindUserByEmail :one
-SELECT id, first_name, last_name, location, email, birth_date, version, is_admin, is_staff, is_confirmed, password, created_at, updated_at FROM "users"
+SELECT id, first_name, last_name, location, email, version, is_admin, is_staff, is_confirmed, password, created_at, updated_at FROM "users"
 WHERE "email" = $1 LIMIT 1
 `
 
@@ -200,7 +189,6 @@ func (q *Queries) FindUserByEmail(ctx context.Context, email string) (User, erro
 		&i.LastName,
 		&i.Location,
 		&i.Email,
-		&i.BirthDate,
 		&i.Version,
 		&i.IsAdmin,
 		&i.IsStaff,
@@ -213,7 +201,7 @@ func (q *Queries) FindUserByEmail(ctx context.Context, email string) (User, erro
 }
 
 const findUserById = `-- name: FindUserById :one
-SELECT id, first_name, last_name, location, email, birth_date, version, is_admin, is_staff, is_confirmed, password, created_at, updated_at FROM "users"
+SELECT id, first_name, last_name, location, email, version, is_admin, is_staff, is_confirmed, password, created_at, updated_at FROM "users"
 WHERE "id" = $1 LIMIT 1
 `
 
@@ -226,7 +214,6 @@ func (q *Queries) FindUserById(ctx context.Context, id int32) (User, error) {
 		&i.LastName,
 		&i.Location,
 		&i.Email,
-		&i.BirthDate,
 		&i.Version,
 		&i.IsAdmin,
 		&i.IsStaff,
@@ -268,7 +255,7 @@ UPDATE "users" SET
   "email" = $1,
   "version" = "version" + 1
 WHERE "id" = $2
-RETURNING id, first_name, last_name, location, email, birth_date, version, is_admin, is_staff, is_confirmed, password, created_at, updated_at
+RETURNING id, first_name, last_name, location, email, version, is_admin, is_staff, is_confirmed, password, created_at, updated_at
 `
 
 type UpdateUserEmailParams struct {
@@ -285,7 +272,6 @@ func (q *Queries) UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams
 		&i.LastName,
 		&i.Location,
 		&i.Email,
-		&i.BirthDate,
 		&i.Version,
 		&i.IsAdmin,
 		&i.IsStaff,
@@ -302,7 +288,7 @@ UPDATE "users" SET
   "password" = $1,
   "version" = "version" + 1
 WHERE "id" = $2
-RETURNING id, first_name, last_name, location, email, birth_date, version, is_admin, is_staff, is_confirmed, password, created_at, updated_at
+RETURNING id, first_name, last_name, location, email, version, is_admin, is_staff, is_confirmed, password, created_at, updated_at
 `
 
 type UpdateUserPasswordParams struct {
@@ -319,7 +305,6 @@ func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPassword
 		&i.LastName,
 		&i.Location,
 		&i.Email,
-		&i.BirthDate,
 		&i.Version,
 		&i.IsAdmin,
 		&i.IsStaff,

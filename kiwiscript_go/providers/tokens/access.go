@@ -39,7 +39,7 @@ type tokenClaims struct {
 	jwt.RegisteredClaims
 }
 
-func (t *Tokens) CreateAccessToken(user db.User) (string, error) {
+func (t *Tokens) CreateAccessToken(user *db.User) (string, error) {
 	now := time.Now()
 	iat := jwt.NewNumericDate(now)
 	exp := jwt.NewNumericDate(now.Add(time.Second * time.Duration(t.accessData.ttlSec)))

@@ -64,6 +64,16 @@ type ObjectStorageConfig struct {
 	Host      string
 }
 
+type OAuthProvider struct {
+	ClientID     string
+	ClientSecret string
+}
+
+type OAuthProviders struct {
+	GitHub OAuthProvider
+	Google OAuthProvider
+}
+
 type Config struct {
 	MaxProcs          int64
 	Port              string
@@ -78,9 +88,10 @@ type Config struct {
 	Tokens            TokensConfig
 	Limiter           LimiterConfig
 	ObjectStorage     ObjectStorageConfig
+	OAuthProviders    OAuthProviders
 }
 
-var variables = [31]string{
+var variables = [35]string{
 	"PORT",
 	"ENV",
 	"DEBUG",
@@ -112,6 +123,10 @@ var variables = [31]string{
 	"OBJECT_STORAGE_ACCESS_KEY",
 	"OBJECT_STORAGE_REGION",
 	"OBJECT_STORAGE_HOST",
+	"GITHUB_CLIENT_ID",
+	"GITHUB_CLIENT_SECRET",
+	"GOOGLE_CLIENT_ID",
+	"GOOGLE_CLIENT_SECRET",
 }
 
 var numerics = [6]string{
@@ -195,6 +210,16 @@ func NewConfig(log *slog.Logger, envPath string) *Config {
 			AccessKey: variablesMap["OBJECT_STORAGE_ACCESS_KEY"],
 			Region:    variablesMap["OBJECT_STORAGE_REGION"],
 			Host:      variablesMap["OBJECT_STORAGE_HOST"],
+		},
+		OAuthProviders: OAuthProviders{
+			GitHub: OAuthProvider{
+				ClientID:     variablesMap["GITHUB_CLIENT_ID"],
+				ClientSecret: variablesMap["GITHUB_CLIENT_SECRET"],
+			},
+			Google: OAuthProvider{
+				ClientID:     variablesMap["GOOGLE_CLIENT_ID"],
+				ClientSecret: variablesMap["GOOGLE_CLIENT_SECRET"],
+			},
 		},
 	}
 }

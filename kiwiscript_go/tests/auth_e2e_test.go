@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"github.com/kiwiscript/kiwiscript_go/dtos"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -80,7 +81,7 @@ func confirmTestUser(t *testing.T, userID int32) db.User {
 }
 
 func assertOAuthResponse(t *testing.T, resp *http.Response) {
-	resBody := AssertTestResponseBody(t, resp, controllers.AuthResponse{})
+	resBody := AssertTestResponseBody(t, resp, dtos.AuthResponse{})
 	AssertEqual(t, "Bearer", resBody.TokenType)
 	AssertNotEmpty(t, resBody.AccessToken)
 	AssertNotEmpty(t, resBody.RefreshToken)
@@ -126,12 +127,12 @@ func performCookieRequest(t *testing.T, app *fiber.App, path, accessToken, refre
 func TestRegister(t *testing.T) {
 	const registerPath = "/api/auth/register"
 
-	generateFakeRegisterData := func(t *testing.T) controllers.SignUpRequest {
+	generateFakeRegisterData := func(t *testing.T) dtos.SignUpBody {
 		fakeData := fakeRegisterData{}
 		if err := faker.FakeData(&fakeData); err != nil {
 			t.Fatal("Failed to generate fake data", err)
 		}
-		return controllers.SignUpRequest{
+		return dtos.SignUpBody{
 			Email:     fakeData.Email,
 			FirstName: fakeData.FirstName,
 			LastName:  fakeData.LastName,
@@ -142,15 +143,15 @@ func TestRegister(t *testing.T) {
 		}
 	}
 
-	testCases := []TestRequestCase[controllers.SignUpRequest]{
+	testCases := []TestRequestCase[dtos.SignUpBody]{
 		{
 			Name: "Should return 200 OK registering a user",
-			ReqFn: func(t *testing.T) (controllers.SignUpRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.SignUpBody, string) {
 				return generateFakeRegisterData(t), ""
 			},
 			ExpStatus: fiber.StatusOK,
-			AssertFn: func(t *testing.T, _ controllers.SignUpRequest, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.MessageResponse{})
+			AssertFn: func(t *testing.T, _ dtos.SignUpBody, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.MessageResponse{})
 				AssertEqual(t, "Confirmation email has been sent", resBody.Message)
 				AssertNotEmpty(t, resBody.ID)
 			},
@@ -158,13 +159,13 @@ func TestRegister(t *testing.T) {
 		},
 		{
 			Name: "Should return 400 BAD REQUEST if request validation fails",
-			ReqFn: func(t *testing.T) (controllers.SignUpRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.SignUpBody, string) {
 				reqBody := generateFakeRegisterData(t)
 				reqBody.Email = "notAnEmail"
 				return reqBody, ""
 			},
 			ExpStatus: fiber.StatusBadRequest,
-			AssertFn: func(t *testing.T, req controllers.SignUpRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, req dtos.SignUpBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
 				AssertEqual(t, 1, len(resBody.Fields))
 				AssertEqual(t, "email", resBody.Fields[0].Param)
@@ -174,13 +175,13 @@ func TestRegister(t *testing.T) {
 		},
 		{
 			Name: "Should return 400 BAD REQUEST if password missmatch",
-			ReqFn: func(t *testing.T) (controllers.SignUpRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.SignUpBody, string) {
 				reqBody := generateFakeRegisterData(t)
 				reqBody.Password2 = "differentPassword"
 				return reqBody, ""
 			},
 			ExpStatus: fiber.StatusBadRequest,
-			AssertFn: func(t *testing.T, req controllers.SignUpRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, req dtos.SignUpBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
 				AssertEqual(t, 1, len(resBody.Fields))
 				AssertEqual(t, "password2", resBody.Fields[0].Param)
@@ -190,14 +191,14 @@ func TestRegister(t *testing.T) {
 		},
 		{
 			Name: "Should return 409 CONFLICT if email already exists",
-			ReqFn: func(t *testing.T) (controllers.SignUpRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.SignUpBody, string) {
 				testUser := CreateTestUser(t, nil)
 				reqBody := generateFakeRegisterData(t)
 				reqBody.Email = testUser.Email
 				return reqBody, ""
 			},
 			ExpStatus: fiber.StatusConflict,
-			AssertFn: func(t *testing.T, _ controllers.SignUpRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.SignUpBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 				AssertEqual(t, "Email already exists", resBody.Message)
 				AssertEqual(t, controllers.StatusDuplicateKey, resBody.Code)
@@ -217,36 +218,36 @@ func TestRegister(t *testing.T) {
 func TestConfirmEmail(t *testing.T) {
 	const confirmEmailPath = "/api/auth/confirm-email"
 
-	generateTestConfirmEmailData := func(t *testing.T, user db.User) controllers.ConfirmRequest {
+	generateTestConfirmEmailData := func(t *testing.T, user db.User) dtos.ConfirmBody {
 		emailToken := generateEmailToken(t, tokens.EmailTokenConfirmation, user)
 
-		return controllers.ConfirmRequest{
+		return dtos.ConfirmBody{
 			ConfirmationToken: emailToken,
 		}
 	}
-	unauthorizedFunc := func(t *testing.T, _ controllers.ConfirmRequest, resp *http.Response) {
+	unauthorizedFunc := func(t *testing.T, _ dtos.ConfirmBody, resp *http.Response) {
 		assertUnauthorizeError(t, resp)
 	}
 
-	testCases := []TestRequestCase[controllers.ConfirmRequest]{
+	testCases := []TestRequestCase[dtos.ConfirmBody]{
 		{
 			Name: "Should return 200 OK with OAuth response",
-			ReqFn: func(t *testing.T) (controllers.ConfirmRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.ConfirmBody, string) {
 				testUser := CreateTestUser(t, nil)
 				return generateTestConfirmEmailData(t, testUser), ""
 			},
 			ExpStatus: fiber.StatusOK,
-			AssertFn: func(t *testing.T, _ controllers.ConfirmRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.ConfirmBody, resp *http.Response) {
 				assertOAuthResponse(t, resp)
 			},
 		},
 		{
 			Name: "Should return 400 BAD REQUEST if request validation fails",
-			ReqFn: func(t *testing.T) (controllers.ConfirmRequest, string) {
-				return controllers.ConfirmRequest{ConfirmationToken: "invalidToken"}, ""
+			ReqFn: func(t *testing.T) (dtos.ConfirmBody, string) {
+				return dtos.ConfirmBody{ConfirmationToken: "invalidToken"}, ""
 			},
 			ExpStatus: fiber.StatusBadRequest,
-			AssertFn: func(t *testing.T, req controllers.ConfirmRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, req dtos.ConfirmBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
 				AssertEqual(t, 1, len(resBody.Fields))
 				AssertEqual(t, "confirmation_token", resBody.Fields[0].Param)
@@ -256,7 +257,7 @@ func TestConfirmEmail(t *testing.T) {
 		},
 		{
 			Name: "Should return 401 UNAUTHORIZED if user not found",
-			ReqFn: func(t *testing.T) (controllers.ConfirmRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.ConfirmBody, string) {
 				fakeUser := CreateFakeTestUser(t)
 				return generateTestConfirmEmailData(t, fakeUser), ""
 			},
@@ -265,7 +266,7 @@ func TestConfirmEmail(t *testing.T) {
 		},
 		{
 			Name: "Should return 401 UNAUTHORIZED if user already confirmed",
-			ReqFn: func(t *testing.T) (controllers.ConfirmRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.ConfirmBody, string) {
 				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 				return generateTestConfirmEmailData(t, testUser), ""
 			},
@@ -274,7 +275,7 @@ func TestConfirmEmail(t *testing.T) {
 		},
 		{
 			Name: "Should return 401 UNAUTHORIZED for version missmatch",
-			ReqFn: func(t *testing.T) (controllers.ConfirmRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.ConfirmBody, string) {
 				testUser := CreateTestUser(t, nil)
 				testUser.Version = math.MaxInt16
 				return generateTestConfirmEmailData(t, testUser), ""
@@ -296,18 +297,18 @@ func TestConfirmEmail(t *testing.T) {
 func TestLogin(t *testing.T) {
 	const loginPath = "/api/auth/login"
 
-	testCases := []TestRequestCase[controllers.SignInRequest]{
+	testCases := []TestRequestCase[dtos.SignInBody]{
 		{
 			Name: "Should return 200 OK with message response",
-			ReqFn: func(t *testing.T) (controllers.SignInRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.SignInBody, string) {
 				fakeUserData := GenerateFakeUserData(t)
 				testUser := confirmTestUser(t, CreateTestUser(t, &fakeUserData).ID)
-				reqBody := controllers.SignInRequest{Email: testUser.Email, Password: fakeUserData.Password}
+				reqBody := dtos.SignInBody{Email: testUser.Email, Password: fakeUserData.Password}
 				return reqBody, ""
 			},
 			ExpStatus: fiber.StatusOK,
-			AssertFn: func(t *testing.T, _ controllers.SignInRequest, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.MessageResponse{})
+			AssertFn: func(t *testing.T, _ dtos.SignInBody, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.MessageResponse{})
 				AssertEqual(t, "Confirmation code has been sent to your email", resBody.Message)
 				AssertNotEmpty(t, resBody.ID)
 			},
@@ -315,11 +316,11 @@ func TestLogin(t *testing.T) {
 		},
 		{
 			Name: "Should return 400 BAD REQUEST if request validation fails",
-			ReqFn: func(t *testing.T) (controllers.SignInRequest, string) {
-				return controllers.SignInRequest{Email: "notAnEmail", Password: ""}, ""
+			ReqFn: func(t *testing.T) (dtos.SignInBody, string) {
+				return dtos.SignInBody{Email: "notAnEmail", Password: ""}, ""
 			},
 			ExpStatus: fiber.StatusBadRequest,
-			AssertFn: func(t *testing.T, req controllers.SignInRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, req dtos.SignInBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
 				AssertEqual(t, 2, len(resBody.Fields))
 				AssertEqual(t, "email", resBody.Fields[0].Param)
@@ -332,13 +333,13 @@ func TestLogin(t *testing.T) {
 		},
 		{
 			Name: "Should return 401 UNAUTHORIZED if user not found",
-			ReqFn: func(t *testing.T) (controllers.SignInRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.SignInBody, string) {
 				fakeEmail := faker.Email()
 				fakePassword := faker.Password()
-				return controllers.SignInRequest{Email: fakeEmail, Password: fakePassword}, ""
+				return dtos.SignInBody{Email: fakeEmail, Password: fakePassword}, ""
 			},
 			ExpStatus: fiber.StatusUnauthorized,
-			AssertFn: func(t *testing.T, _ controllers.SignInRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.SignInBody, resp *http.Response) {
 				AssertTestStatusCode(t, resp, fiber.StatusUnauthorized)
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
@@ -347,13 +348,13 @@ func TestLogin(t *testing.T) {
 		},
 		{
 			Name: "Should return 400 BAD REQUEST if user not confirmed",
-			ReqFn: func(t *testing.T) (controllers.SignInRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.SignInBody, string) {
 				fakeUserData := GenerateFakeUserData(t)
 				testUser := CreateTestUser(t, &fakeUserData)
-				return controllers.SignInRequest{Email: testUser.Email, Password: fakeUserData.Password}, ""
+				return dtos.SignInBody{Email: testUser.Email, Password: fakeUserData.Password}, ""
 			},
 			ExpStatus: fiber.StatusBadRequest,
-			AssertFn: func(t *testing.T, _ controllers.SignInRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.SignInBody, resp *http.Response) {
 				AssertTestStatusCode(t, resp, fiber.StatusBadRequest)
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 				AssertEqual(t, "User not confirmed", resBody.Message)
@@ -386,37 +387,37 @@ func TestLoginConfirm(t *testing.T) {
 		return code
 	}
 
-	testCases := []TestRequestCase[controllers.ConfirmSignInRequest]{
+	testCases := []TestRequestCase[dtos.ConfirmSignInBody]{
 		{
 			Name: "Should return 200 OK with OAuth response",
-			ReqFn: func(t *testing.T) (controllers.ConfirmSignInRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.ConfirmSignInBody, string) {
 				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 				code := generateTestTwoFactorCode(t, testUser)
-				return controllers.ConfirmSignInRequest{Email: testUser.Email, Code: code}, ""
+				return dtos.ConfirmSignInBody{Email: testUser.Email, Code: code}, ""
 			},
 			ExpStatus: fiber.StatusOK,
-			AssertFn: func(t *testing.T, _ controllers.ConfirmSignInRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.ConfirmSignInBody, resp *http.Response) {
 				assertOAuthResponse(t, resp)
 			},
 		},
 		{
 			Name: "Should return 401 UNAUTHORIZED if code is wrong",
-			ReqFn: func(t *testing.T) (controllers.ConfirmSignInRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.ConfirmSignInBody, string) {
 				fakeUser := CreateFakeTestUser(t)
-				return controllers.ConfirmSignInRequest{Email: fakeUser.Email, Code: "123456"}, ""
+				return dtos.ConfirmSignInBody{Email: fakeUser.Email, Code: "123456"}, ""
 			},
 			ExpStatus: fiber.StatusUnauthorized,
-			AssertFn: func(t *testing.T, _ controllers.ConfirmSignInRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.ConfirmSignInBody, resp *http.Response) {
 				assertUnauthorizeError(t, resp)
 			},
 		},
 		{
 			Name: "Should return 400 BAD REQUEST if request validation fails",
-			ReqFn: func(t *testing.T) (controllers.ConfirmSignInRequest, string) {
-				return controllers.ConfirmSignInRequest{Email: "notAnEmail", Code: ""}, ""
+			ReqFn: func(t *testing.T) (dtos.ConfirmSignInBody, string) {
+				return dtos.ConfirmSignInBody{Email: "notAnEmail", Code: ""}, ""
 			},
 			ExpStatus: fiber.StatusBadRequest,
-			AssertFn: func(t *testing.T, req controllers.ConfirmSignInRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, req dtos.ConfirmSignInBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
 				AssertEqual(t, 2, len(resBody.Fields))
 				AssertEqual(t, "email", resBody.Fields[0].Param)
@@ -429,24 +430,24 @@ func TestLoginConfirm(t *testing.T) {
 		},
 		{
 			Name: "Should return 401 UNAUTHORIZED if user not found",
-			ReqFn: func(t *testing.T) (controllers.ConfirmSignInRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.ConfirmSignInBody, string) {
 				fakeUser := CreateFakeTestUser(t)
-				return controllers.ConfirmSignInRequest{Email: fakeUser.Email, Code: "123456"}, ""
+				return dtos.ConfirmSignInBody{Email: fakeUser.Email, Code: "123456"}, ""
 			},
 			ExpStatus: fiber.StatusUnauthorized,
-			AssertFn: func(t *testing.T, _ controllers.ConfirmSignInRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.ConfirmSignInBody, resp *http.Response) {
 				assertUnauthorizeError(t, resp)
 			},
 		},
 		{
 			Name: "Should return 400 BAD REQUEST if user not confirmed",
-			ReqFn: func(t *testing.T) (controllers.ConfirmSignInRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.ConfirmSignInBody, string) {
 				testUser := CreateTestUser(t, nil)
 				code := generateTestTwoFactorCode(t, testUser)
-				return controllers.ConfirmSignInRequest{Email: testUser.Email, Code: code}, ""
+				return dtos.ConfirmSignInBody{Email: testUser.Email, Code: code}, ""
 			},
 			ExpStatus: fiber.StatusBadRequest,
-			AssertFn: func(t *testing.T, _ controllers.ConfirmSignInRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.ConfirmSignInBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 				AssertEqual(t, "User not confirmed", resBody.Message)
 			},
@@ -472,38 +473,38 @@ type cookieTestCase struct {
 func TestLogout(t *testing.T) {
 	const logoutPath = "/api/auth/logout"
 
-	bodyTestCases := []TestRequestCase[controllers.SignOutRequest]{
+	bodyTestCases := []TestRequestCase[dtos.SignOutBody]{
 		{
 			Name: "Should return 204 NO CONTENT",
-			ReqFn: func(t *testing.T) (controllers.SignOutRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.SignOutBody, string) {
 				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 				accessToken, refreshToken := GenerateTestAuthTokens(t, testUser)
-				return controllers.SignOutRequest{RefreshToken: refreshToken}, accessToken
+				return dtos.SignOutBody{RefreshToken: refreshToken}, accessToken
 			},
 			ExpStatus: fiber.StatusNoContent,
-			AssertFn:  func(t *testing.T, _ controllers.SignOutRequest, resp *http.Response) {},
+			AssertFn:  func(t *testing.T, _ dtos.SignOutBody, resp *http.Response) {},
 		},
 		{
 			Name: "Should return 401 UNAUTHORIZED if access token is invalid",
-			ReqFn: func(t *testing.T) (controllers.SignOutRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.SignOutBody, string) {
 				testUser := CreateFakeTestUser(t)
 				_, refreshToken := GenerateTestAuthTokens(t, testUser)
-				return controllers.SignOutRequest{RefreshToken: refreshToken}, "invalid"
+				return dtos.SignOutBody{RefreshToken: refreshToken}, "invalid"
 			},
 			ExpStatus: fiber.StatusUnauthorized,
-			AssertFn: func(t *testing.T, _ controllers.SignOutRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.SignOutBody, resp *http.Response) {
 				assertUnauthorizeError(t, resp)
 			},
 		},
 		{
 			Name: "Should return 400 BAD REQUEST if request validation fails",
-			ReqFn: func(t *testing.T) (controllers.SignOutRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.SignOutBody, string) {
 				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 				accessToken, _ := GenerateTestAuthTokens(t, testUser)
-				return controllers.SignOutRequest{RefreshToken: "not-a-jwt"}, accessToken
+				return dtos.SignOutBody{RefreshToken: "not-a-jwt"}, accessToken
 			},
 			ExpStatus: fiber.StatusBadRequest,
-			AssertFn: func(t *testing.T, req controllers.SignOutRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, req dtos.SignOutBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
 				AssertEqual(t, 1, len(resBody.Fields))
 				AssertEqual(t, "refresh_token", resBody.Fields[0].Param)
@@ -598,54 +599,54 @@ func TestRefresh(t *testing.T) {
 		}
 	}
 
-	bodyTestCases := []TestRequestCase[controllers.RefreshRequest]{
+	bodyTestCases := []TestRequestCase[dtos.RefreshBody]{
 		{
 			Name: "Should return 200 OK",
-			ReqFn: func(t *testing.T) (controllers.RefreshRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.RefreshBody, string) {
 				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 				_, refreshToken := GenerateTestAuthTokens(t, testUser)
-				return controllers.RefreshRequest{RefreshToken: refreshToken}, ""
+				return dtos.RefreshBody{RefreshToken: refreshToken}, ""
 			},
 			ExpStatus: fiber.StatusOK,
-			AssertFn: func(t *testing.T, _ controllers.RefreshRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.RefreshBody, resp *http.Response) {
 				assertOAuthResponse(t, resp)
 			},
 		},
 		{
 			Name: "Should return 401 UNAUTHORIZED if refresh token is blacklisted",
-			ReqFn: func(t *testing.T) (controllers.RefreshRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.RefreshBody, string) {
 				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 				_, refreshToken := GenerateTestAuthTokens(t, testUser)
 				blackListRefreshToken(t, refreshToken)
-				return controllers.RefreshRequest{RefreshToken: refreshToken}, ""
+				return dtos.RefreshBody{RefreshToken: refreshToken}, ""
 			},
 			ExpStatus: fiber.StatusUnauthorized,
-			AssertFn: func(t *testing.T, _ controllers.RefreshRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.RefreshBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
 			},
 		},
 		{
 			Name: "Should return 401 UNAUTHORIZED if user version mismatches",
-			ReqFn: func(t *testing.T) (controllers.RefreshRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.RefreshBody, string) {
 				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 				testUser.Version = math.MaxInt16
 				_, refreshToken := GenerateTestAuthTokens(t, testUser)
-				return controllers.RefreshRequest{RefreshToken: refreshToken}, ""
+				return dtos.RefreshBody{RefreshToken: refreshToken}, ""
 			},
 			ExpStatus: fiber.StatusUnauthorized,
-			AssertFn: func(t *testing.T, _ controllers.RefreshRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.RefreshBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
 			},
 		},
 		{
 			Name: "Should return 400 BAD REQUEST if refresh token is invalid",
-			ReqFn: func(t *testing.T) (controllers.RefreshRequest, string) {
-				return controllers.RefreshRequest{RefreshToken: "not-jwt"}, ""
+			ReqFn: func(t *testing.T) (dtos.RefreshBody, string) {
+				return dtos.RefreshBody{RefreshToken: "not-jwt"}, ""
 			},
 			ExpStatus: fiber.StatusBadRequest,
-			AssertFn: func(t *testing.T, req controllers.RefreshRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, req dtos.RefreshBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
 				AssertEqual(t, 1, len(resBody.Fields))
 				AssertEqual(t, "refresh_token", resBody.Fields[0].Param)
@@ -655,13 +656,13 @@ func TestRefresh(t *testing.T) {
 		},
 		{
 			Name: "Should return 401 UNAUTHORIZED if user is deleted",
-			ReqFn: func(t *testing.T) (controllers.RefreshRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.RefreshBody, string) {
 				testUser := CreateFakeTestUser(t)
 				_, refreshToken := GenerateTestAuthTokens(t, testUser)
-				return controllers.RefreshRequest{RefreshToken: refreshToken}, ""
+				return dtos.RefreshBody{RefreshToken: refreshToken}, ""
 			},
 			ExpStatus: fiber.StatusUnauthorized,
-			AssertFn: func(t *testing.T, _ controllers.RefreshRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.RefreshBody, resp *http.Response) {
 				assertUnauthorizeError(t, resp)
 			},
 		},
@@ -683,7 +684,7 @@ func TestRefresh(t *testing.T) {
 				return "", refreshToken
 			},
 			AssertFn: func(t *testing.T, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.AuthResponse{})
+				resBody := AssertTestResponseBody(t, resp, dtos.AuthResponse{})
 				AssertEqual(t, "Bearer", resBody.TokenType)
 			},
 		},
@@ -751,38 +752,38 @@ func TestRefresh(t *testing.T) {
 func TestForgotPassword(t *testing.T) {
 	const forgotPasswordPath = "/api/auth/forgot-password"
 
-	bodyTestCases := []TestRequestCase[controllers.ForgotPasswordRequest]{
+	bodyTestCases := []TestRequestCase[dtos.ForgotPasswordBody]{
 		{
 			Name: "Should return 200 OK with existing user",
-			ReqFn: func(t *testing.T) (controllers.ForgotPasswordRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.ForgotPasswordBody, string) {
 				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
-				return controllers.ForgotPasswordRequest{Email: testUser.Email}, ""
+				return dtos.ForgotPasswordBody{Email: testUser.Email}, ""
 			},
 			ExpStatus: fiber.StatusOK,
-			AssertFn: func(t *testing.T, _ controllers.ForgotPasswordRequest, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.MessageResponse{})
+			AssertFn: func(t *testing.T, _ dtos.ForgotPasswordBody, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.MessageResponse{})
 				AssertEqual(t, "If the email exists, a password reset email has been sent", resBody.Message)
 			},
 		},
 		{
 			Name: "Should return 200 OK with non-existing user",
-			ReqFn: func(t *testing.T) (controllers.ForgotPasswordRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.ForgotPasswordBody, string) {
 				fakeEmail := faker.Email()
-				return controllers.ForgotPasswordRequest{Email: fakeEmail}, ""
+				return dtos.ForgotPasswordBody{Email: fakeEmail}, ""
 			},
 			ExpStatus: fiber.StatusOK,
-			AssertFn: func(t *testing.T, _ controllers.ForgotPasswordRequest, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.MessageResponse{})
+			AssertFn: func(t *testing.T, _ dtos.ForgotPasswordBody, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.MessageResponse{})
 				AssertEqual(t, "If the email exists, a password reset email has been sent", resBody.Message)
 			},
 		},
 		{
 			Name: "Should return 400 BAD REQUEST if request validation fails",
-			ReqFn: func(t *testing.T) (controllers.ForgotPasswordRequest, string) {
-				return controllers.ForgotPasswordRequest{Email: "notAnEmail"}, ""
+			ReqFn: func(t *testing.T) (dtos.ForgotPasswordBody, string) {
+				return dtos.ForgotPasswordBody{Email: "notAnEmail"}, ""
 			},
 			ExpStatus: fiber.StatusBadRequest,
-			AssertFn: func(t *testing.T, req controllers.ForgotPasswordRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, req dtos.ForgotPasswordBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
 				AssertEqual(t, 1, len(resBody.Fields))
 				AssertEqual(t, "email", resBody.Fields[0].Param)
@@ -803,38 +804,38 @@ func TestForgotPassword(t *testing.T) {
 
 func TestResetPassword(t *testing.T) {
 	const resetPasswordPath = "/api/auth/reset-password"
-	generateTestResetPasswordData := func(t *testing.T, user db.User) controllers.ResetPasswordRequest {
+	generateTestResetPasswordData := func(t *testing.T, user db.User) dtos.ResetPasswordBody {
 		emailToken := generateEmailToken(t, tokens.EmailTokenReset, user)
 		password := faker.Name() + "123!"
 
-		return controllers.ResetPasswordRequest{
+		return dtos.ResetPasswordBody{
 			ResetToken: emailToken,
 			Password1:  password,
 			Password2:  password,
 		}
 	}
 
-	testCases := []TestRequestCase[controllers.ResetPasswordRequest]{
+	testCases := []TestRequestCase[dtos.ResetPasswordBody]{
 		{
 			Name: "Should return 200 OK",
-			ReqFn: func(t *testing.T) (controllers.ResetPasswordRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.ResetPasswordBody, string) {
 				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 				reqBody := generateTestResetPasswordData(t, testUser)
 				return reqBody, ""
 			},
 			ExpStatus: fiber.StatusOK,
-			AssertFn: func(t *testing.T, _ controllers.ResetPasswordRequest, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.MessageResponse{})
+			AssertFn: func(t *testing.T, _ dtos.ResetPasswordBody, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.MessageResponse{})
 				AssertEqual(t, "Password reseted successfully", resBody.Message)
 			},
 		},
 		{
 			Name: "Should return 400 BAD REQUEST if request validation fails",
-			ReqFn: func(t *testing.T) (controllers.ResetPasswordRequest, string) {
-				return controllers.ResetPasswordRequest{ResetToken: "invalid", Password1: "a", Password2: "cb"}, ""
+			ReqFn: func(t *testing.T) (dtos.ResetPasswordBody, string) {
+				return dtos.ResetPasswordBody{ResetToken: "invalid", Password1: "a", Password2: "cb"}, ""
 			},
 			ExpStatus: fiber.StatusBadRequest,
-			AssertFn: func(t *testing.T, req controllers.ResetPasswordRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, req dtos.ResetPasswordBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
 				AssertEqual(t, 3, len(resBody.Fields))
 				AssertEqual(t, "reset_token", resBody.Fields[0].Param)
@@ -850,27 +851,27 @@ func TestResetPassword(t *testing.T) {
 		},
 		{
 			Name: "Should return 401 UNAUTHORIZED if user version mismatches",
-			ReqFn: func(t *testing.T) (controllers.ResetPasswordRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.ResetPasswordBody, string) {
 				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 				testUser.Version = math.MaxInt16
 				reqBody := generateTestResetPasswordData(t, testUser)
 				return reqBody, ""
 			},
 			ExpStatus: fiber.StatusUnauthorized,
-			AssertFn: func(t *testing.T, _ controllers.ResetPasswordRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.ResetPasswordBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
 			},
 		},
 		{
 			Name: "Should return 401 UNAUTHORIZED if user is deleted",
-			ReqFn: func(t *testing.T) (controllers.ResetPasswordRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.ResetPasswordBody, string) {
 				testUser := CreateFakeTestUser(t)
 				reqBody := generateTestResetPasswordData(t, testUser)
 				return reqBody, ""
 			},
 			ExpStatus: fiber.StatusUnauthorized,
-			AssertFn: func(t *testing.T, _ controllers.ResetPasswordRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.ResetPasswordBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
 			},
@@ -889,19 +890,19 @@ func TestResetPassword(t *testing.T) {
 func TestUpdatePassword(t *testing.T) {
 	const updatePasswordPath = "/api/auth/update-password"
 
-	generateTestUpdatePasswordData := func(_ *testing.T, oldPassword string) controllers.UpdatePasswordRequest {
+	generateTestUpdatePasswordData := func(_ *testing.T, oldPassword string) dtos.UpdatePasswordBody {
 		newPassword := faker.Name() + "123!"
-		return controllers.UpdatePasswordRequest{
+		return dtos.UpdatePasswordBody{
 			OldPassword: oldPassword,
 			Password1:   newPassword,
 			Password2:   newPassword,
 		}
 	}
 
-	testCases := []TestRequestCase[controllers.UpdatePasswordRequest]{
+	testCases := []TestRequestCase[dtos.UpdatePasswordBody]{
 		{
 			Name: "Should return 200 OK",
-			ReqFn: func(t *testing.T) (controllers.UpdatePasswordRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.UpdatePasswordBody, string) {
 				fakeUserData := GenerateFakeUserData(t)
 				testUser := confirmTestUser(t, CreateTestUser(t, &fakeUserData).ID)
 				accessToken, _ := GenerateTestAuthTokens(t, testUser)
@@ -909,19 +910,19 @@ func TestUpdatePassword(t *testing.T) {
 				return reqBody, accessToken
 			},
 			ExpStatus: fiber.StatusOK,
-			AssertFn: func(t *testing.T, _ controllers.UpdatePasswordRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.UpdatePasswordBody, resp *http.Response) {
 				assertOAuthResponse(t, resp)
 			},
 		},
 		{
 			Name: "Should return 400 BAD REQUEST if request validation fails",
-			ReqFn: func(t *testing.T) (controllers.UpdatePasswordRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.UpdatePasswordBody, string) {
 				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 				accessToken, _ := GenerateTestAuthTokens(t, testUser)
-				return controllers.UpdatePasswordRequest{OldPassword: "", Password1: "a", Password2: "b"}, accessToken
+				return dtos.UpdatePasswordBody{OldPassword: "", Password1: "a", Password2: "b"}, accessToken
 			},
 			ExpStatus: fiber.StatusBadRequest,
-			AssertFn: func(t *testing.T, req controllers.UpdatePasswordRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, req dtos.UpdatePasswordBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
 				AssertEqual(t, 3, len(resBody.Fields))
 				AssertEqual(t, "old_password", resBody.Fields[0].Param)
@@ -936,7 +937,7 @@ func TestUpdatePassword(t *testing.T) {
 		},
 		{
 			Name: "Should return 400 BAD REQUEST if user users wrong password",
-			ReqFn: func(t *testing.T) (controllers.UpdatePasswordRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.UpdatePasswordBody, string) {
 				fakeUserData := GenerateFakeUserData(t)
 				testUser := confirmTestUser(t, CreateTestUser(t, &fakeUserData).ID)
 				accessToken, _ := GenerateTestAuthTokens(t, testUser)
@@ -944,14 +945,14 @@ func TestUpdatePassword(t *testing.T) {
 				return reqBody, accessToken
 			},
 			ExpStatus: fiber.StatusBadRequest,
-			AssertFn: func(t *testing.T, _ controllers.UpdatePasswordRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.UpdatePasswordBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 				AssertEqual(t, "Old password is incorrect", resBody.Message)
 			},
 		},
 		{
 			Name: "Should return 401 UNAUTHORIZED if user version mismatches",
-			ReqFn: func(t *testing.T) (controllers.UpdatePasswordRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.UpdatePasswordBody, string) {
 				fakeUserData := GenerateFakeUserData(t)
 				testUser := confirmTestUser(t, CreateTestUser(t, &fakeUserData).ID)
 				testUser.Version = math.MaxInt16
@@ -960,14 +961,14 @@ func TestUpdatePassword(t *testing.T) {
 				return reqBody, accessToken
 			},
 			ExpStatus: fiber.StatusUnauthorized,
-			AssertFn: func(t *testing.T, _ controllers.UpdatePasswordRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.UpdatePasswordBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
 			},
 		},
 		{
 			Name: "Should return 401 UNAUTHORIZED if user is deleted",
-			ReqFn: func(t *testing.T) (controllers.UpdatePasswordRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.UpdatePasswordBody, string) {
 				fakeUserData := GenerateFakeUserData(t)
 				testUser := CreateFakeTestUser(t)
 				accessToken, _ := GenerateTestAuthTokens(t, testUser)
@@ -975,19 +976,19 @@ func TestUpdatePassword(t *testing.T) {
 				return reqBody, accessToken
 			},
 			ExpStatus: fiber.StatusUnauthorized,
-			AssertFn: func(t *testing.T, _ controllers.UpdatePasswordRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.UpdatePasswordBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
 			},
 		},
 		{
 			Name: "Should return 401 UNAUTHORIZED if access token is missing",
-			ReqFn: func(t *testing.T) (controllers.UpdatePasswordRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.UpdatePasswordBody, string) {
 				reqBody := generateTestUpdatePasswordData(t, faker.Password())
 				return reqBody, ""
 			},
 			ExpStatus: fiber.StatusUnauthorized,
-			AssertFn: func(t *testing.T, _ controllers.UpdatePasswordRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.UpdatePasswordBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
 			},
@@ -1006,17 +1007,17 @@ func TestUpdatePassword(t *testing.T) {
 func TestUpdateEmail(t *testing.T) {
 	const updateEmailPath = "/api/auth/update-email"
 
-	generateTestUpdateEmailData := func(_ *testing.T, password string) controllers.UpdateEmailRequest {
-		return controllers.UpdateEmailRequest{
+	generateTestUpdateEmailData := func(_ *testing.T, password string) dtos.UpdateEmailBody {
+		return dtos.UpdateEmailBody{
 			Email:    faker.Email(),
 			Password: password,
 		}
 	}
 
-	testCases := []TestRequestCase[controllers.UpdateEmailRequest]{
+	testCases := []TestRequestCase[dtos.UpdateEmailBody]{
 		{
 			Name: "Should return 200 OK",
-			ReqFn: func(t *testing.T) (controllers.UpdateEmailRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.UpdateEmailBody, string) {
 				fakeUserData := GenerateFakeUserData(t)
 				testUser := confirmTestUser(t, CreateTestUser(t, &fakeUserData).ID)
 				accessToken, _ := GenerateTestAuthTokens(t, testUser)
@@ -1024,21 +1025,21 @@ func TestUpdateEmail(t *testing.T) {
 				return reqBody, accessToken
 			},
 			ExpStatus: fiber.StatusOK,
-			AssertFn: func(t *testing.T, _ controllers.UpdateEmailRequest, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.AuthResponse{})
+			AssertFn: func(t *testing.T, _ dtos.UpdateEmailBody, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.AuthResponse{})
 				AssertEqual(t, "Bearer", resBody.TokenType)
 			},
 		},
 		{
 			Name: "Should return 400 BAD REQUEST if request validation fails",
-			ReqFn: func(t *testing.T) (controllers.UpdateEmailRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.UpdateEmailBody, string) {
 				fakeUserData := GenerateFakeUserData(t)
 				testUser := confirmTestUser(t, CreateTestUser(t, &fakeUserData).ID)
 				accessToken, _ := GenerateTestAuthTokens(t, testUser)
-				return controllers.UpdateEmailRequest{Email: "", Password: fakeUserData.Password}, accessToken
+				return dtos.UpdateEmailBody{Email: "", Password: fakeUserData.Password}, accessToken
 			},
 			ExpStatus: fiber.StatusBadRequest,
-			AssertFn: func(t *testing.T, req controllers.UpdateEmailRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, req dtos.UpdateEmailBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
 				AssertEqual(t, 1, len(resBody.Fields))
 				AssertEqual(t, "email", resBody.Fields[0].Param)
@@ -1048,7 +1049,7 @@ func TestUpdateEmail(t *testing.T) {
 		},
 		{
 			Name: "Should return 400 BAD REQUEST if user users wrong password",
-			ReqFn: func(t *testing.T) (controllers.UpdateEmailRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.UpdateEmailBody, string) {
 				fakeUserData := GenerateFakeUserData(t)
 				testUser := confirmTestUser(t, CreateTestUser(t, &fakeUserData).ID)
 				accessToken, _ := GenerateTestAuthTokens(t, testUser)
@@ -1056,14 +1057,14 @@ func TestUpdateEmail(t *testing.T) {
 				return reqBody, accessToken
 			},
 			ExpStatus: fiber.StatusBadRequest,
-			AssertFn: func(t *testing.T, _ controllers.UpdateEmailRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.UpdateEmailBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 				AssertEqual(t, "Invalid password", resBody.Message)
 			},
 		},
 		{
 			Name: "Should return 401 UNAUTHORIZED if user version mismatches",
-			ReqFn: func(t *testing.T) (controllers.UpdateEmailRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.UpdateEmailBody, string) {
 				fakeUserData := GenerateFakeUserData(t)
 				testUser := confirmTestUser(t, CreateTestUser(t, &fakeUserData).ID)
 				testUser.Version = math.MaxInt16
@@ -1072,14 +1073,14 @@ func TestUpdateEmail(t *testing.T) {
 				return reqBody, accessToken
 			},
 			ExpStatus: fiber.StatusUnauthorized,
-			AssertFn: func(t *testing.T, _ controllers.UpdateEmailRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.UpdateEmailBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
 			},
 		},
 		{
 			Name: "Should return 401 UNAUTHORIZED if user is deleted",
-			ReqFn: func(t *testing.T) (controllers.UpdateEmailRequest, string) {
+			ReqFn: func(t *testing.T) (dtos.UpdateEmailBody, string) {
 				fakeUserData := GenerateFakeUserData(t)
 				testUser := CreateFakeTestUser(t)
 				accessToken, _ := GenerateTestAuthTokens(t, testUser)
@@ -1087,7 +1088,7 @@ func TestUpdateEmail(t *testing.T) {
 				return reqBody, accessToken
 			},
 			ExpStatus: fiber.StatusUnauthorized,
-			AssertFn: func(t *testing.T, _ controllers.UpdateEmailRequest, resp *http.Response) {
+			AssertFn: func(t *testing.T, _ dtos.UpdateEmailBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
 			},

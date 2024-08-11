@@ -26,7 +26,7 @@ func (s *Services) FindFileURL(ctx context.Context, opts FindFileURLOptions) (st
 		UserID: opts.UserID,
 		FileID: opts.FileID,
 	}
-	if url, err := s.cache.GetFileURL(cacheOpts); err == nil {
+	if url, err := s.cache.GetFileURL(cacheOpts); err == nil && url != "" {
 		return url, nil
 	}
 
@@ -37,7 +37,7 @@ func (s *Services) FindFileURL(ctx context.Context, opts FindFileURLOptions) (st
 	})
 	if err != nil {
 		log.Error("Error getting file URL", "error", err)
-		return "", NewServerError("Error getting file URL")
+		return "", NewServerError()
 	}
 
 	return url, nil

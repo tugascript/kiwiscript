@@ -21,7 +21,6 @@ INSERT INTO "users" (
   "last_name",
   "location",
   "email",
-  "birth_date",
   "password",
   "is_confirmed"
 ) VALUES (
@@ -30,7 +29,6 @@ INSERT INTO "users" (
   $3,
   $4,
   $5,
-  $6,
   false
 ) RETURNING *;
 
@@ -40,14 +38,12 @@ INSERT INTO "users" (
   "last_name",
   "location",
   "email",
-  "birth_date",
   "is_confirmed"
 ) VALUES (
   $1,
   $2,
   $3,
   $4,
-  $5,
   true
 ) RETURNING *;
 

@@ -15,24 +15,14 @@
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
-package utils
+package dtos
 
-const (
-	ProviderGoogle string = "google"
-	ProviderGitHub string = "github"
-	ProviderEmail  string = "email"
+type OAuthTokenBody struct {
+	Code  string `json:"code" validate:"required,uuid"`
+	State string `json:"state" validate:"required,min=32,hexadecimal"`
+}
 
-	LocationNZL string = "NZL"
-	LocationAUS string = "AUS"
-	LocationNAM string = "NAM" // North America
-	LocationEUR string = "EUR"
-	LocationOTH string = "OTH" // Other
-)
-
-var Location = map[string]bool{
-	LocationNZL: true,
-	LocationAUS: true,
-	LocationNAM: true,
-	LocationEUR: true,
-	LocationOTH: true,
+type OAuthTokenParams struct {
+	Code  string `validate:"required,min=1"`
+	State string `validate:"required,min=32,hexadecimal"`
 }

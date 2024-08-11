@@ -63,8 +63,8 @@ func NewValidationError(message string) *ServiceError {
 	return NewError(CodeValidation, message)
 }
 
-func NewServerError(message string) *ServiceError {
-	return NewError(CodeServerError, message)
+func NewServerError() *ServiceError {
+	return NewError(CodeServerError, MessageUnknown)
 }
 
 func NewDuplicateKeyError(message string) *ServiceError {

@@ -190,7 +190,6 @@ type User struct {
 	LastName    string
 	Location    string
 	Email       string
-	BirthDate   pgtype.Date
 	Version     int16
 	IsAdmin     bool
 	IsStaff     bool

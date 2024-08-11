@@ -93,6 +93,7 @@ func main() {
 		&cfg.Email,
 		&cfg.Tokens,
 		&cfg.Limiter,
+		&cfg.OAuthProviders,
 		cfg.ObjectStorage.Bucket,
 		cfg.BackendDomain,
 		cfg.FrontendDomain,

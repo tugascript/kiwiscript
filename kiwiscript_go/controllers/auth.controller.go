@@ -56,7 +56,7 @@ func passwordValidator(password string) *services.ServiceError {
 	return nil
 }
 
-func (c *Controllers) processAuthResponse(ctx *fiber.Ctx, authRes services.AuthResponse) error {
+func (c *Controllers) processAuthResponse(ctx *fiber.Ctx, authRes *services.AuthResponse) error {
 	ctx.Cookie(&fiber.Cookie{
 		Name:     c.refreshCookieName,
 		Value:    authRes.RefreshToken,
@@ -95,7 +95,6 @@ func (c *Controllers) SignUp(ctx *fiber.Ctx) error {
 		FirstName: utils.Capitalized(request.FirstName),
 		LastName:  utils.Capitalized(request.LastName),
 		Location:  utils.Uppercased(request.Location),
-		BirthDate: request.BirthDate,
 		Password:  request.Password1,
 	}
 	if serviceErr := c.services.SignUp(userCtx, opts); serviceErr != nil {

@@ -15,24 +15,18 @@
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
-package utils
+package routers
 
-const (
-	ProviderGoogle string = "google"
-	ProviderGitHub string = "github"
-	ProviderEmail  string = "email"
+import "github.com/kiwiscript/kiwiscript_go/paths"
 
-	LocationNZL string = "NZL"
-	LocationAUS string = "AUS"
-	LocationNAM string = "NAM" // North America
-	LocationEUR string = "EUR"
-	LocationOTH string = "OTH" // Other
-)
+const extAuthPath string = paths.AuthPath + "/ext"
 
-var Location = map[string]bool{
-	LocationNZL: true,
-	LocationAUS: true,
-	LocationNAM: true,
-	LocationEUR: true,
-	LocationOTH: true,
+func (r *Router) OAuthPublicRoutes() {
+	oauthGroup := r.router.Group(extAuthPath)
+
+	oauthGroup.Get("/github", r.controllers.GitHubSignIn)
+	oauthGroup.Get("/github/callback", r.controllers.GitHubCallback)
+	oauthGroup.Get("/google", r.controllers.GoogleSignIn)
+	oauthGroup.Get("/google/callback", r.controllers.GoogleCallback)
+	oauthGroup.Post("/token", r.controllers.OAuthToken)
 }

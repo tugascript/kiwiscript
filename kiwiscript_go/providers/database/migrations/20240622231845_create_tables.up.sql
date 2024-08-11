@@ -1,6 +1,6 @@
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2024-08-07T05:54:26.563Z
+-- Generated at: 2024-08-10T08:01:42.304Z
 
 CREATE TABLE "users" (
   "id" serial PRIMARY KEY,
@@ -8,7 +8,6 @@ CREATE TABLE "users" (
   "last_name" varchar(50) NOT NULL,
   "location" varchar(3) NOT NULL,
   "email" varchar(250) NOT NULL,
-  "birth_date" date NOT NULL,
   "version" smallint NOT NULL DEFAULT 1,
   "is_admin" boolean NOT NULL DEFAULT false,
   "is_staff" boolean NOT NULL DEFAULT false,

@@ -18,6 +18,7 @@
 package app
 
 import (
+	"github.com/kiwiscript/kiwiscript_go/providers/oauth"
 	"log/slog"
 	"time"
 
@@ -49,6 +50,7 @@ func CreateApp(
 	mailConfig *EmailConfig,
 	tokensConfig *TokensConfig,
 	limiterConfig *LimiterConfig,
+	oauthProvidersConfig *OAuthProviders,
 	s3Bucket,
 	backendDomain,
 	frontendDomain,
@@ -92,6 +94,14 @@ func CreateApp(
 		mailConfig.Name,
 		frontendDomain,
 	)
+	oauthProviders := oauth.NewOAuthProviders(
+		log,
+		oauthProvidersConfig.GitHub.ClientID,
+		oauthProvidersConfig.GitHub.ClientSecret,
+		oauthProvidersConfig.Google.ClientID,
+		oauthProvidersConfig.Google.ClientSecret,
+		backendDomain,
+	)
 
 	// Validators
 	log.Info("Loading validators...")
@@ -116,7 +126,7 @@ func CreateApp(
 
 	// Build service
 	log.Info("Building services...")
-	srvs := services.NewServices(log, database, cache, objStg, mailer, tokenProv)
+	srvs := services.NewServices(log, database, cache, objStg, mailer, tokenProv, oauthProviders)
 	log.Info("Successfully built services")
 
 	// Build controllers
@@ -133,6 +143,7 @@ func CreateApp(
 	log.Info("Loading public routes...")
 	rtr.HealthRoutes()
 	rtr.AuthPublicRoutes()
+	rtr.OAuthPublicRoutes()
 	rtr.LanguagePublicRoutes()
 	rtr.SeriesPublicRoutes()
 	rtr.SeriesPicturesPublicRoutes()

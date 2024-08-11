@@ -19,16 +19,14 @@ package services
 
 import (
 	"context"
-	"log/slog"
-	"strings"
-	"time"
-
 	"github.com/jackc/pgx/v5/pgtype"
 	cc "github.com/kiwiscript/kiwiscript_go/providers/cache"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/providers/email"
 	"github.com/kiwiscript/kiwiscript_go/providers/tokens"
 	"github.com/kiwiscript/kiwiscript_go/utils"
+	"log/slog"
+	"strings"
 )
 
 type SignUpOptions struct {
@@ -36,17 +34,15 @@ type SignUpOptions struct {
 	FirstName string
 	LastName  string
 	Location  string
-	BirthDate string
 	Password  string
 }
 
-func (s *Services) sendConfirmationEmail(ctx context.Context, log *slog.Logger, user db.User) *ServiceError {
+func (s *Services) sendConfirmationEmail(ctx context.Context, log *slog.Logger, user *db.User) *ServiceError {
 	log.InfoContext(ctx, "Sending confirmation email")
 	confirmationToken, err := s.jwt.CreateEmailToken(tokens.EmailTokenConfirmation, user)
 	if err != nil {
-		errMsg := "Failed to create confirmation token"
-		log.ErrorContext(ctx, errMsg, "error", err)
-		return NewServerError(errMsg)
+		log.ErrorContext(ctx, "Failed to create confirmation token", "error", err)
+		return NewServerError()
 	}
 
 	go func() {
@@ -68,17 +64,10 @@ func (s *Services) SignUp(ctx context.Context, options SignUpOptions) *ServiceEr
 	log := s.log.WithGroup("services.auth.SignUp").With("email", options.Email)
 	log.InfoContext(ctx, "Sign up")
 
-	birthDate, err := time.Parse(time.DateOnly, options.BirthDate)
-	if err != nil {
-		log.WarnContext(ctx, "Invalid date format", "error", err)
-		return NewValidationError("'birthdate' is invalid date format")
-	}
-
 	password, err := utils.HashPassword(options.Password)
 	if err != nil {
-		errMsg := "Failed to hash password"
-		log.ErrorContext(ctx, errMsg, "error", err)
-		return NewServerError(errMsg)
+		log.ErrorContext(ctx, "Failed to hash password", "error", err)
+		return NewServerError()
 	}
 
 	prms := db.FindAuthProviderByEmailAndProviderParams{
@@ -96,7 +85,6 @@ func (s *Services) SignUp(ctx context.Context, options SignUpOptions) *ServiceEr
 		FirstName: options.FirstName,
 		LastName:  options.LastName,
 		Location:  options.Location,
-		BirthDate: birthDate,
 		Password:  password,
 		Provider:  utils.ProviderEmail,
 	})
@@ -112,30 +100,31 @@ func (s *Services) SignUp(ctx context.Context, options SignUpOptions) *ServiceEr
 	return nil
 }
 
-func (s *Services) generateAuthResponse(ctx context.Context, log *slog.Logger, successMsg string, user db.User) (AuthResponse, *ServiceError) {
-	var authResponse AuthResponse
-
+func (s *Services) generateAuthResponse(
+	ctx context.Context,
+	log *slog.Logger,
+	successMsg string,
+	user *db.User,
+) (*AuthResponse, *ServiceError) {
 	accessToken, err := s.jwt.CreateAccessToken(user)
 	if err != nil {
-		errMsg := "Failed to create access token"
-		log.ErrorContext(ctx, errMsg, "error", err)
-		return authResponse, NewServerError(errMsg)
+		log.ErrorContext(ctx, "Failed to create access token", "error", err)
+		return nil, NewServerError()
 	}
 
 	refreshToken, err := s.jwt.CreateRefreshToken(user)
 	if err != nil {
-		errMsg := "Failed to create refresh token"
-		log.ErrorContext(ctx, errMsg, "error", err)
-		return authResponse, NewServerError(errMsg)
+		log.ErrorContext(ctx, "Failed to create refresh token", "error", err)
+		return nil, NewServerError()
 	}
 
-	authResponse = AuthResponse{
+	response := AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		ExpiresIn:    s.jwt.GetAccessTtl(),
 	}
 	log.InfoContext(ctx, successMsg)
-	return authResponse, nil
+	return &response, nil
 }
 
 type AuthResponse struct {
@@ -144,40 +133,39 @@ type AuthResponse struct {
 	ExpiresIn    int64
 }
 
-func (s *Services) ConfirmEmail(ctx context.Context, token string) (AuthResponse, *ServiceError) {
+func (s *Services) ConfirmEmail(ctx context.Context, token string) (*AuthResponse, *ServiceError) {
 	log := s.log.WithGroup("services.auth.CofirmEmail").With("token", token)
 	log.InfoContext(ctx, "Confirm email")
-	var authResponse AuthResponse
 
 	tokenType, claims, err := s.jwt.VerifyEmailToken(token)
 	if err != nil {
 		log.WarnContext(ctx, "Invalid token", "error", err)
-		return authResponse, NewUnauthorizedError()
+		return nil, NewUnauthorizedError()
 	}
 
 	if tokenType != tokens.EmailTokenConfirmation {
 		log.WarnContext(ctx, "Invalid token type")
-		return authResponse, NewUnauthorizedError()
+		return nil, NewUnauthorizedError()
 	}
 
 	user, serviceErr := s.FindUserByID(ctx, claims.ID)
 	if serviceErr != nil {
 		log.WarnContext(ctx, "User not found", "error", serviceErr)
-		return authResponse, NewUnauthorizedError()
+		return nil, NewUnauthorizedError()
 	}
 	if user.IsConfirmed {
 		log.WarnContext(ctx, "User already confirmed")
-		return authResponse, NewUnauthorizedError()
+		return nil, NewUnauthorizedError()
 	}
 	if user.Version != claims.Version {
 		log.WarnContext(ctx, "Invalid token version")
-		return authResponse, NewUnauthorizedError()
+		return nil, NewUnauthorizedError()
 	}
 
 	user, serviceErr = s.ConfirmUser(ctx, user.ID)
 	if serviceErr != nil {
 		log.ErrorContext(ctx, "Failed to confirm user", "error", serviceErr)
-		return authResponse, serviceErr
+		return nil, serviceErr
 	}
 
 	return s.generateAuthResponse(ctx, log, "Confirmed email successfully", user)
@@ -224,9 +212,8 @@ func (s *Services) SignIn(ctx context.Context, options SignInOptions) *ServiceEr
 
 	code, err := s.cache.AddTwoFactorCode(user.ID)
 	if err != nil {
-		errMsg := "Failed to generate two factor code"
-		log.ErrorContext(ctx, errMsg, "error", serviceErr)
-		return NewServerError(errMsg)
+		log.ErrorContext(ctx, "Failed to generate two factor code", "error", serviceErr)
+		return NewServerError()
 	}
 
 	go func() {
@@ -248,65 +235,62 @@ type TwoFactorOptions struct {
 	Code  string
 }
 
-func (s *Services) TwoFactor(ctx context.Context, options TwoFactorOptions) (AuthResponse, *ServiceError) {
+func (s *Services) TwoFactor(ctx context.Context, options TwoFactorOptions) (*AuthResponse, *ServiceError) {
 	log := s.log.WithGroup("services.auth.TwoFactor").With("email", options.Email)
 	log.InfoContext(ctx, "Two factor confirmation")
-	var authResponse AuthResponse
 
 	user, serviceErr := s.FindUserByEmail(ctx, options.Email)
 	if serviceErr != nil {
 		log.WarnContext(ctx, "Failed to find user", "error", serviceErr)
-		return authResponse, NewUnauthorizedError()
+		return nil, NewUnauthorizedError()
 	}
 
 	verified, err := s.cache.VerifyTwoFactorCode(user.ID, options.Code)
 	if err != nil {
-		errMsg := "Failed to verify two factor code"
-		log.ErrorContext(ctx, errMsg, "error", err)
-		return authResponse, NewServerError(errMsg)
+		log.ErrorContext(ctx, "Failed to verify two factor code", "error", err)
+		return nil, NewServerError()
 	}
 	if !verified {
 		log.WarnContext(ctx, "Invalid two factor code")
-		return authResponse, NewUnauthorizedError()
+		return nil, NewUnauthorizedError()
 	}
 	if !user.IsConfirmed {
 		errMsg := "User not confirmed"
 		log.WarnContext(ctx, errMsg)
-		return authResponse, NewValidationError(errMsg)
+		return nil, NewValidationError(errMsg)
 	}
 
 	return s.generateAuthResponse(ctx, log, "Confirmed two factor successfully", user)
 }
 
-func (s *Services) Refresh(ctx context.Context, token string) (AuthResponse, *ServiceError) {
+func (s *Services) Refresh(ctx context.Context, token string) (*AuthResponse, *ServiceError) {
 	log := s.log.WithGroup("services.auth.RefreshToken").With("token", token)
 	log.InfoContext(ctx, "Refresh token")
-	var authResponse AuthResponse
 
 	claims, id, _, err := s.jwt.VerifyRefreshToken(token)
 	if err != nil {
 		log.WarnContext(ctx, "Invalid token", "error", err)
-		return authResponse, NewUnauthorizedError()
+		return nil, NewUnauthorizedError()
 	}
 
 	isBl, err := s.cache.IsBlackListed(id)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to check black list", "error", err)
-		return authResponse, NewServerError("Failed to check black list")
+		return nil, NewServerError()
 	}
 	if isBl {
 		log.WarnContext(ctx, "Token black listed")
-		return authResponse, NewUnauthorizedError()
+		return nil, NewUnauthorizedError()
 	}
 
 	user, serviceErr := s.FindUserByID(ctx, claims.ID)
 	if serviceErr != nil {
 		log.WarnContext(ctx, "Failed to find user", "error", err)
-		return authResponse, NewUnauthorizedError()
+		return nil, NewUnauthorizedError()
 	}
 	if user.Version != claims.Version {
 		log.WarnContext(ctx, "Invalid token version")
-		return authResponse, NewUnauthorizedError()
+		return nil, NewUnauthorizedError()
 	}
 
 	return s.generateAuthResponse(ctx, log, "Refreshed token successfully", user)
@@ -328,7 +312,7 @@ func (s *Services) SignOut(ctx context.Context, token string) *ServiceError {
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to add black list", "error", err)
-		return NewServerError("Failed to add black list")
+		return NewServerError()
 	}
 
 	log.InfoContext(ctx, "Signed out successfully")
@@ -342,91 +326,89 @@ type UpdatePasswordOptions struct {
 	NewPassword string
 }
 
-func (s *Services) UpdatePassword(ctx context.Context, options UpdatePasswordOptions) (AuthResponse, *ServiceError) {
+func (s *Services) UpdatePassword(ctx context.Context, options UpdatePasswordOptions) (*AuthResponse, *ServiceError) {
 	log := s.log.WithGroup("services.auth.UpdatePassword").With("userID", options.UserID)
 	log.InfoContext(ctx, "Update password")
-	var authResponse AuthResponse
 
 	user, serviceErr := s.FindUserByID(ctx, options.UserID)
 	if serviceErr != nil {
 		log.WarnContext(ctx, "Failed to find user", "error", serviceErr)
-		return authResponse, NewUnauthorizedError()
+		return nil, NewUnauthorizedError()
 	}
 	if user.Version != options.UserVersion {
 		log.WarnContext(ctx, "Invalid user version")
-		return authResponse, NewUnauthorizedError()
+		return nil, NewUnauthorizedError()
 	}
 
-	_, err := s.database.FindAuthProviderByEmailAndProvider(ctx, db.FindAuthProviderByEmailAndProviderParams{
+	authProviderParams := db.FindAuthProviderByEmailAndProviderParams{
 		Email:    user.Email,
 		Provider: utils.ProviderEmail,
-	})
-	if err == nil {
-		if !utils.VerifyPassword(options.OldPassword, user.Password.String) {
-			errMsg := "Old password is incorrect"
-			log.WarnContext(ctx, errMsg)
-			return authResponse, NewValidationError(errMsg)
+	}
+	if _, err := s.database.FindAuthProviderByEmailAndProvider(ctx, authProviderParams); err != nil {
+		if serviceErr := FromDBError(err); serviceErr.Code != CodeNotFound {
+			log.ErrorContext(ctx, "Failed to find auth provider", "error", err)
+			return nil, serviceErr
 		}
 
-		password, err := utils.HashPassword(options.NewPassword)
+		qrs, txn, err := s.database.BeginTx(ctx)
+		if err != nil {
+			log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
+			return nil, FromDBError(err)
+		}
+		defer s.database.FinalizeTx(ctx, txn, err)
+
+		err = qrs.CreateAuthProvider(ctx, db.CreateAuthProviderParams{
+			Email:    user.Email,
+			Provider: utils.ProviderEmail,
+		})
+		if err != nil {
+			log.ErrorContext(ctx, "Failed to create auth provider", "error", err)
+			return nil, FromDBError(err)
+		}
+
+		passwordHash, err := utils.HashPassword(options.NewPassword)
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to hash new password", "error", err)
-			return authResponse, NewServerError("Failed to hash new password")
+			return nil, NewServerError()
 		}
 
-		user, serviceErr = s.UpdateUserPassword(ctx, UpdateUserPasswordOptions{
+		var password pgtype.Text
+		if err = password.Scan(passwordHash); err != nil {
+			log.ErrorContext(ctx, "Failed to scan password", "error", err)
+			return nil, NewServerError()
+		}
+
+		*user, err = qrs.UpdateUserPassword(ctx, db.UpdateUserPasswordParams{
 			ID:       options.UserID,
 			Password: password,
 		})
-		if serviceErr != nil {
-			log.ErrorContext(ctx, "Failed to update password", "error", serviceErr)
-			return authResponse, serviceErr
+		if err != nil {
+			log.ErrorContext(ctx, "Failed to update password", "error", err)
+			return nil, FromDBError(err)
 		}
 
 		return s.generateAuthResponse(ctx, log, "Updated password successfully", user)
 	}
 
-	serviceErr = FromDBError(err)
-	if serviceErr.Code != CodeNotFound {
-		log.WarnContext(ctx, "Failed to find auth provider", "error", err)
-		return authResponse, serviceErr
+	if !utils.VerifyPassword(options.OldPassword, user.Password.String) {
+		errMsg := "Old password is incorrect"
+		log.WarnContext(ctx, errMsg)
+		return nil, NewValidationError(errMsg)
 	}
 
-	qrs, txn, err := s.database.BeginTx(ctx)
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return authResponse, FromDBError(err)
-	}
-
-	defer s.database.FinalizeTx(ctx, txn, err)
-	err = qrs.CreateAuthProvider(ctx, db.CreateAuthProviderParams{
-		Email:    user.Email,
-		Provider: utils.ProviderEmail,
-	})
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to create auth provider", "error", err)
-		return authResponse, FromDBError(err)
-	}
-
-	passwordHash, err := utils.HashPassword(options.NewPassword)
+	password, err := utils.HashPassword(options.NewPassword)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to hash new password", "error", err)
-		return authResponse, NewServerError("Failed to hash new password")
+		return nil, NewServerError()
 	}
 
-	var password pgtype.Text
-	if err = password.Scan(passwordHash); err != nil {
-		log.ErrorContext(ctx, "Failed to scan password", "error", err)
-		return authResponse, NewServerError("Failed to scan password")
-	}
-
-	user, err = qrs.UpdateUserPassword(ctx, db.UpdateUserPasswordParams{
+	user, serviceErr = s.UpdateUserPassword(ctx, UpdateUserPasswordOptions{
 		ID:       options.UserID,
 		Password: password,
 	})
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to update password", "error", err)
-		return authResponse, FromDBError(err)
+	if serviceErr != nil {
+		log.ErrorContext(ctx, "Failed to update password", "error", serviceErr)
+		return nil, serviceErr
 	}
 
 	return s.generateAuthResponse(ctx, log, "Updated password successfully", user)
@@ -449,9 +431,8 @@ func (s *Services) ForgotPassword(ctx context.Context, userEmail string) *Servic
 
 	emailToken, err := s.jwt.CreateEmailToken(tokens.EmailTokenReset, user)
 	if err != nil {
-		errMsg := "Failed to create email token"
-		log.ErrorContext(ctx, errMsg, "error", err)
-		return NewServerError(errMsg)
+		log.ErrorContext(ctx, "Failed to create email token", "error", err)
+		return NewServerError()
 	}
 
 	go func() {
@@ -503,14 +484,60 @@ func (s *Services) ResetPassword(ctx context.Context, options ResetPasswordOptio
 	passwordHash, err := utils.HashPassword(options.NewPassword)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to hash new password", "error", err)
-		return NewServerError("Failed to hash new password")
+		return NewServerError()
 	}
 
-	_, serviceErr = s.UpdateUserPassword(ctx, UpdateUserPasswordOptions{
+	// TODO: fix, create email oauth provider if it does not exist
+	authProviderParams := db.FindAuthProviderByEmailAndProviderParams{
+		Email:    user.Email,
+		Provider: utils.ProviderEmail,
+	}
+	if _, err := s.database.FindAuthProviderByEmailAndProvider(ctx, authProviderParams); err != nil {
+		if serviceErr := FromDBError(err); serviceErr.Code != CodeNotFound {
+			log.ErrorContext(ctx, "Failed to find auth provider", "error", err)
+			return serviceErr
+		}
+
+		qrs, txn, err := s.database.BeginTx(ctx)
+		if err != nil {
+			log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
+			return FromDBError(err)
+		}
+		defer s.database.FinalizeTx(ctx, txn, err)
+
+		authProvParams := db.CreateAuthProviderParams{
+			Email:    user.Email,
+			Provider: utils.ProviderEmail,
+		}
+		if err := qrs.CreateAuthProvider(ctx, authProvParams); err != nil {
+			log.ErrorContext(ctx, "Failed to create auth provider", "error", err)
+			return FromDBError(err)
+		}
+
+		var password pgtype.Text
+		if err := password.Scan(options.NewPassword); err != nil || options.NewPassword == "" {
+			log.WarnContext(ctx, "Password is invalid")
+			return NewValidationError("'password' is invalid")
+		}
+
+		passParams := db.UpdateUserPasswordParams{
+			Password: password,
+			ID:       user.ID,
+		}
+		if _, err := qrs.UpdateUserPassword(ctx, passParams); err != nil {
+			log.ErrorContext(ctx, "Failed to update user password")
+			return FromDBError(err)
+		}
+
+		log.InfoContext(ctx, "Reset password successful")
+		return nil
+	}
+
+	updatePassOpts := UpdateUserPasswordOptions{
 		ID:       user.ID,
 		Password: passwordHash,
-	})
-	if serviceErr != nil {
+	}
+	if _, serviceErr = s.UpdateUserPassword(ctx, updatePassOpts); serviceErr != nil {
 		log.ErrorContext(ctx, "Failed to update password", "error", serviceErr)
 		return serviceErr
 	}
@@ -526,71 +553,71 @@ type UpdateEmailOptions struct {
 	Password    string
 }
 
-func (s *Services) UpdateEmail(ctx context.Context, options UpdateEmailOptions) (AuthResponse, *ServiceError) {
+func (s *Services) UpdateEmail(ctx context.Context, options UpdateEmailOptions) (*AuthResponse, *ServiceError) {
 	log := s.log.WithGroup("services.auth.UpdateEmail")
 	log.InfoContext(ctx, "Update email", "userID", options.UserID)
-	var authResponse AuthResponse
 
 	user, serviceErr := s.FindUserByID(ctx, options.UserID)
 	if serviceErr != nil {
 		log.WarnContext(ctx, "Failed to find user", "error", serviceErr)
-		return authResponse, NewUnauthorizedError()
+		return nil, NewUnauthorizedError()
 	}
 	if user.Version != options.UserVersion {
 		log.WarnContext(ctx, "Invalid user version")
-		return authResponse, NewUnauthorizedError()
+		return nil, NewUnauthorizedError()
 	}
 
-	if _, err := s.database.FindAuthProviderByEmailAndProvider(ctx, db.FindAuthProviderByEmailAndProviderParams{
+	authProvParams := db.FindAuthProviderByEmailAndProviderParams{
 		Email:    user.Email,
 		Provider: utils.ProviderEmail,
-	}); err != nil {
+	}
+	if _, err := s.database.FindAuthProviderByEmailAndProvider(ctx, authProvParams); err != nil {
 		serviceErr = FromDBError(err)
 
 		if serviceErr.Code == CodeNotFound {
 			log.WarnContext(ctx, "Email auth provider not found", "error", err)
-			return authResponse, NewUnauthorizedError()
+			return nil, NewUnauthorizedError()
 		}
 
 		log.ErrorContext(ctx, "Failed to find auth provider", "error", err)
-		return authResponse, serviceErr
+		return nil, serviceErr
 	}
 	if !utils.VerifyPassword(options.Password, user.Password.String) {
 		errMsg := "Invalid password"
 		log.WarnContext(ctx, errMsg)
-		return authResponse, NewValidationError(errMsg)
+		return nil, NewValidationError(errMsg)
 	}
 
-	if _, err := s.database.FindAuthProviderByEmailAndProvider(ctx, db.FindAuthProviderByEmailAndProviderParams{
+	newAuthProvParams := db.FindAuthProviderByEmailAndProviderParams{
 		Email:    options.NewEmail,
 		Provider: utils.ProviderEmail,
-	}); err == nil {
+	}
+	if _, err := s.database.FindAuthProviderByEmailAndProvider(ctx, newAuthProvParams); err == nil {
 		log.WarnContext(ctx, "Email already exists")
-		return authResponse, NewValidationError("Email already in use")
+		return nil, NewValidationError("Email already in use")
 	}
 
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return authResponse, FromDBError(err)
+		return nil, FromDBError(err)
 	}
-
 	defer s.database.FinalizeTx(ctx, txn, err)
 
-	user, err = qrs.UpdateUserEmail(ctx, db.UpdateUserEmailParams{
+	*user, err = qrs.UpdateUserEmail(ctx, db.UpdateUserEmailParams{
 		ID:    user.ID,
 		Email: options.NewEmail,
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to update email", "error", err)
-		return authResponse, FromDBError(err)
+		return nil, FromDBError(err)
 	}
 	if err = qrs.DeleteProviderByEmailAndNotProvider(ctx, db.DeleteProviderByEmailAndNotProviderParams{
 		Email:    user.Email,
 		Provider: utils.ProviderEmail,
 	}); err != nil {
 		log.ErrorContext(ctx, "Failed to delete auth provider", "error", err)
-		return authResponse, FromDBError(err)
+		return nil, FromDBError(err)
 	}
 
 	return s.generateAuthResponse(ctx, log, "Update email successfully", user)
