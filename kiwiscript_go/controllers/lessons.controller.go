@@ -60,7 +60,7 @@ func (c *Controllers) CreateLesson(ctx *fiber.Ctx) error {
 	}
 
 	parsedSectionID, err := strconv.Atoi(params.SectionID)
-	if err != nil {
+	if err != nil || parsedSectionID <= 0 {
 		return ctx.
 			Status(fiber.StatusBadRequest).
 			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{

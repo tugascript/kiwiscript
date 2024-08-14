@@ -46,3 +46,8 @@ WHERE "id" = $1;
 UPDATE "language_progress" SET
   "completed_series" = "completed_series" - 1
 WHERE "id" = $1;
+
+-- name: CountLanguageProgressBySlug :one
+SELECT COUNT("id") FROM "language_progress"
+WHERE "language_slug" = $1
+LIMIT 1;

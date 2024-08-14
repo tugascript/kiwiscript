@@ -19,30 +19,9 @@ package routers
 
 import "github.com/kiwiscript/kiwiscript_go/paths"
 
-const lessonsPath = paths.LanguagePathV1 +
-	"/:languageSlug" +
-	paths.SeriesPath +
-	"/:seriesSlug" +
-	paths.SectionsPath +
-	"/:sectionID" +
-	paths.LessonsPath
+func (r *Router) UsersRoutes() {
+	users := r.router.Group(paths.UsersPathV1)
 
-func (r *Router) LessonPublicRoutes() {
-	lesson := r.router.Group(lessonsPath)
-
-	lesson.Get("/", r.controllers.GetLessons)
-	lesson.Get("/:lessonID", r.controllers.GetLesson)
-}
-
-func (r *Router) LessonStaffRoutes() {
-	lesson := r.router.Group(
-		lessonsPath,
-		r.controllers.AccessClaimsMiddleware,
-		r.controllers.StaffUserMiddleware,
-	)
-
-	lesson.Post("/", r.controllers.CreateLesson)
-	lesson.Put("/:lessonID", r.controllers.UpdateLesson)
-	lesson.Delete("/:lessonID", r.controllers.DeleteLesson)
-	lesson.Patch("/:lessonID/publish", r.controllers.UpdateLessonIsPublished)
+	users.Get("/me", r.controllers.GetMe)
+	users.Get("/:userID", r.controllers.GetUser)
 }

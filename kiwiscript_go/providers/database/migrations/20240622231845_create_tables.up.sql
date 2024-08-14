@@ -1,6 +1,6 @@
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2024-08-10T08:01:42.304Z
+-- Generated at: 2024-08-13T07:57:29.547Z
 
 CREATE TABLE "users" (
   "id" serial PRIMARY KEY,
@@ -194,6 +194,8 @@ CREATE TABLE "certificates" (
 
 CREATE UNIQUE INDEX "users_email_unique_idx" ON "users" ("email");
 
+CREATE INDEX "users_is_staff_idx" ON "users" ("is_staff");
+
 CREATE INDEX "auth_providers_email_idx" ON "auth_providers" ("email");
 
 CREATE UNIQUE INDEX "auth_providers_email_provider_unique_idx" ON "auth_providers" ("email", "provider");
@@ -217,8 +219,6 @@ CREATE INDEX "series_id_language_slug_idx" ON "series" ("id", "language_slug");
 CREATE INDEX "series_id_language_slug_is_published_idx" ON "series" ("id", "language_slug", "is_published");
 
 CREATE INDEX "series_slug_is_published_idx" ON "series" ("slug", "language_slug", "is_published");
-
-CREATE INDEX "series_id_language_slug_idx" ON "series" ("id", "language_slug");
 
 CREATE INDEX "series_author_id_idx" ON "series" ("author_id");
 

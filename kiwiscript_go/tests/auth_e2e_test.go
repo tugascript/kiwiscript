@@ -58,7 +58,7 @@ type fakeRegisterData struct {
 	Password  string `faker:"oneof: Pas@w0rd123, P@sW0rd456, P@ssw0rd789, P@ssW0rd012, P@ssw0rd!345"`
 }
 
-func generateEmailToken(t *testing.T, tokenType string, user db.User) string {
+func generateEmailToken(t *testing.T, tokenType string, user *db.User) string {
 	tokensProv := GetTestTokens(t)
 	emailToken, err := tokensProv.CreateEmailToken(tokenType, user)
 
@@ -69,7 +69,7 @@ func generateEmailToken(t *testing.T, tokenType string, user db.User) string {
 	return emailToken
 }
 
-func confirmTestUser(t *testing.T, userID int32) db.User {
+func confirmTestUser(t *testing.T, userID int32) *db.User {
 	serv := GetTestServices(t)
 	user, err := serv.ConfirmUser(context.Background(), userID)
 
@@ -137,7 +137,6 @@ func TestRegister(t *testing.T) {
 			FirstName: fakeData.FirstName,
 			LastName:  fakeData.LastName,
 			Location:  fakeData.Location,
-			BirthDate: fakeData.BirthDate,
 			Password1: fakeData.Password,
 			Password2: fakeData.Password,
 		}
@@ -218,7 +217,7 @@ func TestRegister(t *testing.T) {
 func TestConfirmEmail(t *testing.T) {
 	const confirmEmailPath = "/api/auth/confirm-email"
 
-	generateTestConfirmEmailData := func(t *testing.T, user db.User) dtos.ConfirmBody {
+	generateTestConfirmEmailData := func(t *testing.T, user *db.User) dtos.ConfirmBody {
 		emailToken := generateEmailToken(t, tokens.EmailTokenConfirmation, user)
 
 		return dtos.ConfirmBody{
@@ -376,7 +375,7 @@ func TestLogin(t *testing.T) {
 func TestLoginConfirm(t *testing.T) {
 	const loginConfirmPath = "/api/auth/login/confirm"
 
-	generateTestTwoFactorCode := func(t *testing.T, user db.User) string {
+	generateTestTwoFactorCode := func(t *testing.T, user *db.User) string {
 		cacheProv := GetTestCache(t)
 		code, err := cacheProv.AddTwoFactorCode(user.ID)
 
@@ -804,7 +803,7 @@ func TestForgotPassword(t *testing.T) {
 
 func TestResetPassword(t *testing.T) {
 	const resetPasswordPath = "/api/auth/reset-password"
-	generateTestResetPasswordData := func(t *testing.T, user db.User) dtos.ResetPasswordBody {
+	generateTestResetPasswordData := func(t *testing.T, user *db.User) dtos.ResetPasswordBody {
 		emailToken := generateEmailToken(t, tokens.EmailTokenReset, user)
 		password := faker.Name() + "123!"
 
@@ -826,7 +825,7 @@ func TestResetPassword(t *testing.T) {
 			ExpStatus: fiber.StatusOK,
 			AssertFn: func(t *testing.T, _ dtos.ResetPasswordBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, dtos.MessageResponse{})
-				AssertEqual(t, "Password reseted successfully", resBody.Message)
+				AssertEqual(t, "Password reset successfully", resBody.Message)
 			},
 		},
 		{

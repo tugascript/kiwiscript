@@ -71,11 +71,11 @@ type LanguageLinks struct {
 func newLanguageLinks(backendDomain, languageSlug string) LanguageLinks {
 	return LanguageLinks{
 		Self: LinkResponse{
-			fmt.Sprintf("https://%s%s/%s", backendDomain, paths.LanguagePathV1, languageSlug),
+			fmt.Sprintf("https://%s/api%s/%s", backendDomain, paths.LanguagePathV1, languageSlug),
 		},
 		Series: LinkResponse{
 			fmt.Sprintf(
-				"https://%s%s/%s%s",
+				"https://%s/api%s/%s%s",
 				backendDomain,
 				paths.LanguagePathV1,
 				languageSlug,

@@ -127,18 +127,27 @@ func (s *Services) UpdateLanguage(ctx context.Context, options UpdateLanguageOpt
 }
 
 func (s *Services) DeleteLanguage(ctx context.Context, slug string) *ServiceError {
-	log := s.log.WithGroup("service.languages.DeleteLanguage")
-	log.InfoContext(ctx, "delete language", "slug", slug)
-	language, serviceErr := s.FindLanguageBySlug(ctx, slug)
+	log := s.log.WithGroup("service.languages.DeleteLanguage").With("languageSlug", slug)
+	log.InfoContext(ctx, "Deleting language...")
 
-	// TODO add restrictions to see if the language is used in any course
+	language, serviceErr := s.FindLanguageBySlug(ctx, slug)
 	if serviceErr != nil {
-		log.InfoContext(ctx, "language not found", "slug", slug)
+		log.WarnContext(ctx, "Language not found")
 		return serviceErr
 	}
 
-	err := s.database.DeleteLanguageById(ctx, language.ID)
+	progressCount, err := s.database.CountLanguageProgressBySlug(ctx, language.Slug)
 	if err != nil {
+		log.ErrorContext(ctx, "Failed to count language progress", "error", err)
+		return FromDBError(err)
+	}
+
+	if progressCount > 0 {
+		log.WarnContext(ctx, "Language has students", "studentsCount", progressCount)
+		return NewDuplicateKeyError("Language has students")
+	}
+
+	if err := s.database.DeleteLanguageById(ctx, language.ID); err != nil {
 		log.ErrorContext(ctx, "failed to delete language", "error", err)
 		return FromDBError(err)
 	}

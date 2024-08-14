@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/kiwiscript/kiwiscript_go/providers/oauth"
 	"io"
 	"math"
 	"net/http"
@@ -117,6 +118,14 @@ func initTestServicesAndApp(t *testing.T) {
 	testDatabase = db.NewDatabase(dbConnPool)
 	testCache = cc.NewCache(storage)
 	testObjectStorage := stg.NewObjectStorage(log, s3Client, testConfig.ObjectStorage.Bucket)
+	testOAuthProvider := oauth.NewOAuthProviders(
+		log,
+		testConfig.OAuthProviders.GitHub.ClientID,
+		testConfig.OAuthProviders.GitHub.ClientSecret,
+		testConfig.OAuthProviders.Google.ClientID,
+		testConfig.OAuthProviders.Google.ClientSecret,
+		testConfig.BackendDomain,
+	)
 	testServices = services.NewServices(
 		log,
 		testDatabase,
@@ -124,6 +133,7 @@ func initTestServicesAndApp(t *testing.T) {
 		testObjectStorage,
 		mailer,
 		testTokens,
+		testOAuthProvider,
 	)
 	testApp = app.CreateApp(
 		log,
@@ -133,6 +143,7 @@ func initTestServicesAndApp(t *testing.T) {
 		&testConfig.Email,
 		&testConfig.Tokens,
 		&testConfig.Limiter,
+		&testConfig.OAuthProviders,
 		testConfig.ObjectStorage.Bucket,
 		testConfig.BackendDomain,
 		testConfig.FrontendDomain,
@@ -270,7 +281,6 @@ type fakeUserData struct {
 	FirstName string `faker:"first_name"`
 	LastName  string `faker:"last_name"`
 	Location  string `faker:"oneof: NZL, AUS, NAM, EUR, OTH"`
-	BirthDate string `faker:"date"`
 	Password  string `faker:"oneof: Pas@w0rd123, P@sW0rd456, P@ssw0rd789, P@ssW0rd012, P@ssw0rd!345"`
 }
 
@@ -280,23 +290,17 @@ func GenerateFakeUserData(t *testing.T) services.CreateUserOptions {
 		t.Fatal("Failed to generate fake data", err)
 	}
 
-	birthDate, err := time.Parse(time.DateOnly, fakeData.BirthDate)
-	if err != nil {
-		t.Fatal("Failed to parse birth date", err)
-	}
-
 	return services.CreateUserOptions{
 		FirstName: utils.Capitalized(fakeData.FirstName),
 		LastName:  utils.Capitalized(fakeData.LastName),
 		Location:  utils.Uppercased(fakeData.Location),
 		Email:     utils.Lowered(fakeData.Email),
-		BirthDate: birthDate,
 		Password:  fakeData.Password,
 		Provider:  utils.ProviderEmail,
 	}
 }
 
-func CreateTestUser(t *testing.T, userData *services.CreateUserOptions) db.User {
+func CreateTestUser(t *testing.T, userData *services.CreateUserOptions) *db.User {
 	var opts services.CreateUserOptions
 	if userData == nil {
 		opts = GenerateFakeUserData(t)
@@ -320,21 +324,20 @@ func CreateTestUser(t *testing.T, userData *services.CreateUserOptions) db.User 
 	return user
 }
 
-func CreateFakeTestUser(t *testing.T) db.User {
+func CreateFakeTestUser(t *testing.T) *db.User {
 	opts := GenerateFakeUserData(t)
-	return db.User{
+	return &db.User{
 		ID:        math.MaxInt32,
 		FirstName: opts.FirstName,
 		LastName:  opts.LastName,
 		Location:  opts.Location,
 		Email:     opts.Email,
-		BirthDate: pgtype.Date{Time: opts.BirthDate, Valid: true},
 		Version:   1,
 		Password:  pgtype.Text{String: opts.Password, Valid: true},
 	}
 }
 
-func GenerateTestAuthTokens(t *testing.T, user db.User) (accessToken string, refreshToken string) {
+func GenerateTestAuthTokens(t *testing.T, user *db.User) (accessToken string, refreshToken string) {
 	tks := GetTestTokens(t)
 	accessToken, err := tks.CreateAccessToken(user)
 

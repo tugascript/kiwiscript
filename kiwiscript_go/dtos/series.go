@@ -28,14 +28,13 @@ import (
 // Bodies
 
 type CreateSeriesBody struct {
-	Title       string `json:"title" validate:"require,min=2,max=100"`
+	Title       string `json:"title" validate:"required,min=2,max=100"`
 	Description string `json:"description" validate:"required,min=2"`
 }
 
 type UpdateSeriesBody struct {
-	Title       string `json:"title" validate:"require,min=2,max=100"`
+	Title       string `json:"title" validate:"required,min=2,max=100"`
 	Description string `json:"description" validate:"required,min=2"`
-	Position    int16  `json:"position" validate:"required,gte=1"`
 }
 
 // Path Params
@@ -86,7 +85,7 @@ func newSeriesLinks(backendDomain, languageSlug, seriesSlug string, authorID int
 	if withPicture {
 		picture = &LinkResponse{
 			Href: fmt.Sprintf(
-				"https://%s%s/%s%s/%s%s",
+				"https://%s/api%s/%s%s/%s%s",
 				backendDomain,
 				paths.LanguagePathV1,
 				languageSlug,
@@ -100,7 +99,7 @@ func newSeriesLinks(backendDomain, languageSlug, seriesSlug string, authorID int
 	return SeriesLinks{
 		Self: LinkResponse{
 			fmt.Sprintf(
-				"https://%s%s/%s%s/%s",
+				"https://%s/api%s/%s%s/%s",
 				backendDomain,
 				paths.LanguagePathV1,
 				languageSlug,
@@ -109,14 +108,14 @@ func newSeriesLinks(backendDomain, languageSlug, seriesSlug string, authorID int
 			),
 		},
 		Language: LinkResponse{
-			fmt.Sprintf("https://%s%s/%s", backendDomain, paths.LanguagePathV1, languageSlug),
+			fmt.Sprintf("https://%s/api%s/%s", backendDomain, paths.LanguagePathV1, languageSlug),
 		},
 		Author: LinkResponse{
-			fmt.Sprintf("https://%s%s/%d", backendDomain, paths.UsersPathV1, authorID),
+			fmt.Sprintf("https://%s/api%s/%d", backendDomain, paths.UsersPathV1, authorID),
 		},
 		Parts: LinkResponse{
 			fmt.Sprintf(
-				"https://%s%s/%s%s/%s%s",
+				"https://%s/api%s/%s%s/%s%s",
 				backendDomain,
 				paths.LanguagePathV1,
 				languageSlug,
@@ -165,7 +164,7 @@ func newSeriesEmbedded(
 			Links: SelfLinkResponse{
 				Self: LinkResponse{
 					Href: fmt.Sprintf(
-						"https://%s%s/%s%s/%s",
+						"https://%s/api%s/%s%s/%s",
 						backendDomain,
 						paths.LanguagePathV1,
 						languageSlug,
@@ -184,7 +183,7 @@ func newSeriesEmbedded(
 			LastName:  author.LastName,
 			Links: SelfLinkResponse{
 				LinkResponse{
-					fmt.Sprintf("https://%s%s/%d", backendDomain, paths.UsersPathV1, author.ID),
+					fmt.Sprintf("https://%s/api%s/%d", backendDomain, paths.UsersPathV1, author.ID),
 				},
 			},
 		},

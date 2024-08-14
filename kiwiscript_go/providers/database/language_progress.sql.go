@@ -20,6 +20,19 @@ func (q *Queries) AddLanguageProgressCompletedSeries(ctx context.Context, id int
 	return err
 }
 
+const countLanguageProgressBySlug = `-- name: CountLanguageProgressBySlug :one
+SELECT COUNT("id") FROM "language_progress"
+WHERE "language_slug" = $1
+LIMIT 1
+`
+
+func (q *Queries) CountLanguageProgressBySlug(ctx context.Context, languageSlug string) (int64, error) {
+	row := q.db.QueryRow(ctx, countLanguageProgressBySlug, languageSlug)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createLanguageProgress = `-- name: CreateLanguageProgress :one
 
 INSERT INTO "language_progress" (
@@ -75,6 +88,16 @@ WHERE "id" = $1
 
 func (q *Queries) DecrementLanguageProgressCompletedSeries(ctx context.Context, id int32) error {
 	_, err := q.db.Exec(ctx, decrementLanguageProgressCompletedSeries, id)
+	return err
+}
+
+const deleteAllLanguageProgressBySlug = `-- name: DeleteAllLanguageProgressBySlug :exec
+DELETE FROM "language_progress"
+WHERE "language_slug" = $1
+`
+
+func (q *Queries) DeleteAllLanguageProgressBySlug(ctx context.Context, languageSlug string) error {
+	_, err := q.db.Exec(ctx, deleteAllLanguageProgressBySlug, languageSlug)
 	return err
 }
 

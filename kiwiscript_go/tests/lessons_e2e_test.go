@@ -15,14 +15,4 @@
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
-package dtos
-
-type OAuthTokenBody struct {
-	Code  string `json:"code" validate:"required,min=22,alphanum"`
-	State string `json:"state" validate:"required,min=32,hexadecimal"`
-}
-
-type OAuthTokenParams struct {
-	Code  string `validate:"required,min=1"`
-	State string `validate:"required,min=32,hexadecimal"`
-}
+package tests

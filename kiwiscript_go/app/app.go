@@ -148,12 +148,17 @@ func CreateApp(
 	rtr.SeriesPublicRoutes()
 	rtr.SeriesPicturesPublicRoutes()
 	rtr.SectionPublicRoutes()
-	rtr.LessonPublicRoutes()
+	rtr.LessonsPublicRoutes()
 	rtr.LessonArticlePublicRoutes()
 	rtr.LessonVideoPublicRoutes()
 	rtr.LessonFilesPublicRoutes()
 	rtr.CertificatesPublicRoutes()
 	log.Info("Successfully loaded public routes")
+
+	// User
+	log.Info("Loading user routes...")
+	rtr.UsersRoutes()
+	log.Info("Successfully loaded user routes")
 
 	// Private routes
 	log.Info("Loading private routes...")
@@ -170,7 +175,7 @@ func CreateApp(
 	rtr.SeriesStaffRoutes()
 	rtr.SeriesPicturesStaffRoutes()
 	rtr.SectionStaffRoutes()
-	rtr.LessonStaffRoutes()
+	rtr.LessonsStaffRoutes()
 	rtr.LessonArticleStaffRoutes()
 	rtr.LessonVideoStaffRoutes()
 	rtr.LessonFilesStaffRoutes()

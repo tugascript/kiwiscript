@@ -105,13 +105,13 @@ const (
 	RequestValidationLocationParams string = "params"
 )
 
-func toSnakeCase(camel string) string {
+func toCamelCase(camel string) string {
 	var result strings.Builder
 	for i, char := range camel {
 		if unicode.IsUpper(char) {
-			// Add an underscore before uppercase letters (except the first letter)
 			if i > 0 {
-				result.WriteRune('_')
+				result.WriteRune(char)
+				continue
 			}
 			result.WriteRune(unicode.ToLower(char))
 		} else {
@@ -220,7 +220,7 @@ func RequestValidationErrorFromErr(err *validator.ValidationErrors, location str
 		value := field.Value()
 		fields[i] = FieldError{
 			Value:   value,
-			Param:   toSnakeCase(field.Field()),
+			Param:   toCamelCase(field.Field()),
 			Message: buildFieldErrorMessage(field.Tag(), value),
 		}
 	}

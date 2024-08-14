@@ -15,14 +15,28 @@
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
-package dtos
+package db
 
-type OAuthTokenBody struct {
-	Code  string `json:"code" validate:"required,min=22,alphanum"`
-	State string `json:"state" validate:"required,min=32,hexadecimal"`
+type UserModel struct {
+	ID        int32
+	FirstName string
+	LastName  string
+	Location  string
+	IsAdmin   bool
+	IsStaff   bool
 }
 
-type OAuthTokenParams struct {
-	Code  string `validate:"required,min=1"`
-	State string `validate:"required,min=32,hexadecimal"`
+type ToUserModel interface {
+	ToUserModel() *UserModel
+}
+
+func (u *User) ToUserModel() *UserModel {
+	return &UserModel{
+		ID:        u.ID,
+		FirstName: u.FirstName,
+		LastName:  u.LastName,
+		Location:  u.Location,
+		IsAdmin:   u.IsAdmin,
+		IsStaff:   u.IsStaff,
+	}
 }

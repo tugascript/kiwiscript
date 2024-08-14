@@ -19,7 +19,6 @@ package services
 
 import (
 	"context"
-	"github.com/google/uuid"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/providers/oauth"
 	"github.com/kiwiscript/kiwiscript_go/utils"
@@ -91,13 +90,13 @@ func (s *Services) generateEmailCodeAndState(ctx context.Context, email string) 
 	log := s.log.WithGroup("services.oauth.generateEmailCodeAndState")
 	log.InfoContext(ctx, "Generating email code and state...")
 
-	code := uuid.New().String()
 	state, err := oauth.GenerateState()
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to generate state", "error", err)
 		return "", "", NewServerError()
 	}
 
+	code := utils.Base62UUID()
 	if err := s.cache.AddOAuthEmail(code, email); err != nil {
 		log.ErrorContext(ctx, "Failed to cache code", "error", err)
 		return "", "", NewServerError()

@@ -629,7 +629,7 @@ func (s *Services) AssertSeriesOwnership(ctx context.Context, opts AssertSeriesO
 	})
 	if serviceErr != nil {
 		log.Warn("Series not found", "error", serviceErr)
-		return nil, FromDBError(serviceErr)
+		return nil, serviceErr
 	}
 	if series.AuthorID != opts.UserID {
 		log.Warn("User is not the author of the series")

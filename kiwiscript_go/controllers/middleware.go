@@ -42,14 +42,14 @@ func (c *Controllers) AccessClaimsMiddleware(ctx *fiber.Ctx) error {
 	return ctx.Next()
 }
 
-func (c *Controllers) GetUserClaims(ctx *fiber.Ctx) (tokens.AccessUserClaims, *services.ServiceError) {
+func (c *Controllers) GetUserClaims(ctx *fiber.Ctx) (*tokens.AccessUserClaims, *services.ServiceError) {
 	user, ok := ctx.Locals("user").(tokens.AccessUserClaims)
 
 	if !ok || user.ID == 0 {
-		return user, services.NewUnauthorizedError()
+		return nil, services.NewUnauthorizedError()
 	}
 
-	return user, nil
+	return &user, nil
 }
 
 func (c *Controllers) AdminUserMiddleware(ctx *fiber.Ctx) error {
