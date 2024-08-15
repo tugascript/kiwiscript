@@ -26,7 +26,7 @@ const languageProgressPath = paths.LanguagePathV1 +
 func (r *Router) LanguageProgressPrivateRoutes() {
 	languageProgress := r.router.Group(
 		languageProgressPath,
-		r.controllers.AccessClaimsMiddleware,
+		r.controllers.UserMiddleware,
 	)
 
 	languageProgress.Post("/", r.controllers.CreateOrUpdateLanguageProgress)

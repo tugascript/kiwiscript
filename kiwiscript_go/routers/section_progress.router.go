@@ -30,7 +30,7 @@ const sectionProgressPath = paths.LanguagePathV1 +
 func (r *Router) SectionProgressPrivateRoutes() {
 	sectionProgress := r.router.Group(
 		sectionProgressPath,
-		r.controllers.AccessClaimsMiddleware,
+		r.controllers.UserMiddleware,
 	)
 
 	sectionProgress.Post("/", r.controllers.CreateOrUpdateSectionProgress)

@@ -28,7 +28,7 @@ const seriesProgressPath = paths.LanguagePathV1 +
 func (r *Router) SeriesProgressPrivateRoutes() {
 	seriesProgress := r.router.Group(
 		seriesProgressPath,
-		r.controllers.AccessClaimsMiddleware,
+		r.controllers.UserMiddleware,
 	)
 
 	seriesProgress.Post("/", r.controllers.CreateOrUpdateSeriesProgress)

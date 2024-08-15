@@ -134,6 +134,10 @@ func CreateApp(
 	ctrls := controllers.NewControllers(log, srvs, vld, frontendDomain, backendDomain, refreshCookieName)
 	log.Info("Successfully built controllers")
 
+	log.Info("Load user claims...")
+	app.Use(ctrls.AccessClaimsMiddleware)
+	log.Info("Successfully loaded user claims")
+
 	// Build router
 	log.Info("Building router...")
 	rtr := routers.NewRouter(app, ctrls)

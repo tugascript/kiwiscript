@@ -31,10 +31,6 @@ import (
 	"testing"
 )
 
-type FakeSeriesData struct {
-	Title string `faker:"name"`
-}
-
 func TestCreateSeries(t *testing.T) {
 	languagesCleanUp(t)()
 	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
@@ -345,8 +341,55 @@ func TestGetSeries(t *testing.T) {
 
 	testCases := []TestRequestCase[string]{
 		{
-			Title: ""
+			Name: "Should return 200 OK when a series is found and not published when the user is staff",
+			ReqFn: func(t *testing.T) (string, string) {
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.SeriesResponse{})
+				AssertNotEmpty(t, resBody.Title)
+				AssertNotEmpty(t, resBody.Description)
+				AssertEqual(t, resBody.IsPublished, false)
+			},
+			Path: baseLanguagesPath + "/rust/series/existing-series",
 		},
+		{
+			Name: "Should return 404 NOT FOUND when the series is not published and the user is not staff",
+			ReqFn: func(t *testing.T) (string, string) {
+				testUser.IsStaff = false
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+				AssertEqual(t, resBody.Code, controllers.StatusNotFound)
+				AssertEqual(t, resBody.Message, services.MessageNotFound)
+			},
+			Path: baseLanguagesPath + "/rust/series/existing-series",
+		},
+		{
+			Name: "Should return 404 NOT FOUND when the series is not published and the user is not staff",
+			ReqFn: func(t *testing.T) (string, string) {
+				return "", ""
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+				AssertEqual(t, resBody.Code, controllers.StatusNotFound)
+				AssertEqual(t, resBody.Message, services.MessageNotFound)
+			},
+			Path: baseLanguagesPath + "/rust/series/existing-series",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			PerformTestRequestCase(t, http.MethodGet, tc.Path, tc)
+		})
 	}
 
 	t.Cleanup(languagesCleanUp(t))

@@ -32,7 +32,7 @@ const lessonProgressPath = paths.LanguagePathV1 +
 func (r *Router) LessonProgressPrivateRoutes() {
 	lessonProgress := r.router.Group(
 		lessonProgressPath,
-		r.controllers.AccessClaimsMiddleware,
+		r.controllers.UserMiddleware,
 	)
 
 	lessonProgress.Post("/", r.controllers.CreateOrUpdateLessonProgress)

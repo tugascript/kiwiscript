@@ -26,16 +26,12 @@ import (
 func (c *Controllers) AccessClaimsMiddleware(ctx *fiber.Ctx) error {
 	authHeader := ctx.Get("Authorization")
 	if authHeader == "" {
-		return ctx.
-			Status(fiber.StatusUnauthorized).
-			JSON(NewRequestError(services.NewUnauthorizedError()))
+		return ctx.Next()
 	}
 
 	userClaims, err := c.services.ProcessAuthHeader(authHeader)
 	if err != nil {
-		return ctx.
-			Status(fiber.StatusUnauthorized).
-			JSON(NewRequestError(err))
+		return ctx.Next()
 	}
 
 	ctx.Locals("user", userClaims)
@@ -50,6 +46,17 @@ func (c *Controllers) GetUserClaims(ctx *fiber.Ctx) (*tokens.AccessUserClaims, *
 	}
 
 	return &user, nil
+}
+
+func (c *Controllers) UserMiddleware(ctx *fiber.Ctx) error {
+	_, err := c.GetUserClaims(ctx)
+	if err != nil {
+		return ctx.
+			Status(fiber.StatusUnauthorized).
+			JSON(NewRequestError(err))
+	}
+
+	return ctx.Next()
 }
 
 func (c *Controllers) AdminUserMiddleware(ctx *fiber.Ctx) error {

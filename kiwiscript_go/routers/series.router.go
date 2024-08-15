@@ -14,7 +14,6 @@ func (r *Router) SeriesPublicRoutes() {
 func (r *Router) SeriesStaffRoutes() {
 	series := r.router.Group(
 		seriesPath,
-		r.controllers.AccessClaimsMiddleware,
 		r.controllers.StaffUserMiddleware,
 	)
 
