@@ -91,16 +91,6 @@ func (q *Queries) DecrementLanguageProgressCompletedSeries(ctx context.Context, 
 	return err
 }
 
-const deleteAllLanguageProgressBySlug = `-- name: DeleteAllLanguageProgressBySlug :exec
-DELETE FROM "language_progress"
-WHERE "language_slug" = $1
-`
-
-func (q *Queries) DeleteAllLanguageProgressBySlug(ctx context.Context, languageSlug string) error {
-	_, err := q.db.Exec(ctx, deleteAllLanguageProgressBySlug, languageSlug)
-	return err
-}
-
 const deleteLanguageProgressByID = `-- name: DeleteLanguageProgressByID :exec
 DELETE FROM "language_progress"
 WHERE "id" = $1

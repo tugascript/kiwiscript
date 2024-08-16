@@ -256,9 +256,17 @@ func (s *Services) FindPaginatedPublishedSeries(
 	return seriesDTOs, count, nil
 }
 
+type FindPaginatedSeriesWithProgressOptions struct {
+	UserID       int32
+	LanguageSlug string
+	Offset       int32
+	Limit        int32
+	SortBySlug   bool
+}
+
 func (s *Services) FindPaginatedPublishedSeriesWithProgress(
 	ctx context.Context,
-	opts FindPaginatedSeriesOptions,
+	opts FindPaginatedSeriesWithProgressOptions,
 ) ([]db.SeriesModel, int64, *ServiceError) {
 	log := s.log.WithGroup("service.series.findPaginatedPublishedSeriesWithProgress")
 	log.InfoContext(ctx, "Getting published series with progress...")
@@ -277,6 +285,7 @@ func (s *Services) FindPaginatedPublishedSeriesWithProgress(
 		series, err := s.database.FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlug(
 			ctx,
 			db.FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlugParams{
+				UserID:       opts.UserID,
 				LanguageSlug: opts.LanguageSlug,
 				Limit:        opts.Limit,
 				Offset:       opts.Offset,
@@ -297,6 +306,7 @@ func (s *Services) FindPaginatedPublishedSeriesWithProgress(
 	series, err := s.database.FindPaginatedPublishedSeriesWithAuthorAndProgressSortByID(
 		ctx,
 		db.FindPaginatedPublishedSeriesWithAuthorAndProgressSortByIDParams{
+			UserID:       opts.UserID,
 			LanguageSlug: opts.LanguageSlug,
 			Limit:        opts.Limit,
 			Offset:       opts.Offset,

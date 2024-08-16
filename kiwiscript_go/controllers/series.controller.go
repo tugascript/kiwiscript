@@ -331,7 +331,8 @@ func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
 		} else {
 			seriesModels, count, serviceErr = c.services.FindPaginatedPublishedSeriesWithProgress(
 				userCtx,
-				services.FindPaginatedSeriesOptions{
+				services.FindPaginatedSeriesWithProgressOptions{
+					UserID:       user.ID,
 					LanguageSlug: params.LanguageSlug,
 					Offset:       queryParams.Offset,
 					Limit:        queryParams.Limit,

@@ -206,8 +206,9 @@ UPDATE "series_progress" SET
         ) THEN (NOW())
         ELSE "series_progress"."completed_at"
     END
-WHERE "id" = $1
-RETURNING id, user_id, series_slug, language_slug, language_progress_id, completed_sections, completed_lessons, parts_count, completed_at, viewed_at, created_at, updated_at
+FROM "series"
+WHERE "series_progress"."id" = $1
+RETURNING series_progress.id, series_progress.user_id, series_progress.series_slug, series_progress.language_slug, series_progress.language_progress_id, series_progress.completed_sections, series_progress.completed_lessons, series_progress.parts_count, series_progress.completed_at, series_progress.viewed_at, series_progress.created_at, series_progress.updated_at
 `
 
 func (q *Queries) IncrementSeriesProgressCompletedSections(ctx context.Context, id int32) (SeriesProgress, error) {

@@ -182,8 +182,12 @@ UPDATE "section_progress"
 SET
     "completed_lessons" = "section_progress"."completed_lessons" + 1,
     "completed_at" = CASE
-        WHEN "sections"."lessons_count" + 1 > "section_progress"."completed_lessons" THEN (NOW())
-        ELSE "section_progress"."completed_at"
+        WHEN (
+            "sections"."lessons_count" = "section_progress"."completed_lessons" + 1 AND
+            "section_progress"."completed_at" IS NULL
+        )
+            THEN (NOW())
+            ELSE "section_progress"."completed_at"
     END
 FROM "sections"
 WHERE

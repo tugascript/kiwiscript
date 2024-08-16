@@ -61,8 +61,9 @@ UPDATE "series_progress" SET
         ) THEN (NOW())
         ELSE "series_progress"."completed_at"
     END
-WHERE "id" = $1
-RETURNING *;
+FROM "series"
+WHERE "series_progress"."id" = $1
+RETURNING "series_progress".*;
 
 -- name: DecrementSeriesProgressCompletedSections :exec
 UPDATE "series_progress" SET

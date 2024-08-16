@@ -632,6 +632,69 @@ func TestGetPaginatedSeries(t *testing.T) {
 			},
 			Path: baseLanguagesPath + "/rust/series?offset=1",
 		},
+		{
+			Name: "Should return 200 OK with user's progress if the user is not staff",
+			ReqFn: func(t *testing.T) (string, string) {
+				testDb := GetTestDatabase(t)
+				series, err := testDb.FindPaginatedSeriesWithAuthorSortByID(
+					context.Background(),
+					db.FindPaginatedSeriesWithAuthorSortByIDParams{
+						LanguageSlug: "rust",
+						Limit:        2,
+					},
+				)
+				if err != nil {
+					t.Fatal("Failed to find paginated series", "error", err)
+				}
+
+				for i := 0; i < 2; i++ {
+					publishedPrms := db.UpdateSeriesIsPublishedParams{
+						IsPublished: true,
+						ID:          series[i].ID,
+					}
+					if _, err := testDb.UpdateSeriesIsPublished(context.Background(), publishedPrms); err != nil {
+						t.Fatal("Failed to update series is published", "error", err)
+					}
+				}
+
+				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+				testUser.IsStaff = false
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+
+				langProg, err := testDb.CreateLanguageProgress(context.Background(), db.CreateLanguageProgressParams{
+					LanguageSlug: "rust",
+					UserID:       testUser.ID,
+				})
+				if err != nil {
+					t.Fatal("Failed to create language progress", "error", err)
+				}
+
+				seriesProg, err := testDb.CreateSeriesProgress(context.Background(), db.CreateSeriesProgressParams{
+					LanguageSlug:       series[0].LanguageSlug,
+					SeriesSlug:         series[0].Slug,
+					LanguageProgressID: langProg.ID,
+					UserID:             testUser.ID,
+				})
+				if err != nil {
+					t.Fatal("Failed to create series progress", "error", err)
+				}
+
+				if _, err := testDb.IncrementSeriesProgressCompletedSections(context.Background(), seriesProg.ID); err != nil {
+					t.Fatal("Failed to increment series progress completed sections", "error", err)
+				}
+
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.PaginatedResponse[dtos.SeriesResponse]{})
+				AssertEqual(t, resBody.Results[0].CompletedLessons, 1)
+				AssertEqual(t, resBody.Results[0].CompletedSections, 1)
+				AssertEqual(t, resBody.Results[1].CompletedSections, 0)
+				AssertEqual(t, resBody.Results[1].CompletedSections, 0)
+			},
+			Path: baseLanguagesPath + "/rust/series",
+		},
 	}
 
 	for _, tc := range testCases {
