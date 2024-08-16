@@ -47,16 +47,16 @@ type PaginatedResponse[T any] struct {
 	Results []T                    `json:"results"`
 }
 
-func newPaginatedNavigationURL(frontendDomain, path string, params string, limit, offset int32) LinkResponse {
+func newPaginatedNavigationURL(backendEndDomain, path string, params string, limit, offset int32) LinkResponse {
 	if offset < 0 {
 		offset = 0
 	}
 
 	var href string
 	if params != "" {
-		href = fmt.Sprintf("https://%s/api/%s?%s&limit=%d&offset=%d", frontendDomain, path, params, limit, offset)
+		href = fmt.Sprintf("https://%s/api%s?%s&limit=%d&offset=%d", backendEndDomain, path, params, limit, offset)
 	} else {
-		href = fmt.Sprintf("https://%s/api/%s?limit=%d&offset=%d", frontendDomain, path, limit, offset)
+		href = fmt.Sprintf("https://%s/api%s?limit=%d&offset=%d", backendEndDomain, path, limit, offset)
 	}
 
 	return LinkResponse{href}
@@ -88,7 +88,7 @@ func NewPaginatedResponse[T any, V any](
 
 	var prev LinkResponse
 	prevOffset := offset - limit
-	if prevOffset > 0 {
+	if prevOffset >= 0 {
 		prev = newPaginatedNavigationURL(backendDomain, path, params.ToQueryString(), limit, prevOffset)
 	}
 

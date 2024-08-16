@@ -384,11 +384,202 @@ func TestGetSeries(t *testing.T) {
 			},
 			Path: baseLanguagesPath + "/rust/series/existing-series",
 		},
+		{
+			Name: "Should return 200 OK when the series is published",
+			ReqFn: func(t *testing.T) (string, string) {
+				testDB := GetTestDatabase(t)
+				series, err := testDB.FindSeriesBySlugAndLanguageSlug(context.Background(), db.FindSeriesBySlugAndLanguageSlugParams{
+					Slug:         "existing-series",
+					LanguageSlug: "rust",
+				})
+				if err != nil {
+					t.Fatal("Failed to find series", err)
+				}
+				opts := db.UpdateSeriesIsPublishedParams{
+					IsPublished: true,
+					ID:          series.ID,
+				}
+				if _, err := testDB.UpdateSeriesIsPublished(context.Background(), opts); err != nil {
+					t.Fatal("Failed to publish series", err)
+				}
+
+				return "", ""
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.SeriesResponse{})
+				AssertNotEmpty(t, resBody.Title)
+				AssertNotEmpty(t, resBody.Description)
+				AssertEqual(t, resBody.IsPublished, true)
+			},
+			Path: baseLanguagesPath + "/rust/series/existing-series",
+		},
+		{
+			Name: "Should return 404 NOT FOUND when the series is not found",
+			ReqFn: func(t *testing.T) (string, string) {
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+				AssertEqual(t, resBody.Code, controllers.StatusNotFound)
+				AssertEqual(t, resBody.Message, services.MessageNotFound)
+			},
+			Path: baseLanguagesPath + "/rust/series/non-existing-series",
+		},
+		{
+			Name: "Should return 404 NOT FOUND when the language is not found",
+			ReqFn: func(t *testing.T) (string, string) {
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+				AssertEqual(t, resBody.Code, controllers.StatusNotFound)
+				AssertEqual(t, resBody.Message, services.MessageNotFound)
+			},
+			Path: baseLanguagesPath + "/python/series/existing-series",
+		},
+		{
+			Name: "Should return 400 BAD REQUEST when the series slug is invalid",
+			ReqFn: func(t *testing.T) (string, string) {
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusBadRequest,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+				AssertEqual(t, resBody.Code, controllers.StatusValidation)
+				AssertEqual(t, 1, len(resBody.Fields))
+				AssertEqual(t, "seriesSlug", resBody.Fields[0].Param)
+				AssertEqual(t, controllers.StrFieldErrMessageSlug, resBody.Fields[0].Message)
+			},
+			Path: baseLanguagesPath + "/rust/series/invalid--slug",
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			PerformTestRequestCase(t, http.MethodGet, tc.Path, tc)
+		})
+	}
+
+	t.Cleanup(languagesCleanUp(t))
+	t.Cleanup(userCleanUp(t))
+}
+
+func TestGetPaginatedSeries(t *testing.T) {
+	languagesCleanUp(t)()
+	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+	func() {
+		testDb := GetTestDatabase(t)
+
+		langParams := db.CreateLanguageParams{
+			Name:     "Rust",
+			Icon:     strings.TrimSpace(languageIcons["Rust"]),
+			AuthorID: testUser.ID,
+			Slug:     "rust",
+		}
+		if _, err := testDb.CreateLanguage(context.Background(), langParams); err != nil {
+			t.Fatal("Failed to create language", err)
+		}
+
+		count := 0
+		titleMap := map[string]bool{}
+		for count < 20 {
+			fakeTitle := faker.Name()
+			if _, ok := titleMap[fakeTitle]; !ok {
+				seriesParam := db.CreateSeriesParams{
+					Title:        fakeTitle,
+					Slug:         utils.Slugify(fakeTitle),
+					Description:  "Lorem ipsum lorem ipsum",
+					LanguageSlug: "rust",
+					AuthorID:     testUser.ID,
+				}
+				if _, err := testDb.CreateSeries(context.Background(), seriesParam); err != nil {
+					t.Fatal("Failed to create series", err)
+				}
+				count++
+			}
+		}
+	}()
+
+	testCases := []TestRequestCase[string]{
+		{
+			Name: "Should return 200 OK with all series if the user is staff",
+			ReqFn: func(t *testing.T) (string, string) {
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.PaginatedResponse[dtos.SeriesResponse]{})
+				AssertEqual(t, resBody.Count, 20)
+				AssertEqual(t, len(resBody.Results), 20)
+				AssertEqual(t, resBody.Links.Next, nil)
+				AssertEqual(t, resBody.Links.Prev, nil)
+			},
+			Path: baseLanguagesPath + "/rust/series",
+		},
+		{
+			Name: "Should return 200 OK with 5 rows with a limit of 5",
+			ReqFn: func(t *testing.T) (string, string) {
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.PaginatedResponse[dtos.SeriesResponse]{})
+				AssertEqual(t, resBody.Count, 20)
+				AssertEqual(t, len(resBody.Results), 5)
+				AssertGreaterThan(t, resBody.Results[0].ID, resBody.Results[1].ID)
+				AssertEqual(
+					t,
+					resBody.Links.Next.Href,
+					"https://api.kiwiscript.com/api/v1/languages/rust/series?sortBy=date&limit=5&offset=5",
+				)
+				AssertEqual(t, resBody.Links.Prev, nil)
+			},
+			Path: baseLanguagesPath + "/rust/series?limit=5",
+		},
+		{
+			Name: "Should return 200 OK with 5 rows with a limit of 5 and offset of 5, and sort by slug",
+			ReqFn: func(t *testing.T) (string, string) {
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.PaginatedResponse[dtos.SeriesResponse]{})
+				AssertEqual(t, resBody.Count, 20)
+				AssertEqual(t, len(resBody.Results), 5)
+				AssertGreaterThan(t, resBody.Results[1].Slug, resBody.Results[0].Slug)
+				AssertEqual(
+					t,
+					resBody.Links.Next.Href,
+					"https://api.kiwiscript.com/api/v1/languages/rust/series?sortBy=slug&limit=5&offset=10",
+				)
+				AssertEqual(
+					t,
+					resBody.Links.Prev.Href,
+					"https://api.kiwiscript.com/api/v1/languages/rust/series?sortBy=slug&limit=5&offset=0",
+				)
+			},
+			Path: baseLanguagesPath + "/rust/series?limit=5&offset=5&sortBy=slug",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			PerformTestRequestCase(t, MethodGet, tc.Path, tc)
 		})
 	}
 
