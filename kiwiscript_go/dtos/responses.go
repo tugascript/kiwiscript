@@ -87,9 +87,8 @@ func NewPaginatedResponse[T any, V any](
 	}
 
 	var prev LinkResponse
-	prevOffset := offset - limit
-	if prevOffset >= 0 {
-		prev = newPaginatedNavigationURL(backendDomain, path, params.ToQueryString(), limit, prevOffset)
+	if offset > 0 && int64(offset) < count {
+		prev = newPaginatedNavigationURL(backendDomain, path, params.ToQueryString(), limit, offset-limit)
 	}
 
 	return PaginatedResponse[T]{

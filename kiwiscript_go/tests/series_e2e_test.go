@@ -575,6 +575,63 @@ func TestGetPaginatedSeries(t *testing.T) {
 			},
 			Path: baseLanguagesPath + "/rust/series?limit=5&offset=5&sortBy=slug",
 		},
+		{
+			Name: "Should return 200 OK with 0 rows if non of the series are published and no user logged in",
+			ReqFn: func(t *testing.T) (string, string) {
+				return "", ""
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.PaginatedResponse[dtos.SeriesResponse]{})
+				AssertEqual(t, resBody.Count, 0)
+				AssertEqual(t, len(resBody.Results), 0)
+				AssertEqual(t, resBody.Links.Next, nil)
+				AssertEqual(t, resBody.Links.Prev, nil)
+			},
+			Path: baseLanguagesPath + "/rust/series",
+		},
+		{
+			Name: "Should return 200 OK with 4 rows if only 5 series are published, offset is 1 and no user logged in",
+			ReqFn: func(t *testing.T) (string, string) {
+				testDb := GetTestDatabase(t)
+				series, err := testDb.FindPaginatedSeriesWithAuthorSortBySlug(
+					context.Background(),
+					db.FindPaginatedSeriesWithAuthorSortBySlugParams{
+						LanguageSlug: "rust",
+						Limit:        5,
+						Offset:       10,
+					},
+				)
+				if err != nil {
+					t.Fatal("Failed to get series", "error", err)
+				}
+
+				for i := 0; i < 5; i++ {
+					params := db.UpdateSeriesIsPublishedParams{
+						IsPublished: true,
+						ID:          series[i].ID,
+					}
+					if _, err := testDb.UpdateSeriesIsPublished(context.Background(), params); err != nil {
+						t.Fatal("Failed to update series is published", "error", err)
+					}
+				}
+
+				return "", ""
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.PaginatedResponse[dtos.SeriesResponse]{})
+				AssertEqual(t, resBody.Count, 5)
+				AssertEqual(t, len(resBody.Results), 4)
+				AssertEqual(t, resBody.Links.Next, nil)
+				AssertEqual(
+					t,
+					resBody.Links.Prev.Href,
+					"https://api.kiwiscript.com/api/v1/languages/rust/series?sortBy=date&limit=25&offset=0",
+				)
+			},
+			Path: baseLanguagesPath + "/rust/series?offset=1",
+		},
 	}
 
 	for _, tc := range testCases {
