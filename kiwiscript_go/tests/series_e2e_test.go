@@ -136,7 +136,7 @@ func TestCreateSeries(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodPost, tc.Path, tc)
+			PerformTestRequestCase(t, http.MethodPost, tc.Path, tc)
 		})
 	}
 
@@ -303,7 +303,7 @@ func TestUpdateSeries(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodPut, tc.Path, tc)
+			PerformTestRequestCase(t, http.MethodPut, tc.Path, tc)
 		})
 	}
 
@@ -818,7 +818,7 @@ func TestGetPaginatedSeries(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodGet, tc.Path, tc)
+			PerformTestRequestCase(t, http.MethodGet, tc.Path, tc)
 		})
 	}
 

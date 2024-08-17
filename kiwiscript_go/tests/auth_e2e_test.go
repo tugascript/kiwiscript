@@ -96,7 +96,7 @@ func assertUnauthorizeError(t *testing.T, resp *http.Response) {
 
 func performCookieRequest(t *testing.T, app *fiber.App, path, accessToken, refreshToken string) *http.Response {
 	config := GetTestConfig(t)
-	req := httptest.NewRequest(MethodPost, path, nil)
+	req := httptest.NewRequest(http.MethodPost, path, nil)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
@@ -207,7 +207,7 @@ func TestRegister(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodPost, registerPath, tc)
+			PerformTestRequestCase(t, http.MethodPost, registerPath, tc)
 		})
 	}
 
@@ -286,7 +286,7 @@ func TestConfirmEmail(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodPost, confirmEmailPath, tc)
+			PerformTestRequestCase(t, http.MethodPost, confirmEmailPath, tc)
 		})
 	}
 
@@ -365,7 +365,7 @@ func TestLogin(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodPost, loginPath, tc)
+			PerformTestRequestCase(t, http.MethodPost, loginPath, tc)
 		})
 	}
 
@@ -455,7 +455,7 @@ func TestLoginConfirm(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodPost, loginConfirmPath, tc)
+			PerformTestRequestCase(t, http.MethodPost, loginConfirmPath, tc)
 		})
 	}
 
@@ -515,7 +515,7 @@ func TestLogout(t *testing.T) {
 
 	for _, tc := range bodyTestCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodPost, logoutPath, tc)
+			PerformTestRequestCase(t, http.MethodPost, logoutPath, tc)
 		})
 	}
 
@@ -669,7 +669,7 @@ func TestRefresh(t *testing.T) {
 
 	for _, tc := range bodyTestCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodPost, refreshPath, tc)
+			PerformTestRequestCase(t, http.MethodPost, refreshPath, tc)
 		})
 	}
 
@@ -794,7 +794,7 @@ func TestForgotPassword(t *testing.T) {
 
 	for _, tc := range bodyTestCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodPost, forgotPasswordPath, tc)
+			PerformTestRequestCase(t, http.MethodPost, forgotPasswordPath, tc)
 		})
 	}
 
@@ -879,7 +879,7 @@ func TestResetPassword(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodPost, resetPasswordPath, tc)
+			PerformTestRequestCase(t, http.MethodPost, resetPasswordPath, tc)
 		})
 	}
 
@@ -996,7 +996,7 @@ func TestUpdatePassword(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodPost, updatePasswordPath, tc)
+			PerformTestRequestCase(t, http.MethodPost, updatePasswordPath, tc)
 		})
 	}
 
@@ -1096,7 +1096,7 @@ func TestUpdateEmail(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodPost, updateEmailPath, tc)
+			PerformTestRequestCase(t, http.MethodPost, updateEmailPath, tc)
 		})
 	}
 

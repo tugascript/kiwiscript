@@ -55,14 +55,6 @@ var testTokens *tokens.Tokens
 var testDatabase *db.Database
 var testCache *cc.Cache
 
-const (
-	MethodPost   string = "POST"
-	MethodGet    string = "GET"
-	MethodPut    string = "PUT"
-	MethodPatch  string = "PATCH"
-	MethodDelete string = "DELETE"
-)
-
 func initTestServicesAndApp(t *testing.T) {
 	log := app.DefaultLogger()
 	testConfig = app.NewConfig(log, "../.env")

@@ -189,7 +189,7 @@ func TestCreateLanguage(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodPost, baseLanguagesPath, tc)
+			PerformTestRequestCase(t, http.MethodPost, baseLanguagesPath, tc)
 		})
 	}
 
@@ -240,7 +240,7 @@ func TestGetLanguages(t *testing.T) {
 
 	for _, tc := range emptyTestCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodGet, tc.Path, tc)
+			PerformTestRequestCase(t, http.MethodGet, tc.Path, tc)
 		})
 	}
 
@@ -347,7 +347,7 @@ func TestGetLanguages(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodGet, tc.Path, tc)
+			PerformTestRequestCase(t, http.MethodGet, tc.Path, tc)
 		})
 	}
 
@@ -390,7 +390,7 @@ func TestGetLanguage(t *testing.T) {
 
 	for _, tc := range emptyTestCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodGet, tc.Path, tc)
+			PerformTestRequestCase(t, http.MethodGet, tc.Path, tc)
 		})
 	}
 
@@ -437,7 +437,7 @@ func TestGetLanguage(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodGet, tc.Path, tc)
+			PerformTestRequestCase(t, http.MethodGet, tc.Path, tc)
 		})
 	}
 
@@ -565,7 +565,7 @@ func TestUpdateLanguage(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodPut, tc.Path, tc)
+			PerformTestRequestCase(t, http.MethodPut, tc.Path, tc)
 		})
 	}
 
@@ -683,7 +683,7 @@ func TestDeleteLanguage(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodDelete, tc.Path, tc)
+			PerformTestRequestCase(t, http.MethodDelete, tc.Path, tc)
 		})
 	}
 
