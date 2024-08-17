@@ -70,7 +70,7 @@ func (s *Services) CreateLessonVideo(
 	}
 
 	if _, serviceErr := s.FindLessonVideoByLessonID(ctx, opts.LessonID); serviceErr == nil {
-		return nil, NewDuplicateKeyError("Lesson video already exists")
+		return nil, NewConflictError("Lesson video already exists")
 	}
 
 	qrs, txn, err := s.database.BeginTx(ctx)

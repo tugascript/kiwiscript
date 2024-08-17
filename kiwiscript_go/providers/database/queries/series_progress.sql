@@ -85,3 +85,8 @@ WHERE "id" = $1;
 UPDATE "series_progress" SET
   "completed_lessons" = "completed_lessons" - 1
 WHERE "id" = $1;
+
+-- name: CountSeriesProgressBySeriesSlug :one
+SELECT COUNT("id") FROM "series_progress"
+WHERE "series_slug" = $1
+LIMIT 1;

@@ -77,7 +77,7 @@ func (s *Services) SignUp(ctx context.Context, options SignUpOptions) *ServiceEr
 	if _, err := s.database.FindAuthProviderByEmailAndProvider(ctx, prms); err == nil {
 		errMsg := "Email already exists"
 		log.WarnContext(ctx, errMsg)
-		return NewDuplicateKeyError(errMsg)
+		return NewConflictError(errMsg)
 	}
 
 	user, serviceErr := s.CreateUser(ctx, CreateUserOptions{

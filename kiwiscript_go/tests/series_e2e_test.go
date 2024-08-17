@@ -415,6 +415,62 @@ func TestGetSeries(t *testing.T) {
 			Path: baseLanguagesPath + "/rust/series/existing-series",
 		},
 		{
+			Name: "Should return 200 OK with progress if the user is not staff",
+			ReqFn: func(t *testing.T) (string, string) {
+				testDB := GetTestDatabase(t)
+				series, err := testDB.FindSeriesBySlugAndLanguageSlug(context.Background(), db.FindSeriesBySlugAndLanguageSlugParams{
+					Slug:         "existing-series",
+					LanguageSlug: "rust",
+				})
+				if err != nil {
+					t.Fatal("Failed to find series", err)
+				}
+				opts := db.UpdateSeriesIsPublishedParams{
+					IsPublished: true,
+					ID:          series.ID,
+				}
+				if _, err := testDB.UpdateSeriesIsPublished(context.Background(), opts); err != nil {
+					t.Fatal("Failed to publish series", err)
+				}
+
+				langProg, err := testDB.CreateLanguageProgress(context.Background(), db.CreateLanguageProgressParams{
+					LanguageSlug: "rust",
+					UserID:       testUser.ID,
+				})
+				if err != nil {
+					t.Fatal("Failed to create language progress", "error", err)
+				}
+
+				seriesProg, err := testDB.CreateSeriesProgress(context.Background(), db.CreateSeriesProgressParams{
+					LanguageSlug:       "rust",
+					SeriesSlug:         "existing-series",
+					LanguageProgressID: langProg.ID,
+					UserID:             testUser.ID,
+				})
+				if err != nil {
+					t.Fatal("Failed to create series progress", "error", err)
+				}
+
+				if _, err := testDB.IncrementSeriesProgressCompletedSections(context.Background(), seriesProg.ID); err != nil {
+					t.Fatal("Failed to increment series progress competed sections", "error", err)
+				}
+
+				testUser.IsStaff = false
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.SeriesResponse{})
+				AssertNotEmpty(t, resBody.Title)
+				AssertNotEmpty(t, resBody.Description)
+				AssertEqual(t, resBody.IsPublished, true)
+				AssertEqual(t, resBody.CompletedLessons, 1)
+				AssertEqual(t, resBody.CompletedSections, 1)
+			},
+			Path: baseLanguagesPath + "/rust/series/existing-series",
+		},
+		{
 			Name: "Should return 404 NOT FOUND when the series is not found",
 			ReqFn: func(t *testing.T) (string, string) {
 				testUser.IsStaff = true
@@ -695,6 +751,69 @@ func TestGetPaginatedSeries(t *testing.T) {
 			},
 			Path: baseLanguagesPath + "/rust/series",
 		},
+		{
+			Name: "Should return 200 OK with user's progress if the user is not staff sortedBy slug",
+			ReqFn: func(t *testing.T) (string, string) {
+				testDb := GetTestDatabase(t)
+				series, err := testDb.FindPaginatedSeriesWithAuthorSortBySlug(
+					context.Background(),
+					db.FindPaginatedSeriesWithAuthorSortBySlugParams{
+						LanguageSlug: "rust",
+						Limit:        2,
+					},
+				)
+				if err != nil {
+					t.Fatal("Failed to find paginated series", "error", err)
+				}
+
+				for i := 0; i < 2; i++ {
+					publishedPrms := db.UpdateSeriesIsPublishedParams{
+						IsPublished: true,
+						ID:          series[i].ID,
+					}
+					if _, err := testDb.UpdateSeriesIsPublished(context.Background(), publishedPrms); err != nil {
+						t.Fatal("Failed to update series is published", "error", err)
+					}
+				}
+
+				testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+				testUser.IsStaff = false
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+
+				langProg, err := testDb.CreateLanguageProgress(context.Background(), db.CreateLanguageProgressParams{
+					LanguageSlug: "rust",
+					UserID:       testUser.ID,
+				})
+				if err != nil {
+					t.Fatal("Failed to create language progress", "error", err)
+				}
+
+				seriesProg, err := testDb.CreateSeriesProgress(context.Background(), db.CreateSeriesProgressParams{
+					LanguageSlug:       series[0].LanguageSlug,
+					SeriesSlug:         series[0].Slug,
+					LanguageProgressID: langProg.ID,
+					UserID:             testUser.ID,
+				})
+				if err != nil {
+					t.Fatal("Failed to create series progress", "error", err)
+				}
+
+				if _, err := testDb.IncrementSeriesProgressCompletedSections(context.Background(), seriesProg.ID); err != nil {
+					t.Fatal("Failed to increment series progress completed sections", "error", err)
+				}
+
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.PaginatedResponse[dtos.SeriesResponse]{})
+				AssertEqual(t, resBody.Results[0].CompletedLessons, 1)
+				AssertEqual(t, resBody.Results[0].CompletedSections, 1)
+				AssertEqual(t, resBody.Results[1].CompletedSections, 0)
+				AssertEqual(t, resBody.Results[1].CompletedSections, 0)
+			},
+			Path: baseLanguagesPath + "/rust/series?sortBy=slug",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -706,3 +825,223 @@ func TestGetPaginatedSeries(t *testing.T) {
 	t.Cleanup(languagesCleanUp(t))
 	t.Cleanup(userCleanUp(t))
 }
+
+func TestDeleteSeries(t *testing.T) {
+	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+	func() {
+		testDb := GetTestDatabase(t)
+
+		langParams := db.CreateLanguageParams{
+			Name:     "Rust",
+			Icon:     strings.TrimSpace(languageIcons["Rust"]),
+			AuthorID: testUser.ID,
+			Slug:     "rust",
+		}
+		if _, err := testDb.CreateLanguage(context.Background(), langParams); err != nil {
+			t.Fatal("Failed to create language", err)
+		}
+	}()
+
+	beforeEach := func(t *testing.T) {
+		testDb := GetTestDatabase(t)
+		serParams := db.CreateSeriesParams{
+			Title:        "Existing Series",
+			Slug:         "existing-series",
+			Description:  "Some description",
+			LanguageSlug: "rust",
+			AuthorID:     testUser.ID,
+		}
+		if _, err := testDb.CreateSeries(context.Background(), serParams); err != nil {
+			t.Fatal("Failed to create series", "error", err)
+		}
+	}
+
+	afterEach := func(t *testing.T) {
+		testDb := GetTestDatabase(t)
+		if err := testDb.DeleteAllLanguageSeries(context.Background(), "rust"); err != nil {
+			t.Fatal("Failed to delete all language series", "error", err)
+		}
+	}
+
+	testCases := []TestRequestCase[string]{
+		{
+			Name: "Should return 204 NO CONTENT if the series is deleted successfully",
+			ReqFn: func(t *testing.T) (string, string) {
+				beforeEach(t)
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusNoContent,
+			AssertFn: func(t *testing.T, _ string, _ *http.Response) {
+				afterEach(t)
+			},
+			Path: baseLanguagesPath + "/rust/series/existing-series",
+		},
+		{
+			Name: "Should return 401 UNAUTHORIZED if the user is not staff",
+			ReqFn: func(t *testing.T) (string, string) {
+				beforeEach(t)
+				testUser.IsStaff = false
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusForbidden,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+				AssertEqual(t, resBody.Code, controllers.StatusForbidden)
+				AssertEqual(t, resBody.Message, controllers.StatusForbidden)
+				afterEach(t)
+			},
+			Path: baseLanguagesPath + "/rust/series/existing-series",
+		},
+		{
+			Name: "Should return 404 NOT FOUND if the series is not found",
+			ReqFn: func(t *testing.T) (string, string) {
+				beforeEach(t)
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+				AssertEqual(t, resBody.Code, controllers.StatusNotFound)
+				AssertEqual(t, resBody.Message, services.MessageNotFound)
+				afterEach(t)
+			},
+			Path: baseLanguagesPath + "/rust/series/non-existing-series",
+		},
+		{
+			Name: "Should return 404 NOT FOUND if the language is not found",
+			ReqFn: func(t *testing.T) (string, string) {
+				beforeEach(t)
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+				AssertEqual(t, resBody.Code, controllers.StatusNotFound)
+				AssertEqual(t, resBody.Message, services.MessageNotFound)
+				afterEach(t)
+			},
+			Path: baseLanguagesPath + "/python/series/existing-series",
+		},
+		{
+			Name: "Should return 409 CONFLICT if series has students",
+			ReqFn: func(t *testing.T) (string, string) {
+				beforeEach(t)
+				testDb := GetTestDatabase(t)
+				series, err := testDb.FindSeriesBySlugAndLanguageSlug(
+					context.Background(),
+					db.FindSeriesBySlugAndLanguageSlugParams{
+						Slug:         "existing-series",
+						LanguageSlug: "rust",
+					},
+				)
+				if err != nil {
+					t.Fatal("Failed to find series", "error", err)
+				}
+
+				isPubPrms := db.UpdateSeriesIsPublishedParams{
+					IsPublished: true,
+					ID:          series.ID,
+				}
+				if _, err := testDb.UpdateSeriesIsPublished(context.Background(), isPubPrms); err != nil {
+					t.Fatal("Failed to publish series", "error", err)
+				}
+
+				progUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+				langProg, err := testDb.CreateLanguageProgress(context.Background(), db.CreateLanguageProgressParams{
+					LanguageSlug: "rust",
+					UserID:       progUser.ID,
+				})
+				if err != nil {
+					t.Fatal("Failed to create language progress", "error", err)
+				}
+
+				sProgPrms := db.CreateSeriesProgressParams{
+					LanguageSlug:       "rust",
+					SeriesSlug:         "existing-series",
+					LanguageProgressID: langProg.ID,
+					UserID:             progUser.ID,
+				}
+				if _, err := testDb.CreateSeriesProgress(context.Background(), sProgPrms); err != nil {
+					t.Fatal("Failed to create series progress", "error", err)
+				}
+
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusConflict,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+				AssertEqual(t, resBody.Code, controllers.StatusConflict)
+				AssertEqual(t, resBody.Message, "Series has students")
+				afterEach(t)
+			},
+			Path: baseLanguagesPath + "/rust/series/existing-series",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			PerformTestRequestCase(t, MethodDelete, tc.Path, tc)
+		})
+	}
+
+	t.Cleanup(languagesCleanUp(t))
+	t.Cleanup(userCleanUp(t))
+}
+
+//func TestPublishSeries(t *testing.T) {
+//	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+//	func() {
+//		testDb := GetTestDatabase(t)
+//
+//		langParams := db.CreateLanguageParams{
+//			Name:     "Rust",
+//			Icon:     strings.TrimSpace(languageIcons["Rust"]),
+//			AuthorID: testUser.ID,
+//			Slug:     "rust",
+//		}
+//		if _, err := testDb.CreateLanguage(context.Background(), langParams); err != nil {
+//			t.Fatal("Failed to create language", err)
+//		}
+//
+//		serParams := db.CreateSeriesParams{
+//			Title:        "Existing Series",
+//			Slug:         "existing-series",
+//			Description:  "Some description",
+//			LanguageSlug: "rust",
+//			AuthorID:     testUser.ID,
+//		}
+//		if _, err := testDb.CreateSeries(context.Background(), serParams); err != nil {
+//			t.Fatal("Failed to create series", "error", err)
+//		}
+//	}()
+//
+//	afterEach := func(t *testing.T) {
+//		testDb := GetTestDatabase(t)
+//		series, err := testDb.FindSeriesBySlugAndLanguageSlug(
+//			context.Background(), db.FindSeriesBySlugAndLanguageSlugParams{
+//				Slug:         "existing-series",
+//				LanguageSlug: "rust",
+//			},
+//		)
+//		if err != nil {
+//			t.Fatal("Fained to get series", "error", err)
+//		}
+//
+//		isPubPrms := db.UpdateSeriesIsPublishedParams{
+//			IsPublished: false,
+//			ID:          series.ID,
+//		}
+//		if _, err := testDb.UpdateSeriesIsPublished(context.Background(), isPubPrms); err != nil {
+//			t.Fatal("Failed to update series is published", "error", err)
+//		}
+//	}
+//}

@@ -674,7 +674,7 @@ func TestDeleteLanguage(t *testing.T) {
 			ExpStatus: fiber.StatusConflict,
 			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, controllers.StatusDuplicateKey, resBody.Code)
+				AssertEqual(t, controllers.StatusConflict, resBody.Code)
 				AssertEqual(t, "Language has students", resBody.Message)
 			},
 			Path: baseLanguagesPath + "/python",

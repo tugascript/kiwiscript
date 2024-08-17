@@ -200,7 +200,7 @@ func TestRegister(t *testing.T) {
 			AssertFn: func(t *testing.T, _ dtos.SignUpBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 				AssertEqual(t, "Email already exists", resBody.Message)
-				AssertEqual(t, controllers.StatusDuplicateKey, resBody.Code)
+				AssertEqual(t, controllers.StatusConflict, resBody.Code)
 			},
 		},
 	}

@@ -262,6 +262,16 @@ func (q *Queries) DecrementSeriesSectionsCount(ctx context.Context, arg Decremen
 	return err
 }
 
+const deleteAllLanguageSeries = `-- name: DeleteAllLanguageSeries :exec
+DELETE FROM "series"
+WHERE "language_slug" = $1
+`
+
+func (q *Queries) DeleteAllLanguageSeries(ctx context.Context, languageSlug string) error {
+	_, err := q.db.Exec(ctx, deleteAllLanguageSeries, languageSlug)
+	return err
+}
+
 const deleteSeriesById = `-- name: DeleteSeriesById :exec
 DELETE FROM "series"
 WHERE "id" = $1

@@ -26,7 +26,7 @@ import (
 
 const (
 	CodeValidation   string = "VALIDATION"
-	CodeDuplicateKey string = "DUPLICATE_KEY"
+	CodeConflict     string = "CONFLICT"
 	CodeInvalidEnum  string = "INVALID_ENUM"
 	CodeNotFound     string = "NOT_FOUND"
 	CodeUnknown      string = "UNKNOWN"
@@ -67,8 +67,8 @@ func NewServerError() *ServiceError {
 	return NewError(CodeServerError, MessageUnknown)
 }
 
-func NewDuplicateKeyError(message string) *ServiceError {
-	return NewError(CodeDuplicateKey, message)
+func NewConflictError(message string) *ServiceError {
+	return NewError(CodeConflict, message)
 }
 
 func NewUnauthorizedError() *ServiceError {
@@ -92,7 +92,7 @@ func FromDBError(err error) *ServiceError {
 	if errors.As(err, &pgErr) {
 		switch pgErr.Code {
 		case "23505":
-			return NewError(CodeDuplicateKey, MessageDuplicateKey)
+			return NewError(CodeConflict, MessageDuplicateKey)
 		case "23514":
 			return NewError(CodeInvalidEnum, pgErr.Message)
 		case "23503":

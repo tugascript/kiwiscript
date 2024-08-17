@@ -9,6 +9,19 @@ import (
 	"context"
 )
 
+const countSeriesProgressBySeriesSlug = `-- name: CountSeriesProgressBySeriesSlug :one
+SELECT COUNT("id") FROM "series_progress"
+WHERE "series_slug" = $1
+LIMIT 1
+`
+
+func (q *Queries) CountSeriesProgressBySeriesSlug(ctx context.Context, seriesSlug string) (int64, error) {
+	row := q.db.QueryRow(ctx, countSeriesProgressBySeriesSlug, seriesSlug)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createSeriesProgress = `-- name: CreateSeriesProgress :one
 
 INSERT INTO "series_progress" (

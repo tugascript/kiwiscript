@@ -443,3 +443,7 @@ WHERE
     "series"."language_slug" = $3 AND
     "series"."is_published" = true
 LIMIT 1;
+
+-- name: DeleteAllLanguageSeries :exec
+DELETE FROM "series"
+WHERE "language_slug" = $1;

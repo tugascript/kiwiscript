@@ -73,7 +73,7 @@ func (s *Services) CreateLessonArticle(ctx context.Context, opts CreateLessonArt
 	}
 
 	if _, serviceErr := s.FindLessonArticleByLessonID(ctx, opts.LessonID); serviceErr == nil {
-		return nil, NewDuplicateKeyError("Lesson article already exists")
+		return nil, NewConflictError("Lesson article already exists")
 	}
 
 	qrs, txn, err := s.database.BeginTx(ctx)

@@ -144,7 +144,7 @@ func (s *Services) DeleteLanguage(ctx context.Context, slug string) *ServiceErro
 
 	if progressCount > 0 {
 		log.WarnContext(ctx, "Language has students", "studentsCount", progressCount)
-		return NewDuplicateKeyError("Language has students")
+		return NewConflictError("Language has students")
 	}
 
 	if err := s.database.DeleteLanguageById(ctx, language.ID); err != nil {

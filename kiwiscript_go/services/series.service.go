@@ -154,7 +154,7 @@ func (s *Services) CreateSeries(ctx context.Context, options CreateSeriesOptions
 	}
 	if _, err := s.database.FindSeriesBySlugAndLanguageSlug(ctx, params); err == nil {
 		log.InfoContext(ctx, "series already exists", "slug", slug)
-		return nil, NewDuplicateKeyError("Series already exists")
+		return nil, NewConflictError("Series already exists")
 
 	}
 
@@ -702,10 +702,17 @@ func (s *Services) DeleteSeries(ctx context.Context, opts DeleteSeriesOptions) *
 		return serviceErr
 	}
 
-	if series.SectionsCount > 0 {
-		log.Warn("Series has parts")
-		// TODO: update this to be a constraint error
-		return NewValidationError("series has parts")
+	if series.IsPublished {
+		progressCount, err := s.database.CountSeriesProgressBySeriesSlug(ctx, series.Slug)
+		if err != nil {
+			log.ErrorContext(ctx, "Failed to count series progress", "error", err)
+			return FromDBError(err)
+		}
+
+		if progressCount > 0 {
+			log.WarnContext(ctx, "Series is published and has progress")
+			return NewConflictError("Series has students")
+		}
 	}
 
 	if err := s.database.DeleteSeriesById(ctx, series.ID); err != nil {

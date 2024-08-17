@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	StatusDuplicateKey string = "Conflict"
+	StatusConflict     string = "Conflict"
 	StatusInvalidEnum  string = "BadRequest"
 	StatusNotFound     string = "NotFound"
 	StatusUnknown      string = "InternalServerError"
@@ -42,9 +42,9 @@ type RequestError struct {
 
 func NewRequestError(err *services.ServiceError) RequestError {
 	switch err.Code {
-	case services.CodeDuplicateKey:
+	case services.CodeConflict:
 		return RequestError{
-			Code:    StatusDuplicateKey,
+			Code:    StatusConflict,
 			Message: err.Message,
 		}
 	case services.CodeInvalidEnum:
@@ -258,7 +258,7 @@ func NewEmptyRequestValidationError(location string) EmptyRequestValidationError
 
 func NewRequestErrorStatus(code string) int {
 	switch code {
-	case services.CodeDuplicateKey:
+	case services.CodeConflict:
 		return 409
 	case services.CodeInvalidEnum, services.CodeValidation:
 		return 400
