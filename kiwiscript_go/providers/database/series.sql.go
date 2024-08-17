@@ -30,7 +30,7 @@ func (q *Queries) AddSeriesReadTime(ctx context.Context, arg AddSeriesReadTimePa
 
 const addSeriesSectionsCount = `-- name: AddSeriesSectionsCount :exec
 UPDATE "series" SET
-  "series_sections_count" = "series_sections_count" + 1,
+  "sections_count" = "sections_count" + 1,
   "lessons_count" = "lessons_count" + $2,
   "watch_time_seconds" = "watch_time_seconds" + $3,
   "read_time_seconds" = "read_time_seconds" + $4,
@@ -237,7 +237,7 @@ func (q *Queries) DecrementSeriesLessonsCount(ctx context.Context, arg Decrement
 
 const decrementSeriesSectionsCount = `-- name: DecrementSeriesSectionsCount :exec
 UPDATE "series" SET
-  "series_sections_count" = "series_sections_count" - 1,
+  "sections_count" = "sections_count" - 1,
   "lessons_count" = "lessons_count" - $2,
   "watch_time_seconds" = "watch_time_seconds" - $3,
   "read_time_seconds" = "read_time_seconds" - $4,

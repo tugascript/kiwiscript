@@ -341,7 +341,7 @@ LIMIT $4 OFFSET $5;
 
 -- name: AddSeriesSectionsCount :exec
 UPDATE "series" SET
-  "series_sections_count" = "series_sections_count" + 1,
+  "sections_count" = "sections_count" + 1,
   "lessons_count" = "lessons_count" + $2,
   "watch_time_seconds" = "watch_time_seconds" + $3,
   "read_time_seconds" = "read_time_seconds" + $4,
@@ -350,7 +350,7 @@ WHERE "slug" = $1;
 
 -- name: DecrementSeriesSectionsCount :exec
 UPDATE "series" SET
-  "series_sections_count" = "series_sections_count" - 1,
+  "sections_count" = "sections_count" - 1,
   "lessons_count" = "lessons_count" - $2,
   "watch_time_seconds" = "watch_time_seconds" - $3,
   "read_time_seconds" = "read_time_seconds" - $4,

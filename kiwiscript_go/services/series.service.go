@@ -740,8 +740,7 @@ func (s *Services) UpdateSeriesIsPublished(ctx context.Context, options UpdateSe
 		SeriesSlug:   options.SeriesSlug,
 	})
 	if serviceErr != nil {
-		log.Warn("Series not found", "error", serviceErr)
-		return nil, FromDBError(serviceErr)
+		return nil, serviceErr
 	}
 	if series.AuthorID != options.UserID {
 		log.Warn("User is not the author of the series")
@@ -753,12 +752,21 @@ func (s *Services) UpdateSeriesIsPublished(ctx context.Context, options UpdateSe
 		return series, nil
 	}
 	if series.SectionsCount == 0 && options.IsPublished {
-		errMsg := "Series must have parts to be published"
-		log.Warn("Series has no parts", "error", errMsg)
-		return nil, NewValidationError(errMsg)
+		log.WarnContext(ctx, "Series has no sections")
+		return nil, NewValidationError("Series must have sections to be published")
 	}
+	if series.IsPublished && !options.IsPublished {
+		progressCount, err := s.database.CountSeriesProgressBySeriesSlug(ctx, series.Slug)
+		if err != nil {
+			log.ErrorContext(ctx, "Failed to count series progress", "error", err)
+			return nil, FromDBError(err)
+		}
 
-	// TODO: add constraints to prevent unpublishing series with students
+		if progressCount > 0 {
+			log.WarnContext(ctx, "Series is published and has progress")
+			return nil, NewConflictError("Series has students")
+		}
+	}
 
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {

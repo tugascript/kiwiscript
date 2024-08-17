@@ -879,7 +879,7 @@ func TestDeleteSeries(t *testing.T) {
 			Path: baseLanguagesPath + "/rust/series/existing-series",
 		},
 		{
-			Name: "Should return 401 UNAUTHORIZED if the user is not staff",
+			Name: "Should return 403 FORBIDDEN if the user is not staff",
 			ReqFn: func(t *testing.T) (string, string) {
 				beforeEach(t)
 				testUser.IsStaff = false
@@ -989,7 +989,7 @@ func TestDeleteSeries(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			PerformTestRequestCase(t, MethodDelete, tc.Path, tc)
+			PerformTestRequestCase(t, http.MethodDelete, tc.Path, tc)
 		})
 	}
 
@@ -997,51 +997,280 @@ func TestDeleteSeries(t *testing.T) {
 	t.Cleanup(userCleanUp(t))
 }
 
-//func TestPublishSeries(t *testing.T) {
-//	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
-//	func() {
-//		testDb := GetTestDatabase(t)
-//
-//		langParams := db.CreateLanguageParams{
-//			Name:     "Rust",
-//			Icon:     strings.TrimSpace(languageIcons["Rust"]),
-//			AuthorID: testUser.ID,
-//			Slug:     "rust",
-//		}
-//		if _, err := testDb.CreateLanguage(context.Background(), langParams); err != nil {
-//			t.Fatal("Failed to create language", err)
-//		}
-//
-//		serParams := db.CreateSeriesParams{
-//			Title:        "Existing Series",
-//			Slug:         "existing-series",
-//			Description:  "Some description",
-//			LanguageSlug: "rust",
-//			AuthorID:     testUser.ID,
-//		}
-//		if _, err := testDb.CreateSeries(context.Background(), serParams); err != nil {
-//			t.Fatal("Failed to create series", "error", err)
-//		}
-//	}()
-//
-//	afterEach := func(t *testing.T) {
-//		testDb := GetTestDatabase(t)
-//		series, err := testDb.FindSeriesBySlugAndLanguageSlug(
-//			context.Background(), db.FindSeriesBySlugAndLanguageSlugParams{
-//				Slug:         "existing-series",
-//				LanguageSlug: "rust",
-//			},
-//		)
-//		if err != nil {
-//			t.Fatal("Fained to get series", "error", err)
-//		}
-//
-//		isPubPrms := db.UpdateSeriesIsPublishedParams{
-//			IsPublished: false,
-//			ID:          series.ID,
-//		}
-//		if _, err := testDb.UpdateSeriesIsPublished(context.Background(), isPubPrms); err != nil {
-//			t.Fatal("Failed to update series is published", "error", err)
-//		}
-//	}
-//}
+func TestPublishSeries(t *testing.T) {
+	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+	func() {
+		testDb := GetTestDatabase(t)
+
+		langParams := db.CreateLanguageParams{
+			Name:     "Rust",
+			Icon:     strings.TrimSpace(languageIcons["Rust"]),
+			AuthorID: testUser.ID,
+			Slug:     "rust",
+		}
+		if _, err := testDb.CreateLanguage(context.Background(), langParams); err != nil {
+			t.Fatal("Failed to create language", err)
+		}
+	}()
+
+	beforeEach := func(t *testing.T) {
+		testDb := GetTestDatabase(t)
+		serParams := db.CreateSeriesParams{
+			Title:        "Existing Series",
+			Slug:         "existing-series",
+			Description:  "Some description",
+			LanguageSlug: "rust",
+			AuthorID:     testUser.ID,
+		}
+		if _, err := testDb.CreateSeries(context.Background(), serParams); err != nil {
+			t.Fatal("Failed to create series", "error", err)
+		}
+	}
+
+	afterEach := func(t *testing.T) {
+		testDb := GetTestDatabase(t)
+		series, err := testDb.FindSeriesBySlugAndLanguageSlug(
+			context.Background(),
+			db.FindSeriesBySlugAndLanguageSlugParams{
+				Slug:         "existing-series",
+				LanguageSlug: "rust",
+			},
+		)
+		if err != nil {
+			t.Fatal("Failed to get series", "error", err)
+		}
+
+		if err := testDb.DeleteSeriesById(context.Background(), series.ID); err != nil {
+			t.Fatal("Failed to delete series", "error", err)
+		}
+	}
+
+	testCases := []TestRequestCase[dtos.UpdateIsPublishedBody]{
+		{
+			Name: "Should return 200 OK publishing a series if it has sections",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testDb := GetTestDatabase(t)
+
+				addPrms := db.AddSeriesSectionsCountParams{
+					Slug:             "existing-series",
+					LessonsCount:     2,
+					ReadTimeSeconds:  100,
+					WatchTimeSeconds: 1000,
+				}
+				if err := testDb.AddSeriesSectionsCount(context.Background(), addPrms); err != nil {
+					t.Fatal("Failed to add series sections count", "error", err)
+				}
+
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, req dtos.UpdateIsPublishedBody, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.SeriesResponse{})
+				AssertNotEmpty(t, resBody.Title)
+				AssertNotEmpty(t, resBody.Description)
+				AssertEqual(t, resBody.IsPublished, true)
+				AssertEqual(t, resBody.TotalLessons, 2)
+				AssertEqual(t, resBody.TotalSections, 1)
+				afterEach(t)
+			},
+			Path: baseLanguagesPath + "/rust/series/existing-series/publish",
+		},
+		{
+			Name: "Should return 200 OK unpublishing a series with no students",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testDb := GetTestDatabase(t)
+
+				addPrms := db.AddSeriesSectionsCountParams{
+					Slug:             "existing-series",
+					LessonsCount:     2,
+					ReadTimeSeconds:  100,
+					WatchTimeSeconds: 1000,
+				}
+				if err := testDb.AddSeriesSectionsCount(context.Background(), addPrms); err != nil {
+					t.Fatal("Failed to add series sections count", "error", err)
+				}
+
+				series, err := testDb.FindSeriesBySlugAndLanguageSlug(
+					context.Background(),
+					db.FindSeriesBySlugAndLanguageSlugParams{
+						Slug:         "existing-series",
+						LanguageSlug: "rust",
+					},
+				)
+				if err != nil {
+					t.Fatal("Failed to find series", "error", err)
+				}
+
+				isPubPrms := db.UpdateSeriesIsPublishedParams{
+					IsPublished: true,
+					ID:          series.ID,
+				}
+				if _, err := testDb.UpdateSeriesIsPublished(context.Background(), isPubPrms); err != nil {
+					t.Fatal("Failed to publish series", "error", err)
+				}
+
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: false}, accessToken
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, req dtos.UpdateIsPublishedBody, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.SeriesResponse{})
+				AssertNotEmpty(t, resBody.Title)
+				AssertNotEmpty(t, resBody.Description)
+				AssertEqual(t, resBody.IsPublished, false)
+				AssertEqual(t, resBody.TotalLessons, 2)
+				AssertEqual(t, resBody.TotalSections, 1)
+				afterEach(t)
+			},
+			Path: baseLanguagesPath + "/rust/series/existing-series/publish",
+		},
+		{
+			Name: "Should return 400 BAD REQUEST if the series has no sections",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken
+			},
+			ExpStatus: fiber.StatusBadRequest,
+			AssertFn: func(t *testing.T, req dtos.UpdateIsPublishedBody, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+				AssertEqual(t, resBody.Code, controllers.StatusValidation)
+				AssertEqual(t, resBody.Message, "Series must have sections to be published")
+				afterEach(t)
+			},
+			Path: baseLanguagesPath + "/rust/series/existing-series/publish",
+		},
+		{
+			Name: "Should return 409 CONFLICT unpublishing a series with students",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testDb := GetTestDatabase(t)
+
+				addPrms := db.AddSeriesSectionsCountParams{
+					Slug:             "existing-series",
+					LessonsCount:     2,
+					ReadTimeSeconds:  100,
+					WatchTimeSeconds: 1000,
+				}
+				if err := testDb.AddSeriesSectionsCount(context.Background(), addPrms); err != nil {
+					t.Fatal("Failed to add series sections count", "error", err)
+				}
+
+				series, err := testDb.FindSeriesBySlugAndLanguageSlug(
+					context.Background(),
+					db.FindSeriesBySlugAndLanguageSlugParams{
+						Slug:         "existing-series",
+						LanguageSlug: "rust",
+					},
+				)
+				if err != nil {
+					t.Fatal("Failed to find series", "error", err)
+				}
+
+				isPubPrms := db.UpdateSeriesIsPublishedParams{
+					IsPublished: true,
+					ID:          series.ID,
+				}
+				if _, err := testDb.UpdateSeriesIsPublished(context.Background(), isPubPrms); err != nil {
+					t.Fatal("Failed to publish series", "error", err)
+				}
+
+				langProg, err := testDb.CreateLanguageProgress(context.Background(), db.CreateLanguageProgressParams{
+					LanguageSlug: "rust",
+					UserID:       testUser.ID,
+				})
+				if err != nil {
+					t.Fatal("Failed to create language progress", "error", err)
+				}
+
+				sProgPrms := db.CreateSeriesProgressParams{
+					LanguageSlug:       "rust",
+					SeriesSlug:         "existing-series",
+					LanguageProgressID: langProg.ID,
+					UserID:             testUser.ID,
+				}
+				if _, err := testDb.CreateSeriesProgress(context.Background(), sProgPrms); err != nil {
+					t.Fatal("Failed to create series progress", "error", err)
+				}
+
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: false}, accessToken
+			},
+			ExpStatus: fiber.StatusConflict,
+			AssertFn: func(t *testing.T, req dtos.UpdateIsPublishedBody, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+				AssertEqual(t, resBody.Code, controllers.StatusConflict)
+				AssertEqual(t, resBody.Message, "Series has students")
+				afterEach(t)
+			},
+			Path: baseLanguagesPath + "/rust/series/existing-series/publish",
+		},
+		{
+			Name: "Should return 403 FORBIDDEN if the user is not staff",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testUser.IsStaff = false
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken
+			},
+			ExpStatus: fiber.StatusForbidden,
+			AssertFn: func(t *testing.T, req dtos.UpdateIsPublishedBody, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+				AssertEqual(t, resBody.Code, controllers.StatusForbidden)
+				AssertEqual(t, resBody.Message, controllers.StatusForbidden)
+				afterEach(t)
+			},
+			Path: baseLanguagesPath + "/rust/series/existing-series/publish",
+		},
+		{
+			Name: "Should return 404 NOT FOUND if the series is not found",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, req dtos.UpdateIsPublishedBody, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+				AssertEqual(t, resBody.Code, controllers.StatusNotFound)
+				AssertEqual(t, resBody.Message, services.MessageNotFound)
+				afterEach(t)
+			},
+			Path: baseLanguagesPath + "/rust/series/non-existing-series/publish",
+		},
+		{
+			Name: "Should return 404 NOT FOUND if the language is not found",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, req dtos.UpdateIsPublishedBody, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+				AssertEqual(t, resBody.Code, controllers.StatusNotFound)
+				AssertEqual(t, resBody.Message, services.MessageNotFound)
+				afterEach(t)
+			},
+			Path: baseLanguagesPath + "/python/series/existing-series/publish",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			PerformTestRequestCase(t, http.MethodPatch, tc.Path, tc)
+		})
+	}
+
+	t.Cleanup(languagesCleanUp(t))
+	t.Cleanup(userCleanUp(t))
+}
