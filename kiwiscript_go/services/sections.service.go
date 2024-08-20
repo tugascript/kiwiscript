@@ -52,6 +52,7 @@ func (s *Services) CreateSection(ctx context.Context, opts CreateSectionOptions)
 	section, err := s.database.CreateSection(ctx, db.CreateSectionParams{
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   series.Slug,
+		SeriesSlug_2: series.Slug,
 		Title:        opts.Title,
 		Description:  opts.Description,
 		AuthorID:     opts.UserID,

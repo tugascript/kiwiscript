@@ -17,6 +17,11 @@
 
 package dtos
 
+const (
+	OffsetDefault int = 0
+	LimitDefault  int = 25
+)
+
 type FromQueryParams interface {
 	ToQueryString() string
 	GetLimit() int32

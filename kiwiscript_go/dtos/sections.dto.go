@@ -54,7 +54,7 @@ func newSectionLinks(backendDomain, languageSlug, seriesSlug string, sectionID i
 	return SectionLinks{
 		Self: LinkResponse{
 			Href: fmt.Sprintf(
-				"https://%s%s/%s%s/%s%s/%d",
+				"https://%s/api%s/%s%s/%s%s/%d",
 				backendDomain,
 				paths.LanguagePathV1,
 				languageSlug,
@@ -66,7 +66,7 @@ func newSectionLinks(backendDomain, languageSlug, seriesSlug string, sectionID i
 		},
 		Series: LinkResponse{
 			Href: fmt.Sprintf(
-				"https://%s%s/%s%s/%s",
+				"https://%s/api%s/%s%s/%s",
 				backendDomain,
 				paths.LanguagePathV1,
 				languageSlug,
@@ -76,7 +76,7 @@ func newSectionLinks(backendDomain, languageSlug, seriesSlug string, sectionID i
 		},
 		Lectures: LinkResponse{
 			Href: fmt.Sprintf(
-				"https://%s%s/%s%s/%s%s/%d%s",
+				"https://%s/api%s/%s%s/%s%s/%d%s",
 				backendDomain,
 				paths.LanguagePathV1,
 				languageSlug,
@@ -119,7 +119,7 @@ func newSectionEmbedded(backendDomain string, lessons []db.Lesson) *SectionEmbed
 			Links: SelfLinkResponse{
 				Self: LinkResponse{
 					Href: fmt.Sprintf(
-						"https://%s%s/%s%s/%s%s/%d%s/%d",
+						"https://%s/api%s/%s%s/%s%s/%d%s/%d",
 						backendDomain,
 						paths.LanguagePathV1,
 						l.LanguageSlug,

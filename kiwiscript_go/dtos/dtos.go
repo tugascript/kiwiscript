@@ -16,12 +16,3 @@
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
 package dtos
-
-const (
-	OffsetDefault int = 0
-	LimitDefault  int = 25
-)
-
-type UpdateIsPublishedBody struct {
-	IsPublished bool `json:"is_published"`
-}

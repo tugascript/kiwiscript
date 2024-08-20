@@ -15,12 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
-package controllers
+package dtos
 
-type LectureFileParams struct {
-	LanguageSlug string `validate:"required,min=2,max=50,slug"`
-	SeriesSlug   string `validate:"required,min=2,max=100,slug"`
-	SeriesPartID string `validate:"required,number,min=1"`
-	LectureID    string `validate:"required,number,min=1"`
-	FileID       string `validate:"required,uuid"`
+type UpdateIsPublishedBody struct {
+	IsPublished bool `json:"is_published"`
 }

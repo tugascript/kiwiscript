@@ -76,7 +76,7 @@ type SeriesLinks struct {
 	Self     LinkResponse  `json:"self"`
 	Author   LinkResponse  `json:"author"`
 	Language LinkResponse  `json:"language"`
-	Parts    LinkResponse  `json:"parts"`
+	Sections LinkResponse  `json:"parts"`
 	Picture  *LinkResponse `json:"picture,omitempty"`
 }
 
@@ -113,7 +113,7 @@ func newSeriesLinks(backendDomain, languageSlug, seriesSlug string, authorID int
 		Author: LinkResponse{
 			fmt.Sprintf("https://%s/api%s/%d", backendDomain, paths.UsersPathV1, authorID),
 		},
-		Parts: LinkResponse{
+		Sections: LinkResponse{
 			fmt.Sprintf(
 				"https://%s/api%s/%s%s/%s%s",
 				backendDomain,
