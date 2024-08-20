@@ -31,7 +31,7 @@ INSERT INTO "sections" (
   $5,
   (
     SELECT COUNT("id") + 1 FROM "sections"
-    WHERE "series_slug" = $3
+    WHERE "sections"."series_slug" = $6
   )
 ) RETURNING *;
 
