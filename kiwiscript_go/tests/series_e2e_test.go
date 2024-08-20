@@ -31,6 +31,7 @@ import (
 	"testing"
 )
 
+// TODO add duplicated slug error
 func TestCreateSeries(t *testing.T) {
 	languagesCleanUp(t)()
 	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
@@ -144,6 +145,7 @@ func TestCreateSeries(t *testing.T) {
 	t.Cleanup(userCleanUp(t))
 }
 
+// TODO add duplicated slug error
 func TestUpdateSeries(t *testing.T) {
 	languagesCleanUp(t)()
 	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)

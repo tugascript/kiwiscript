@@ -91,6 +91,7 @@ var languageIcons = map[string]string{
 	`,
 }
 
+// TODO add duplicated slug error
 func TestCreateLanguage(t *testing.T) {
 	generateFakeCreateLanguageRequest := func(t *testing.T) dtos.LanguageBody {
 		var req fakeCreateLanguageRequest
@@ -445,6 +446,7 @@ func TestGetLanguage(t *testing.T) {
 	t.Cleanup(userCleanUp(t))
 }
 
+// TODO add conflict test
 func TestUpdateLanguage(t *testing.T) {
 	languagesCleanUp(t)()
 	func() {

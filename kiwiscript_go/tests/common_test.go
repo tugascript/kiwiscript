@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/kiwiscript/kiwiscript_go/controllers"
 	"github.com/kiwiscript/kiwiscript_go/providers/oauth"
 	"io"
 	"math"
@@ -242,9 +243,9 @@ func AssertTestResponseBody[V interface{}](t *testing.T, resp *http.Response, ex
 	return expectedBody
 }
 
-func AssertEqual[V comparable](t *testing.T, expected, actual V) {
+func AssertEqual[V comparable](t *testing.T, actual, expected V) {
 	if expected != actual {
-		t.Fatalf("Expected: %v, Actual: %v", expected, actual)
+		t.Fatalf("Actual: %v, Expected: %v", actual, expected)
 	}
 }
 
@@ -255,9 +256,9 @@ type ordered interface {
 		~string
 }
 
-func AssertGreaterThan[V ordered](t *testing.T, expected, actual V) {
-	if expected < actual {
-		t.Fatalf("Expected: %v, Actual: %v", expected, actual)
+func AssertGreaterThan[V ordered](t *testing.T, actual, expected V) {
+	if expected > actual {
+		t.Fatalf("Actual: %v, Expected: %v", actual, expected)
 	}
 }
 
@@ -266,6 +267,24 @@ func AssertNotEmpty[V comparable](t *testing.T, actual V) {
 	if actual == empty {
 		t.Fatal("Value is empty")
 	}
+}
+
+func assertResponse(t *testing.T, resp *http.Response, code, message string) {
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+	AssertEqual(t, resBody.Code, code)
+	AssertEqual(t, resBody.Message, message)
+}
+
+func AssertForbiddenResponse(t *testing.T, resp *http.Response) {
+	assertResponse(t, resp, controllers.StatusForbidden, controllers.StatusForbidden)
+}
+
+func AssertUnauthorizedResponse(t *testing.T, resp *http.Response) {
+	assertResponse(t, resp, controllers.StatusUnauthorized, controllers.StatusUnauthorized)
+}
+
+func AssertNotFoundResponse(t *testing.T, resp *http.Response) {
+	assertResponse(t, resp, controllers.StatusNotFound, services.MessageNotFound)
 }
 
 type fakeUserData struct {
