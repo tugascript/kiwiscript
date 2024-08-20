@@ -170,6 +170,33 @@ func TestCreateSections(t *testing.T) {
 			},
 			Path: baseLanguagesPath + "/python/series/existing-series/sections",
 		},
+		{
+			Name: "Should return 409 CONFLICT if the section already exists",
+			ReqFn: func(t *testing.T) (dtos.CreateSectionBody, string) {
+				fakeData := generateFakeSectionData(t)
+				testDb := GetTestDatabase(t)
+				secParams := db.CreateSectionParams{
+					Title:        fakeData.Title,
+					LanguageSlug: "rust",
+					SeriesSlug:   "existing-series",
+					Description:  "Some description",
+					AuthorID:     testUser.ID,
+					SeriesSlug_2: "existing-series",
+				}
+				if _, err := testDb.CreateSection(context.Background(), secParams); err != nil {
+					t.Fatal("Failed to create section", "error", err)
+				}
+
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return fakeData, accessToken
+			},
+			ExpStatus: fiber.StatusConflict,
+			AssertFn: func(t *testing.T, req dtos.CreateSectionBody, resp *http.Response) {
+				AssertConflictDuplicateKeyResponse(t, resp)
+			},
+			Path: baseLanguagesPath + "/rust/series/existing-series/sections",
+		},
 	}
 
 	for _, tc := range testCases {

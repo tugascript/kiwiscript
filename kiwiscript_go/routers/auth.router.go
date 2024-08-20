@@ -32,7 +32,7 @@ func (r *Router) AuthPublicRoutes() {
 }
 
 func (r *Router) AuthPrivateRoutes() {
-	auth := r.router.Group(paths.AuthPath, r.controllers.AccessClaimsMiddleware)
+	auth := r.router.Group(paths.AuthPath, r.controllers.UserMiddleware)
 
 	auth.Post("/logout", r.controllers.SignOut)
 	auth.Post("/update-password", r.controllers.UpdatePassword)

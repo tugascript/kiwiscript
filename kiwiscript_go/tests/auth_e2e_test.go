@@ -249,7 +249,7 @@ func TestConfirmEmail(t *testing.T) {
 			AssertFn: func(t *testing.T, req dtos.ConfirmBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
 				AssertEqual(t, 1, len(resBody.Fields))
-				AssertEqual(t, "confirmation_token", resBody.Fields[0].Param)
+				AssertEqual(t, "confirmationToken", resBody.Fields[0].Param)
 				AssertEqual(t, controllers.StrFieldErrMessageJWT, resBody.Fields[0].Message)
 				AssertEqual(t, req.ConfirmationToken, resBody.Fields[0].Value.(string))
 			},
@@ -506,7 +506,7 @@ func TestLogout(t *testing.T) {
 			AssertFn: func(t *testing.T, req dtos.SignOutBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
 				AssertEqual(t, 1, len(resBody.Fields))
-				AssertEqual(t, "refresh_token", resBody.Fields[0].Param)
+				AssertEqual(t, "refreshToken", resBody.Fields[0].Param)
 				AssertEqual(t, controllers.StrFieldErrMessageJWT, resBody.Fields[0].Message)
 				AssertEqual(t, req.RefreshToken, resBody.Fields[0].Value.(string))
 			},
@@ -648,7 +648,7 @@ func TestRefresh(t *testing.T) {
 			AssertFn: func(t *testing.T, req dtos.RefreshBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
 				AssertEqual(t, 1, len(resBody.Fields))
-				AssertEqual(t, "refresh_token", resBody.Fields[0].Param)
+				AssertEqual(t, "refreshToken", resBody.Fields[0].Param)
 				AssertEqual(t, controllers.StrFieldErrMessageJWT, resBody.Fields[0].Message)
 				AssertEqual(t, req.RefreshToken, resBody.Fields[0].Value.(string))
 			},
@@ -837,7 +837,7 @@ func TestResetPassword(t *testing.T) {
 			AssertFn: func(t *testing.T, req dtos.ResetPasswordBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
 				AssertEqual(t, 3, len(resBody.Fields))
-				AssertEqual(t, "reset_token", resBody.Fields[0].Param)
+				AssertEqual(t, "resetToken", resBody.Fields[0].Param)
 				AssertEqual(t, controllers.StrFieldErrMessageJWT, resBody.Fields[0].Message)
 				AssertEqual(t, req.ResetToken, resBody.Fields[0].Value.(string))
 				AssertEqual(t, "password1", resBody.Fields[1].Param)
@@ -924,7 +924,7 @@ func TestUpdatePassword(t *testing.T) {
 			AssertFn: func(t *testing.T, req dtos.UpdatePasswordBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
 				AssertEqual(t, 3, len(resBody.Fields))
-				AssertEqual(t, "old_password", resBody.Fields[0].Param)
+				AssertEqual(t, "oldPassword", resBody.Fields[0].Param)
 				AssertEqual(t, controllers.FieldErrMessageRequired, resBody.Fields[0].Message)
 				AssertEqual(t, req.OldPassword, resBody.Fields[0].Value.(string))
 				AssertEqual(t, "password1", resBody.Fields[1].Param)

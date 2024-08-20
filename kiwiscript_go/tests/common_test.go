@@ -287,6 +287,10 @@ func AssertNotFoundResponse(t *testing.T, resp *http.Response) {
 	assertResponse(t, resp, controllers.StatusNotFound, services.MessageNotFound)
 }
 
+func AssertConflictDuplicateKeyResponse(t *testing.T, resp *http.Response) {
+	assertResponse(t, resp, controllers.StatusConflict, services.MessageDuplicateKey)
+}
+
 type fakeUserData struct {
 	Email     string `faker:"email"`
 	FirstName string `faker:"first_name"`
