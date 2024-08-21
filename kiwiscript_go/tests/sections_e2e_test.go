@@ -208,3 +208,244 @@ func TestCreateSections(t *testing.T) {
 	t.Cleanup(languagesCleanUp(t))
 	t.Cleanup(userCleanUp(t))
 }
+
+func TestGetSection(t *testing.T) {
+	languagesCleanUp(t)()
+	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+	var sectionID int32
+	func() {
+		testDb := GetTestDatabase(t)
+
+		params := db.CreateLanguageParams{
+			Name:     "Rust",
+			Icon:     strings.TrimSpace(languageIcons["Rust"]),
+			AuthorID: testUser.ID,
+			Slug:     "rust",
+		}
+		if _, err := testDb.CreateLanguage(context.Background(), params); err != nil {
+			t.Fatal("Failed to create language", err)
+		}
+
+		series, err := testDb.CreateSeries(context.Background(), db.CreateSeriesParams{
+			Title:        "Existing Series",
+			Slug:         "existing-series",
+			Description:  "Some description",
+			LanguageSlug: "rust",
+			AuthorID:     testUser.ID,
+		})
+		if err != nil {
+			t.Fatal("Failed to create series", "error", err)
+		}
+
+		isPubPrms := db.UpdateSeriesIsPublishedParams{
+			IsPublished: true,
+			ID:          series.ID,
+		}
+		if _, err := testDb.UpdateSeriesIsPublished(context.Background(), isPubPrms); err != nil {
+			t.Fatal("Failed to update series is published", "error", err)
+		}
+
+		secParams := db.CreateSectionParams{
+			Title:        "Some Section",
+			LanguageSlug: "rust",
+			SeriesSlug:   "existing-series",
+			Description:  "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean consequat nisl vel rutrum congue. Quisque mattis id massa id tincidunt. Nulla fringilla enim id dignissim dignissim. Morbi consequat, dui vel auctor pharetra, tortor tortor tr",
+			AuthorID:     testUser.ID,
+			SeriesSlug_2: "rust",
+		}
+		section, err := testDb.CreateSection(context.Background(), secParams)
+		if err != nil {
+			t.Fatal("Failed to create section", "error", err)
+		}
+		sectionID = section.ID
+	}()
+
+	testCases := []TestRequestCase[string]{
+		{
+			Name: "Should return 200 OK when a non-published section is found and the user is staff",
+			ReqFn: func(t *testing.T) (string, string) {
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.SectionResponse{})
+				AssertNotEmpty(t, resBody.Title)
+				AssertNotEmpty(t, resBody.Description)
+				AssertEqual(t, resBody.TotalLessons, 0)
+				AssertEqual(t, resBody.CompletedLessons, 0)
+				AssertEqual(
+					t,
+					"https://api.kiwiscript.com/api/v1/languages/rust/series/existing-series",
+					resBody.Links.Series.Href,
+				)
+				AssertEqual(
+					t,
+					fmt.Sprintf(
+						"https://api.kiwiscript.com/api/v1/languages/rust/series/existing-series/sections/%d",
+						resBody.ID,
+					),
+					resBody.Links.Self.Href,
+				)
+			},
+			Path: fmt.Sprintf("%s/rust/series/existing-series/sections/%d", baseLanguagesPath, sectionID),
+		},
+		{
+			Name: "Should return 200 OK when a published section is found and the user with progress is not staff",
+			ReqFn: func(t *testing.T) (string, string) {
+				testDb := GetTestDatabase(t)
+
+				for i := 0; i < 3; i++ {
+					incLCountPrms := db.IncrementSectionLessonsCountParams{
+						ID:               sectionID,
+						WatchTimeSeconds: 100 + int32(i),
+						ReadTimeSeconds:  100 + int32(i),
+					}
+					if err := testDb.IncrementSectionLessonsCount(context.Background(), incLCountPrms); err != nil {
+						t.Fatal("Failed to increment section lessons count", "error", err)
+					}
+				}
+
+				isPubPrms := db.UpdateSectionIsPublishedParams{
+					IsPublished: true,
+					ID:          sectionID,
+				}
+				if _, err := testDb.UpdateSectionIsPublished(context.Background(), isPubPrms); err != nil {
+					t.Fatal("Failed to update section is published", "error", err)
+				}
+
+				langProg, err := testDb.CreateLanguageProgress(context.Background(), db.CreateLanguageProgressParams{
+					LanguageSlug: "rust",
+					UserID:       testUser.ID,
+				})
+				if err != nil {
+					t.Fatal("Failed to create language progress", "error", err)
+				}
+
+				seriesProg, err := testDb.CreateSeriesProgress(context.Background(), db.CreateSeriesProgressParams{
+					LanguageSlug:       "rust",
+					SeriesSlug:         "existing-series",
+					LanguageProgressID: langProg.ID,
+					UserID:             testUser.ID,
+				})
+				if err != nil {
+					t.Fatal("Failed to create series progress", "error", err)
+				}
+
+				secProg, err := testDb.CreateSectionProgress(context.Background(), db.CreateSectionProgressParams{
+					LanguageSlug:       "rust",
+					SeriesSlug:         "existing-series",
+					SectionID:          sectionID,
+					LanguageProgressID: langProg.ID,
+					SeriesProgressID:   seriesProg.ID,
+					UserID:             testUser.ID,
+				})
+				if err != nil {
+					t.Fatal("Failed to create section progress", "error", err)
+				}
+
+				if _, err := testDb.IncrementSectionProgressCompletedLessons(context.Background(), secProg.ID); err != nil {
+					t.Fatal("Failed to increment series progress completed lessons", "error", err)
+				}
+
+				testUser.IsStaff = false
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.SectionResponse{})
+				AssertNotEmpty(t, resBody.Title)
+				AssertNotEmpty(t, resBody.Description)
+				AssertEqual(t, resBody.TotalLessons, 3)
+				AssertEqual(t, resBody.CompletedLessons, 1)
+				AssertEqual(
+					t,
+					"https://api.kiwiscript.com/api/v1/languages/rust/series/existing-series",
+					resBody.Links.Series.Href,
+				)
+				AssertEqual(
+					t,
+					fmt.Sprintf(
+						"https://api.kiwiscript.com/api/v1/languages/rust/series/existing-series/sections/%d",
+						resBody.ID,
+					),
+					resBody.Links.Self.Href,
+				)
+			},
+			Path: fmt.Sprintf("%s/rust/series/existing-series/sections/%d", baseLanguagesPath, sectionID),
+		},
+		{
+			Name: "Should return 404 NOT FOUND if the section does not exist",
+			ReqFn: func(t *testing.T) (string, string) {
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+			},
+			Path: baseLanguagesPath + "/rust/series/existing-series/sections/12345678910",
+		},
+		{
+			Name: "Should return 404 NOT FOUND if the language does not exist",
+			ReqFn: func(t *testing.T) (string, string) {
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+			},
+			Path: fmt.Sprintf("%s/python/series/existing-series/sections/%d", baseLanguagesPath, sectionID),
+		},
+		{
+			Name: "Should return 404 NOT FOUND if the series does not exist",
+			ReqFn: func(t *testing.T) (string, string) {
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+			},
+			Path: fmt.Sprintf("%s/python/series/non-existing-series/sections/%d", baseLanguagesPath, sectionID),
+		},
+		{
+			Name: "Should return 404 NOT FOUND if the series is not published and the user is not staff",
+			ReqFn: func(t *testing.T) (string, string) {
+				testDb := GetTestDatabase(t)
+
+				isPubPrms := db.UpdateSectionIsPublishedParams{
+					IsPublished: false,
+					ID:          sectionID,
+				}
+				if _, err := testDb.UpdateSectionIsPublished(context.Background(), isPubPrms); err != nil {
+					t.Fatal("Failed to update section is published", "error", err)
+				}
+
+				testUser.IsStaff = false
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+			},
+			Path: fmt.Sprintf("%s/rust/series/existing-series/sections/%d", baseLanguagesPath, sectionID),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			PerformTestRequestCase(t, http.MethodGet, tc.Path, tc)
+		})
+	}
+
+	t.Cleanup(languagesCleanUp(t))
+	t.Cleanup(userCleanUp(t))
+}

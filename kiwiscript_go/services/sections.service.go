@@ -153,6 +153,15 @@ func (s *Services) FindPublishedSectionBySlugsAndIDWithProgress(
 	)
 	log.InfoContext(ctx, "Finding published series part with progress...")
 
+	seriesOpts := FindSeriesBySlugsOptions{
+		LanguageSlug: opts.LanguageSlug,
+		SeriesSlug:   opts.SeriesSlug,
+	}
+	if _, serviceErr := s.FindPublishedSeriesBySlugs(ctx, seriesOpts); serviceErr != nil {
+		log.WarnContext(ctx, "Published series not found")
+		return nil, serviceErr
+	}
+
 	section, err := s.database.FindPublishedSectionBySlugsAndIDWithProgress(
 		ctx,
 		db.FindPublishedSectionBySlugsAndIDWithProgressParams{
