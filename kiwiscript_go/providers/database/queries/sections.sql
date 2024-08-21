@@ -29,10 +29,7 @@ INSERT INTO "sections" (
   $3,
   $4,
   $5,
-  (
-    SELECT COUNT("id") + 1 FROM "sections"
-    WHERE "sections"."series_slug" = $6
-  )
+  $6
 ) RETURNING *;
 
 -- name: UpdateSection :one

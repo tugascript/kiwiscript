@@ -84,10 +84,7 @@ INSERT INTO "sections" (
   $3,
   $4,
   $5,
-  (
-    SELECT COUNT("id") + 1 FROM "sections"
-    WHERE "sections"."series_slug" = $6
-  )
+  $6
 ) RETURNING id, title, language_slug, series_slug, description, position, lessons_count, watch_time_seconds, read_time_seconds, is_published, author_id, created_at, updated_at
 `
 
@@ -97,7 +94,7 @@ type CreateSectionParams struct {
 	SeriesSlug   string
 	Description  string
 	AuthorID     int32
-	SeriesSlug_2 string
+	Position     int16
 }
 
 // Copyright (C) 2024 Afonso Barracha
@@ -123,7 +120,7 @@ func (q *Queries) CreateSection(ctx context.Context, arg CreateSectionParams) (S
 		arg.SeriesSlug,
 		arg.Description,
 		arg.AuthorID,
-		arg.SeriesSlug_2,
+		arg.Position,
 	)
 	var i Section
 	err := row.Scan(

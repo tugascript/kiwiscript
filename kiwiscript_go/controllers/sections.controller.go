@@ -211,6 +211,8 @@ func (c *Controllers) GetSections(ctx *fiber.Ctx) error {
 				UserID:       user.ID,
 				LanguageSlug: params.LanguageSlug,
 				SeriesSlug:   params.SeriesSlug,
+				Limit:        queryParams.Limit,
+				Offset:       queryParams.Offset,
 			},
 		)
 		if serviceErr != nil {

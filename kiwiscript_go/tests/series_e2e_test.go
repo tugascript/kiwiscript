@@ -547,9 +547,8 @@ func TestGetPaginatedSeries(t *testing.T) {
 			t.Fatal("Failed to create language", err)
 		}
 
-		count := 0
 		titleMap := map[string]bool{}
-		for count < 20 {
+		for count := 0; count < 20; {
 			fakeTitle := faker.Name()
 			if _, ok := titleMap[fakeTitle]; !ok {
 				seriesParam := db.CreateSeriesParams{

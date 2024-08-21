@@ -49,12 +49,18 @@ func (s *Services) CreateSection(ctx context.Context, opts CreateSectionOptions)
 		return nil, serviceErr
 	}
 
+	count, err := s.database.CountSectionsBySeriesSlug(ctx, opts.SeriesSlug)
+	if err != nil {
+		log.ErrorContext(ctx, "Failed to count series by slug", "error", err)
+		return nil, FromDBError(err)
+	}
+
 	section, err := s.database.CreateSection(ctx, db.CreateSectionParams{
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   series.Slug,
-		SeriesSlug_2: series.Slug,
 		Title:        opts.Title,
 		Description:  opts.Description,
+		Position:     int16(count) + 1,
 		AuthorID:     opts.UserID,
 	})
 	if err != nil {
