@@ -41,6 +41,7 @@ type TokensConfig struct {
 	Access  SingleJwtConfig
 	Refresh SingleJwtConfig
 	Email   SingleJwtConfig
+	OAuth   SingleJwtConfig
 }
 
 type EmailConfig struct {
@@ -91,7 +92,7 @@ type Config struct {
 	OAuthProviders    OAuthProviders
 }
 
-var variables = [35]string{
+var variables = [38]string{
 	"PORT",
 	"ENV",
 	"DEBUG",
@@ -111,6 +112,9 @@ var variables = [35]string{
 	"JWT_EMAIL_PUBLIC_KEY",
 	"JWT_EMAIL_PRIVATE_KEY",
 	"JWT_EMAIL_TTL_SEC",
+	"JWT_OAUTH_PUBLIC_KEY",
+	"JWT_OAUTH_PRIVATE_KEY",
+	"JWT_OAUTH_TTL_SEC",
 	"EMAIL_HOST",
 	"EMAIL_PORT",
 	"EMAIL_USERNAME",
@@ -129,11 +133,12 @@ var variables = [35]string{
 	"GOOGLE_CLIENT_SECRET",
 }
 
-var numerics = [6]string{
+var numerics = [7]string{
 	"MAX_PROCS",
 	"JWT_ACCESS_TTL_SEC",
 	"JWT_REFRESH_TTL_SEC",
 	"JWT_EMAIL_TTL_SEC",
+	"JWT_OAUTH_TTL_SEC",
 	"LIMITER_MAX",
 	"LIMITER_EXP_SEC",
 }
@@ -198,6 +203,11 @@ func NewConfig(log *slog.Logger, envPath string) *Config {
 				PublicKey:  variablesMap["JWT_EMAIL_PUBLIC_KEY"],
 				PrivateKey: variablesMap["JWT_EMAIL_PRIVATE_KEY"],
 				TtlSec:     intMap["JWT_EMAIL_TTL_SEC"],
+			},
+			OAuth: SingleJwtConfig{
+				PublicKey:  variablesMap["JWT_OAUTH_PUBLIC_KEY"],
+				PrivateKey: variablesMap["JWT_OAUTH_PRIVATE_KEY"],
+				TtlSec:     intMap["JWT_OAUTH_TTL_SEC"],
 			},
 		},
 		Limiter: LimiterConfig{

@@ -24,12 +24,15 @@ import (
 	"github.com/kiwiscript/kiwiscript_go/services"
 	"github.com/kiwiscript/kiwiscript_go/utils"
 	"net/url"
+	"strconv"
 )
 
-func (c *Controllers) generateOAuthAcceptURL(ctx *fiber.Ctx, code, state string) error {
+func (c *Controllers) generateOAuthAcceptURL(ctx *fiber.Ctx, response *services.OAuthResponse) error {
 	params := make(url.Values)
-	params.Add("code", code)
-	params.Add("state", state)
+	params.Add("code", response.Code)
+	params.Add("accessToken", response.AccessToken)
+	params.Add("tokenType", "Bearer")
+	params.Add("expiresIn", strconv.FormatInt(response.ExpiresIn, 10))
 	redirectUrl := fmt.Sprintf("https://%s/auth/callback?%s", c.frontendDomain, params.Encode())
 	return ctx.Redirect(redirectUrl, fiber.StatusFound)
 }
@@ -70,7 +73,7 @@ func (c *Controllers) GitHubCallback(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	code, state, serviceErr := c.services.ExtOAuthSignIn(userCtx, services.ExtOAuthSignInOptions{
+	response, serviceErr := c.services.ExtOAuthSignIn(userCtx, services.ExtOAuthSignInOptions{
 		Provider: utils.ProviderGitHub,
 		Token:    token,
 	})
@@ -78,7 +81,7 @@ func (c *Controllers) GitHubCallback(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return c.generateOAuthAcceptURL(ctx, code, state)
+	return c.generateOAuthAcceptURL(ctx, response)
 }
 
 func (c *Controllers) GoogleSignIn(ctx *fiber.Ctx) error {
@@ -117,7 +120,7 @@ func (c *Controllers) GoogleCallback(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	code, state, serviceErr := c.services.ExtOAuthSignIn(userCtx, services.ExtOAuthSignInOptions{
+	response, serviceErr := c.services.ExtOAuthSignIn(userCtx, services.ExtOAuthSignInOptions{
 		Provider: utils.ProviderGoogle,
 		Token:    token,
 	})
@@ -125,13 +128,18 @@ func (c *Controllers) GoogleCallback(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return c.generateOAuthAcceptURL(ctx, code, state)
+	return c.generateOAuthAcceptURL(ctx, response)
 }
 
 func (c *Controllers) OAuthToken(ctx *fiber.Ctx) error {
 	log := c.log.WithGroup("controllers.oauth.OAuthToken")
 	userCtx := ctx.UserContext()
 	log.InfoContext(userCtx, "Generating oauth token...")
+
+	userClaims, serviceErr := c.services.ProcessOAuthHeader(userCtx, ctx.Get("Authorization"))
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
 
 	var body dtos.OAuthTokenBody
 	if err := ctx.BodyParser(&body); err != nil {
@@ -141,9 +149,15 @@ func (c *Controllers) OAuthToken(ctx *fiber.Ctx) error {
 		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
 
-	authRes, serviceErr := c.services.IntOAuthSignIn(userCtx, services.IntOAuthSignInOptions{
-		Code:  body.Code,
-		State: body.State,
+	redirectURI := fmt.Sprintf("https://%s/auth/callback", c.frontendDomain)
+	if body.RedirectURI != redirectURI {
+		return c.serviceErrorResponse(services.NewUnauthorizedError(), ctx)
+	}
+
+	authRes, serviceErr := c.services.OAuthToken(userCtx, services.IntOAuthSignInOptions{
+		UserID:      userClaims.ID,
+		UserVersion: userClaims.Version,
+		Code:        body.Code,
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)

@@ -98,6 +98,7 @@ func initTestServicesAndApp(t *testing.T) {
 		tokens.NewTokenSecretData(testConfig.Tokens.Access.PublicKey, testConfig.Tokens.Access.PrivateKey, testConfig.Tokens.Access.TtlSec),
 		tokens.NewTokenSecretData(testConfig.Tokens.Refresh.PublicKey, testConfig.Tokens.Refresh.PrivateKey, testConfig.Tokens.Refresh.TtlSec),
 		tokens.NewTokenSecretData(testConfig.Tokens.Email.PublicKey, testConfig.Tokens.Email.PrivateKey, testConfig.Tokens.Email.TtlSec),
+		tokens.NewTokenSecretData(testConfig.Tokens.OAuth.PublicKey, testConfig.Tokens.OAuth.PrivateKey, testConfig.Tokens.OAuth.TtlSec),
 		"https://"+testConfig.BackendDomain,
 	)
 	mailer := email.NewMail(

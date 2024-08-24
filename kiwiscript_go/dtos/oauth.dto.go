@@ -18,8 +18,8 @@
 package dtos
 
 type OAuthTokenBody struct {
-	Code  string `json:"code" validate:"required,min=22,alphanum"`
-	State string `json:"state" validate:"required,min=32,hexadecimal"`
+	Code        string `json:"code" validate:"required,min=22,alphanum"`
+	RedirectURI string `json:"redirectUri" validate:"required,url"`
 }
 
 type OAuthTokenParams struct {

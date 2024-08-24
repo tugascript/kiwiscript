@@ -84,6 +84,7 @@ func CreateApp(
 		tokens.NewTokenSecretData(tokensConfig.Access.PublicKey, tokensConfig.Access.PrivateKey, tokensConfig.Access.TtlSec),
 		tokens.NewTokenSecretData(tokensConfig.Refresh.PublicKey, tokensConfig.Refresh.PrivateKey, tokensConfig.Refresh.TtlSec),
 		tokens.NewTokenSecretData(tokensConfig.Email.PublicKey, tokensConfig.Email.PrivateKey, tokensConfig.Email.TtlSec),
+		tokens.NewTokenSecretData(tokensConfig.OAuth.PublicKey, tokensConfig.OAuth.PrivateKey, tokensConfig.OAuth.TtlSec),
 		"https://"+backendDomain,
 	)
 	mailer := email.NewMail(
