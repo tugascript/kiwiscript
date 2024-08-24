@@ -68,7 +68,7 @@ func (s *Services) CreateUser(ctx context.Context, options CreateUserOptions) (*
 	if err != nil {
 		return nil, FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err)
+	defer s.database.FinalizeTx(ctx, txn, err, nil)
 
 	var user db.User
 	if provider == utils.ProviderEmail {

@@ -208,7 +208,7 @@ func (s *Services) DeleteSectionProgress(
 			log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 			return FromDBError(err)
 		}
-		defer s.database.FinalizeTx(ctx, txn, err)
+		defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 		if err := qrs.DeleteSectionProgress(ctx, seriesPartProgress.ID); err != nil {
 			log.ErrorContext(ctx, "Failed to delete series part progress", "error", err)

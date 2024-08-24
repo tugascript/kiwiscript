@@ -19,7 +19,6 @@ package db
 
 import (
 	"context"
-
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -50,14 +49,8 @@ func (database *Database) BeginTx(ctx context.Context) (*Queries, pgx.Tx, error)
 	return database.WithTx(txn), txn, nil
 }
 
-func (database *Database) FinalizeTx(ctx context.Context, txn pgx.Tx, err error) {
-	if p := recover(); p != nil {
-		if err := txn.Rollback(ctx); err != nil {
-			panic(err)
-		}
-		panic(p)
-	}
-	if err != nil {
+func (database *Database) FinalizeTx(ctx context.Context, txn pgx.Tx, err error, serviceErr error) {
+	if err != nil || serviceErr != nil {
 		if err := txn.Rollback(ctx); err != nil {
 			panic(err)
 		}
@@ -65,6 +58,12 @@ func (database *Database) FinalizeTx(ctx context.Context, txn pgx.Tx, err error)
 	}
 	if commitErr := txn.Commit(ctx); commitErr != nil {
 		panic(commitErr)
+	}
+	if p := recover(); p != nil {
+		if err := txn.Rollback(ctx); err != nil {
+			panic(err)
+		}
+		panic(p)
 	}
 }
 

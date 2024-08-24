@@ -124,7 +124,7 @@ func (s *Services) DeleteSeriesPicture(
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err)
+	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	if err := qrs.DeleteSeriesPicture(ctx, seriesPicture.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to delete series picture", "error", err)

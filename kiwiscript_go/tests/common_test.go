@@ -270,26 +270,42 @@ func AssertNotEmpty[V comparable](t *testing.T, actual V) {
 	}
 }
 
-func assertResponse(t *testing.T, resp *http.Response, code, message string) {
+func assertRequestErrorResponse(t *testing.T, resp *http.Response, code, message string) {
 	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
 	AssertEqual(t, resBody.Code, code)
 	AssertEqual(t, resBody.Message, message)
 }
 
 func AssertForbiddenResponse(t *testing.T, resp *http.Response) {
-	assertResponse(t, resp, controllers.StatusForbidden, controllers.StatusForbidden)
+	assertRequestErrorResponse(t, resp, controllers.StatusForbidden, controllers.StatusForbidden)
 }
 
 func AssertUnauthorizedResponse(t *testing.T, resp *http.Response) {
-	assertResponse(t, resp, controllers.StatusUnauthorized, controllers.StatusUnauthorized)
+	assertRequestErrorResponse(t, resp, controllers.StatusUnauthorized, controllers.StatusUnauthorized)
 }
 
 func AssertNotFoundResponse(t *testing.T, resp *http.Response) {
-	assertResponse(t, resp, controllers.StatusNotFound, services.MessageNotFound)
+	assertRequestErrorResponse(t, resp, controllers.StatusNotFound, services.MessageNotFound)
 }
 
 func AssertConflictDuplicateKeyResponse(t *testing.T, resp *http.Response) {
-	assertResponse(t, resp, controllers.StatusConflict, services.MessageDuplicateKey)
+	assertRequestErrorResponse(t, resp, controllers.StatusConflict, services.MessageDuplicateKey)
+}
+
+type ValidationErrorAssertion struct {
+	Param   string
+	Message string
+}
+
+func AssertValidationErrorResponse(t *testing.T, resp *http.Response, assertions []ValidationErrorAssertion) {
+	resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+	AssertEqual(t, resBody.Code, controllers.StatusValidation)
+	AssertEqual(t, resBody.Message, controllers.RequestValidationMessage)
+
+	for i, a := range assertions {
+		AssertEqual(t, resBody.Fields[i].Param, a.Param)
+		AssertEqual(t, resBody.Fields[i].Message, a.Message)
+	}
 }
 
 type fakeUserData struct {

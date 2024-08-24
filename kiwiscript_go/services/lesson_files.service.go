@@ -127,7 +127,7 @@ func (s *Services) DeleteLessonFile(
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err)
+	defer s.database.FinalizeTx(ctx, txn, err, nil)
 
 	if err := qrs.DeleteLessonFile(ctx, lessonFile.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to delete lesson file", "error", err)

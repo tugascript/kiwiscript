@@ -355,14 +355,13 @@ func (s *Services) AssertSectionOwnership(ctx context.Context, opts AssertSectio
 		)
 	log.InfoContext(ctx, "Asserting series part ownership...")
 
-	section, err := s.FindSectionBySlugsAndID(ctx, FindSectionBySlugsAndIDOptions{
+	section, serviceErr := s.FindSectionBySlugsAndID(ctx, FindSectionBySlugsAndIDOptions{
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
 		SectionID:    opts.SectionID,
 	})
-	if err != nil {
-		log.WarnContext(ctx, "Series part not found", "error", err)
-		return nil, FromDBError(err)
+	if serviceErr != nil {
+		return nil, serviceErr
 	}
 
 	if section.AuthorID != opts.UserID {
@@ -432,20 +431,9 @@ func (s *Services) UpdateSection(ctx context.Context, opts UpdateSectionOptions)
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err)
+	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	oldPosition := section.Position
-	*section, err = qrs.UpdateSectionWithPosition(ctx, db.UpdateSectionWithPositionParams{
-		ID:          section.ID,
-		Title:       opts.Title,
-		Description: opts.Description,
-		Position:    opts.Position,
-	})
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to update series part", "error", err)
-		return nil, FromDBError(err)
-	}
-
 	if oldPosition < opts.Position {
 		params := db.DecrementSectionPositionParams{
 			SeriesSlug: opts.SeriesSlug,
@@ -466,6 +454,17 @@ func (s *Services) UpdateSection(ctx context.Context, opts UpdateSectionOptions)
 			log.ErrorContext(ctx, "Failed to increment series part position", "error", err)
 			return nil, FromDBError(err)
 		}
+	}
+
+	*section, err = qrs.UpdateSectionWithPosition(ctx, db.UpdateSectionWithPositionParams{
+		ID:          section.ID,
+		Title:       opts.Title,
+		Description: opts.Description,
+		Position:    opts.Position,
+	})
+	if err != nil {
+		log.ErrorContext(ctx, "Failed to update series part", "error", err)
+		return nil, FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Series part updated", "id", section.ID)
@@ -511,7 +510,7 @@ func (s *Services) UpdateSectionIsPublished(ctx context.Context, opts UpdateSect
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err)
+	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	*section, err = qrs.UpdateSectionIsPublished(ctx, db.UpdateSectionIsPublishedParams{
 		ID:          section.ID,
@@ -574,7 +573,7 @@ func (s *Services) DeleteSection(ctx context.Context, opts DeleteSectionOptions)
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err)
+	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	if err := qrs.DeleteSectionById(ctx, opts.SectionID); err != nil {
 		log.ErrorContext(ctx, "Failed to delete series part", "error", err)

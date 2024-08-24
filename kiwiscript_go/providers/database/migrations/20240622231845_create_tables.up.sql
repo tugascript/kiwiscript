@@ -1,6 +1,6 @@
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2024-08-13T07:57:29.547Z
+-- Generated at: 2024-08-24T11:43:27.430Z
 
 CREATE TABLE "users" (
   "id" serial PRIMARY KEY,
@@ -227,8 +227,6 @@ CREATE UNIQUE INDEX "series_images_series_id_unique_idx" ON "series_pictures" ("
 CREATE INDEX "series_images_author_id_idx" ON "series_pictures" ("author_id");
 
 CREATE UNIQUE INDEX "sections_title_series_slug_unique_idx" ON "sections" ("title", "series_slug");
-
-CREATE UNIQUE INDEX "sections_series_slug_position_unique_idx" ON "sections" ("series_slug", "position");
 
 CREATE INDEX "sections_language_slug_series_slug_idx" ON "sections" ("language_slug", "series_slug");
 

@@ -81,7 +81,7 @@ func (s *Services) CreateLessonArticle(ctx context.Context, opts CreateLessonArt
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err)
+	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	readTime := CalculateReadingTime(opts.Content)
 	lessonArticle, err := qrs.CreateLessonArticle(ctx, db.CreateLessonArticleParams{
@@ -172,7 +172,7 @@ func (s *Services) UpdateLessonArticle(
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err)
+	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	*lessonArticle, err = qrs.UpdateLessonArticle(ctx, db.UpdateLessonArticleParams{
 		ID:              lessonArticle.ID,
@@ -261,7 +261,7 @@ func (s *Services) DeleteLessonArticle(ctx context.Context, opts DeleteLessonArt
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err)
+	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	if err := qrs.DeleteLessonArticle(ctx, lessonArticle.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to delete lesson article", "error", err)

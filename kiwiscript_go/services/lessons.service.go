@@ -479,7 +479,7 @@ func (s *Services) UpdateLesson(ctx context.Context, opts UpdateLessonOptions) (
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err)
+	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	oldPosition := lesson.Position
 	*lesson, err = qrs.UpdateLessonWithPosition(ctx, db.UpdateLessonWithPositionParams{
@@ -540,7 +540,7 @@ func (s *Services) DeleteLesson(ctx context.Context, opts DeleteLessonOptions) *
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err)
+	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	if err := qrs.DeleteLessonByID(ctx, lesson.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to delete lesson", "error", err)
@@ -599,7 +599,7 @@ func (s *Services) UpdateLessonIsPublished(ctx context.Context, opts UpdateLesso
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err)
+	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	*lesson, err = qrs.UpdateLessonIsPublished(ctx, db.UpdateLessonIsPublishedParams{
 		ID:          lesson.ID,

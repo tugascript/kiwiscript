@@ -184,7 +184,7 @@ func (s *Services) DeleteSeriesProgress(ctx context.Context, opts DeleteSeriesPr
 			log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 			return FromDBError(err)
 		}
-		defer s.database.FinalizeTx(ctx, txn, err)
+		defer s.database.FinalizeTx(ctx, txn, err, serviceError)
 
 		if err := qrs.DeleteSeriesProgress(ctx, seriesProgress.ID); err != nil {
 			log.ErrorContext(ctx, "Error deleting series progress", "error", err)

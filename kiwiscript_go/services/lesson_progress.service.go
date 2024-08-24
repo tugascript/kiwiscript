@@ -94,7 +94,7 @@ func (s *Services) createLessonProgress(
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err)
+	defer s.database.FinalizeTx(ctx, txn, err, nil)
 
 	lessonProgress, err := qrs.CreateLessonProgress(ctx, db.CreateLessonProgressParams{
 		UserID:             opts.UserID,
@@ -218,7 +218,7 @@ func (s *Services) CompleteLessonProgress(
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, nil, nil, FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err)
+	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	*lessonProgress, err = qrs.CompleteLessonProgress(ctx, lessonProgress.ID)
 	if err != nil {
@@ -329,7 +329,7 @@ func (s *Services) DeleteLessonProgress(
 			log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 			return FromDBError(err)
 		}
-		defer s.database.FinalizeTx(ctx, txn, err)
+		defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 		if err := qrs.DeleteLessonProgress(ctx, lessonProgress.ID); err != nil {
 			log.ErrorContext(ctx, "Failed to delete lesson progress")

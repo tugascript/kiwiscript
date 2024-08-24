@@ -78,7 +78,7 @@ func (s *Services) CreateLessonVideo(
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err)
+	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	lessonVideo, err := qrs.CreateLessonVideo(ctx, db.CreateLessonVideoParams{
 		LessonID:         lesson.ID,
@@ -148,7 +148,7 @@ func (s *Services) UpdateLessonVideo(
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err)
+	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	*lessonVideo, err = qrs.UpdateLessonVideo(ctx, db.UpdateLessonVideoParams{
 		ID:               lessonVideo.ID,
@@ -240,7 +240,7 @@ func (s *Services) DeleteLessonVideo(
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err)
+	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	if err := qrs.DeleteLessonVideo(ctx, lessonVideo.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to delete lesson video", "error", err)

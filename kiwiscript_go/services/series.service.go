@@ -773,7 +773,7 @@ func (s *Services) UpdateSeriesIsPublished(ctx context.Context, options UpdateSe
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err)
+	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	*series, err = qrs.UpdateSeriesIsPublished(ctx, db.UpdateSeriesIsPublishedParams{
 		ID:          series.ID,

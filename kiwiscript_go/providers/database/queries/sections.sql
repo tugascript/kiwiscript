@@ -60,8 +60,8 @@ UPDATE "sections" SET
   "position" = "position" + 1
 WHERE
   "series_slug" = $1 AND 
-  "position" < $2 AND
-  "position" >= $3;
+  "position" <= $2 AND
+  "position" > $3;
 
 -- name: DecrementSectionPosition :exec
 UPDATE "sections" SET

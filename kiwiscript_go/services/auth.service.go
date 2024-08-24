@@ -355,7 +355,7 @@ func (s *Services) UpdatePassword(ctx context.Context, options UpdatePasswordOpt
 			log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 			return nil, FromDBError(err)
 		}
-		defer s.database.FinalizeTx(ctx, txn, err)
+		defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 		err = qrs.CreateAuthProvider(ctx, db.CreateAuthProviderParams{
 			Email:    user.Email,
@@ -503,7 +503,7 @@ func (s *Services) ResetPassword(ctx context.Context, options ResetPasswordOptio
 			log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 			return FromDBError(err)
 		}
-		defer s.database.FinalizeTx(ctx, txn, err)
+		defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 		authProvParams := db.CreateAuthProviderParams{
 			Email:    user.Email,
@@ -602,7 +602,7 @@ func (s *Services) UpdateEmail(ctx context.Context, options UpdateEmailOptions) 
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err)
+	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	*user, err = qrs.UpdateUserEmail(ctx, db.UpdateUserEmailParams{
 		ID:    user.ID,
