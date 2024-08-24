@@ -23,7 +23,6 @@ Table users as U {
   last_name varchar(50) [not null]
   location varchar(3) [not null]
   email varchar(250) [not null]
-  birth_date date [not null]
   version smallint [not null, default: 1]
   is_admin boolean [not null, default: false]
   is_staff boolean [not null, default: false]
@@ -34,6 +33,7 @@ Table users as U {
 
   indexes {
     email [unique, name: 'users_email_unique_idx']
+    is_staff [name: 'users_is_staff_idx']
   }
 }
 
@@ -92,7 +92,6 @@ Table series as S {
     (id, language_slug) [name: 'series_id_language_slug_idx']
     (id, language_slug, is_published) [name: 'series_id_language_slug_is_published_idx']
     (slug, language_slug, is_published) [name: 'series_slug_is_published_idx']
-    (id, language_slug) [name: 'series_id_language_slug_idx']
     author_id [name: 'series_author_id_idx']
   }
 }
@@ -132,7 +131,7 @@ Table sections as SP {
 
   indexes {
     (title, series_slug) [unique, name: 'sections_title_series_slug_unique_idx']
-    (series_slug, position) [unique, name: 'sections_series_slug_position_unique_idx']
+    (series_slug, position) [name: 'sections_series_slug_position_unique_idx']
     (language_slug, series_slug) [name: 'sections_language_slug_series_slug_idx']
     (language_slug, series_slug, is_published) [name: 'sections_language_slug_series_slug_is_published_idx']
     (language_slug, series_slug, id) [name: 'sections_language_slug_series_slug_id_idx']
