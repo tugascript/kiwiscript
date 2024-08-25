@@ -501,8 +501,26 @@ func (s *Services) UpdateSectionIsPublished(ctx context.Context, opts UpdateSect
 		return section, nil
 	}
 	if opts.IsPublished && section.LessonsCount == 0 {
-		log.WarnContext(ctx, "Cannot publish series part without lectures", "lectures_count", section.LessonsCount)
-		return nil, NewValidationError("Cannot publish series part without lectures")
+		log.WarnContext(
+			ctx,
+			"Cannot publish series part without lessons",
+			"lessonsCount", section.LessonsCount,
+		)
+		return nil, NewValidationError("Cannot publish series part without lessons")
+	}
+	if !opts.IsPublished && section.IsPublished {
+		if section.IsPublished {
+			progressCount, err := s.database.CountSectionProgress(ctx, section.ID)
+			if err != nil {
+				log.ErrorContext(ctx, "Failed to count sections progress", "error", err)
+				return nil, FromDBError(err)
+			}
+
+			if progressCount > 0 {
+				log.WarnContext(ctx, "Section is published and has progress")
+				return nil, NewConflictError("Section has students")
+			}
+		}
 	}
 
 	qrs, txn, err := s.database.BeginTx(ctx)
@@ -532,7 +550,6 @@ func (s *Services) UpdateSectionIsPublished(ctx context.Context, opts UpdateSect
 			return nil, FromDBError(err)
 		}
 	} else {
-		// TODO: add constraints
 		params := db.DecrementSeriesSectionsCountParams{
 			Slug:             opts.SeriesSlug,
 			LessonsCount:     section.LessonsCount,

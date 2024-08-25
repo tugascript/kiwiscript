@@ -1158,3 +1158,284 @@ func TestDeleteSection(t *testing.T) {
 	t.Cleanup(languagesCleanUp(t))
 	t.Cleanup(userCleanUp(t))
 }
+
+func TestPublishSection(t *testing.T) {
+	languagesCleanUp(t)()
+	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+	var sectionID int32
+	func() {
+		testDb := GetTestDatabase(t)
+
+		params := db.CreateLanguageParams{
+			Name:     "Rust",
+			Icon:     strings.TrimSpace(languageIcons["Rust"]),
+			AuthorID: testUser.ID,
+			Slug:     "rust",
+		}
+		if _, err := testDb.CreateLanguage(context.Background(), params); err != nil {
+			t.Fatal("Failed to create language", err)
+		}
+
+		series, err := testDb.CreateSeries(context.Background(), db.CreateSeriesParams{
+			Title:        "Existing Series",
+			Slug:         "existing-series",
+			Description:  "Some description",
+			LanguageSlug: "rust",
+			AuthorID:     testUser.ID,
+		})
+		if err != nil {
+			t.Fatal("Failed to create series", "error", err)
+		}
+
+		isPubPrms := db.UpdateSeriesIsPublishedParams{
+			IsPublished: true,
+			ID:          series.ID,
+		}
+		if _, err := testDb.UpdateSeriesIsPublished(context.Background(), isPubPrms); err != nil {
+			t.Fatal("Failed to update series is published", "error", err)
+		}
+	}()
+
+	beforeEach := func(t *testing.T) {
+		testServices := GetTestServices(t)
+
+		section, serviceErr := testServices.CreateSection(context.Background(), services.CreateSectionOptions{
+			UserID:       testUser.ID,
+			Title:        "Some Section",
+			LanguageSlug: "rust",
+			SeriesSlug:   "existing-series",
+			Description:  "Some description",
+		})
+		if serviceErr != nil {
+			t.Fatal("Failed to create section", "serviceError", serviceErr)
+		}
+		sectionID = section.ID
+	}
+
+	afterEach := func(t *testing.T) {
+		testDb := GetTestDatabase(t)
+
+		if err := testDb.DeleteSectionById(context.Background(), sectionID); err != nil {
+			t.Fatal("Failed to delete section", "error", err)
+		}
+	}
+
+	testCases := []TestRequestCase[dtos.UpdateIsPublishedBody]{
+		{
+			Name: "Should return 200 OK and publish section when it has published lessons",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testDb := GetTestDatabase(t)
+
+				incLessons := db.IncrementSectionLessonsCountParams{
+					ID:               sectionID,
+					WatchTimeSeconds: 100,
+					ReadTimeSeconds:  100,
+				}
+				if err := testDb.IncrementSectionLessonsCount(context.Background(), incLessons); err != nil {
+					t.Fatal("Failed to increment section's lesson count", "error", err)
+				}
+
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, req dtos.UpdateIsPublishedBody, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.SectionResponse{})
+				AssertEqual(t, resBody.IsPublished, true)
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf(
+					"%s/rust/series/existing-series/sections/%d/publish",
+					baseLanguagesPath,
+					sectionID,
+				)
+			},
+		},
+		{
+			Name: "Should return 200 OK and unpublish section when it doesn't have students",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testDb := GetTestDatabase(t)
+
+				pubSecPrms := db.UpdateSectionIsPublishedParams{
+					IsPublished: true,
+					ID:          sectionID,
+				}
+				if _, err := testDb.UpdateSectionIsPublished(context.Background(), pubSecPrms); err != nil {
+					t.Fatal("Failed to increment section's lesson count", "error", err)
+				}
+
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: false}, accessToken
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, req dtos.UpdateIsPublishedBody, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.SectionResponse{})
+				AssertEqual(t, resBody.IsPublished, false)
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf(
+					"%s/rust/series/existing-series/sections/%d/publish",
+					baseLanguagesPath,
+					sectionID,
+				)
+			},
+		},
+		{
+			Name: "Should return 400 BAD REQUEST validation error publishing a section with no lessons",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken
+			},
+			ExpStatus: fiber.StatusBadRequest,
+			AssertFn: func(t *testing.T, _ dtos.UpdateIsPublishedBody, resp *http.Response) {
+				AssertValidationErrorWithoutFieldsResponse(t, resp, "Cannot publish series part without lessons")
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf(
+					"%s/rust/series/existing-series/sections/%d/publish",
+					baseLanguagesPath,
+					sectionID,
+				)
+			},
+		},
+		{
+			Name: "Should return 409 CONFLICT unpublishing a section with students",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testDb := GetTestDatabase(t)
+
+				pubSecPrms := db.UpdateSectionIsPublishedParams{
+					IsPublished: true,
+					ID:          sectionID,
+				}
+				if _, err := testDb.UpdateSectionIsPublished(context.Background(), pubSecPrms); err != nil {
+					t.Fatal("Failed to increment section's lesson count", "error", err)
+				}
+
+				progUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+				langProg, err := testDb.CreateLanguageProgress(context.Background(), db.CreateLanguageProgressParams{
+					LanguageSlug: "rust",
+					UserID:       progUser.ID,
+				})
+				if err != nil {
+					t.Fatal("Failed to create language progress", "error", err)
+				}
+
+				seriesProg, err := testDb.CreateSeriesProgress(context.Background(), db.CreateSeriesProgressParams{
+					LanguageSlug:       "rust",
+					SeriesSlug:         "existing-series",
+					LanguageProgressID: langProg.ID,
+					UserID:             progUser.ID,
+				})
+				if err != nil {
+					t.Fatal("Failed to create series progress", "error", err)
+				}
+
+				secProgPrms := db.CreateSectionProgressParams{
+					LanguageSlug:       "rust",
+					SeriesSlug:         "existing-series",
+					SectionID:          sectionID,
+					LanguageProgressID: langProg.ID,
+					SeriesProgressID:   seriesProg.ID,
+					UserID:             progUser.ID,
+				}
+				if _, err := testDb.CreateSectionProgress(context.Background(), secProgPrms); err != nil {
+					t.Fatal("Failed to create section progress", "error", err)
+				}
+
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: false}, accessToken
+			},
+			ExpStatus: fiber.StatusConflict,
+			AssertFn: func(t *testing.T, req dtos.UpdateIsPublishedBody, resp *http.Response) {
+				AssertConflictResponse(t, resp, "Section has students")
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf(
+					"%s/rust/series/existing-series/sections/%d/publish",
+					baseLanguagesPath,
+					sectionID,
+				)
+			},
+		},
+		{
+			Name: "Should return 404 NOT FOUND if the section is not found",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, _ dtos.UpdateIsPublishedBody, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return baseLanguagesPath + "/rust/series/existing-series/sections/987654321/publish"
+			},
+		},
+		{
+			Name: "Should return 404 NOT FOUND if the series is not found",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, _ dtos.UpdateIsPublishedBody, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf(
+					"%s/rust/series/non-existing-series/sections/%d/publish",
+					baseLanguagesPath,
+					sectionID,
+				)
+			},
+		},
+		{
+			Name: "Should return 404 NOT FOUND if the language is not found",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, _ dtos.UpdateIsPublishedBody, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf(
+					"%s/python/series/existing-series/sections/%d/publish",
+					baseLanguagesPath,
+					sectionID,
+				)
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			PerformTestRequestCaseWithPathFn(t, http.MethodPatch, tc)
+		})
+	}
+
+	t.Cleanup(languagesCleanUp(t))
+	t.Cleanup(userCleanUp(t))
+}

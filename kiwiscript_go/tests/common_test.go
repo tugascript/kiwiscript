@@ -312,6 +312,10 @@ func AssertValidationErrorResponse(t *testing.T, resp *http.Response, assertions
 	}
 }
 
+func AssertValidationErrorWithoutFieldsResponse(t *testing.T, resp *http.Response, message string) {
+	assertRequestErrorResponse(t, resp, controllers.StatusValidation, message)
+}
+
 type fakeUserData struct {
 	Email     string `faker:"email"`
 	FirstName string `faker:"first_name"`
