@@ -85,3 +85,8 @@ FROM "sections"
 WHERE
     "section_progress"."section_id" = "sections"."id" AND
     "section_progress"."id" = $1;
+
+-- name: CountSectionProgress :one
+SELECT COUNT("id") FROM "section_progress"
+WHERE "section_id" = $1
+LIMIT 1;

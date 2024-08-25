@@ -568,6 +568,19 @@ func (s *Services) DeleteSection(ctx context.Context, opts DeleteSectionOptions)
 		return serviceErr
 	}
 
+	if section.IsPublished {
+		progressCount, err := s.database.CountSectionProgress(ctx, section.ID)
+		if err != nil {
+			log.ErrorContext(ctx, "Failed to count sections progress", "error", err)
+			return FromDBError(err)
+		}
+
+		if progressCount > 0 {
+			log.WarnContext(ctx, "Section is published and has progress")
+			return NewConflictError("Section has students")
+		}
+	}
+
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)

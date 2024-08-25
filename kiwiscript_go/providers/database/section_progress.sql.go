@@ -9,6 +9,19 @@ import (
 	"context"
 )
 
+const countSectionProgress = `-- name: CountSectionProgress :one
+SELECT COUNT("id") FROM "section_progress"
+WHERE "section_id" = $1
+LIMIT 1
+`
+
+func (q *Queries) CountSectionProgress(ctx context.Context, sectionID int32) (int64, error) {
+	row := q.db.QueryRow(ctx, countSectionProgress, sectionID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createSectionProgress = `-- name: CreateSectionProgress :one
 
 INSERT INTO "section_progress" (

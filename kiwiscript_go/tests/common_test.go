@@ -49,29 +49,29 @@ import (
 	"github.com/kiwiscript/kiwiscript_go/utils"
 )
 
-var testConfig *app.Config
-var testServices *services.Services
-var testApp *fiber.App
-var testTokens *tokens.Tokens
-var testDatabase *db.Database
-var testCache *cc.Cache
+var _testConfig *app.Config
+var _testServices *services.Services
+var _testApp *fiber.App
+var _testTokens *tokens.Tokens
+var _testDatabase *db.Database
+var _testCache *cc.Cache
 
 func initTestServicesAndApp(t *testing.T) {
 	log := app.DefaultLogger()
-	testConfig = app.NewConfig(log, "../.env")
-	log = app.GetLogger(testConfig.Logger.Env, testConfig.Logger.Debug)
+	_testConfig = app.NewConfig(log, "../.env")
+	log = app.GetLogger(_testConfig.Logger.Env, _testConfig.Logger.Debug)
 
 	// Build storages/models
 	log.Info("Building redis connection...")
 	storage := redis.New(redis.Config{
-		URL: testConfig.RedisURL,
+		URL: _testConfig.RedisURL,
 	})
 	log.Info("Finished building redis connection")
 
 	// Build database connection
 	log.Info("Building database connection...")
 	ctx := context.Background()
-	dbConnPool, err := pgxpool.New(ctx, testConfig.PostgresURL)
+	dbConnPool, err := pgxpool.New(ctx, _testConfig.PostgresURL)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to connect to database", "error", err)
 		t.Fatal("Failed to connect to database", err)
@@ -82,116 +82,116 @@ func initTestServicesAndApp(t *testing.T) {
 	log.Info("Building s3 client...")
 	s3Cfg, err := config.LoadDefaultConfig(
 		ctx,
-		config.WithRegion(testConfig.ObjectStorage.Region),
-		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(testConfig.ObjectStorage.AccessKey, testConfig.ObjectStorage.SecretKey, "")),
+		config.WithRegion(_testConfig.ObjectStorage.Region),
+		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(_testConfig.ObjectStorage.AccessKey, _testConfig.ObjectStorage.SecretKey, "")),
 	)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to load s3 config", "error", err)
 		t.Fatal("Failed to load s3 config", err)
 	}
 	s3Client := s3.NewFromConfig(s3Cfg, func(o *s3.Options) {
-		o.BaseEndpoint = aws.String("http://" + testConfig.ObjectStorage.Host)
+		o.BaseEndpoint = aws.String("http://" + _testConfig.ObjectStorage.Host)
 	})
 	log.Info("Finished building s3 client")
 
-	testTokens = tokens.NewTokens(
-		tokens.NewTokenSecretData(testConfig.Tokens.Access.PublicKey, testConfig.Tokens.Access.PrivateKey, testConfig.Tokens.Access.TtlSec),
-		tokens.NewTokenSecretData(testConfig.Tokens.Refresh.PublicKey, testConfig.Tokens.Refresh.PrivateKey, testConfig.Tokens.Refresh.TtlSec),
-		tokens.NewTokenSecretData(testConfig.Tokens.Email.PublicKey, testConfig.Tokens.Email.PrivateKey, testConfig.Tokens.Email.TtlSec),
-		tokens.NewTokenSecretData(testConfig.Tokens.OAuth.PublicKey, testConfig.Tokens.OAuth.PrivateKey, testConfig.Tokens.OAuth.TtlSec),
-		"https://"+testConfig.BackendDomain,
+	_testTokens = tokens.NewTokens(
+		tokens.NewTokenSecretData(_testConfig.Tokens.Access.PublicKey, _testConfig.Tokens.Access.PrivateKey, _testConfig.Tokens.Access.TtlSec),
+		tokens.NewTokenSecretData(_testConfig.Tokens.Refresh.PublicKey, _testConfig.Tokens.Refresh.PrivateKey, _testConfig.Tokens.Refresh.TtlSec),
+		tokens.NewTokenSecretData(_testConfig.Tokens.Email.PublicKey, _testConfig.Tokens.Email.PrivateKey, _testConfig.Tokens.Email.TtlSec),
+		tokens.NewTokenSecretData(_testConfig.Tokens.OAuth.PublicKey, _testConfig.Tokens.OAuth.PrivateKey, _testConfig.Tokens.OAuth.TtlSec),
+		"https://"+_testConfig.BackendDomain,
 	)
 	mailer := email.NewMail(
-		testConfig.Email.Username,
-		testConfig.Email.Password,
-		testConfig.Email.Port,
-		testConfig.Email.Host,
-		testConfig.Email.Name,
-		testConfig.FrontendDomain,
+		_testConfig.Email.Username,
+		_testConfig.Email.Password,
+		_testConfig.Email.Port,
+		_testConfig.Email.Host,
+		_testConfig.Email.Name,
+		_testConfig.FrontendDomain,
 	)
-	testDatabase = db.NewDatabase(dbConnPool)
-	testCache = cc.NewCache(storage)
-	testObjectStorage := stg.NewObjectStorage(log, s3Client, testConfig.ObjectStorage.Bucket)
+	_testDatabase = db.NewDatabase(dbConnPool)
+	_testCache = cc.NewCache(storage)
+	testObjectStorage := stg.NewObjectStorage(log, s3Client, _testConfig.ObjectStorage.Bucket)
 	testOAuthProvider := oauth.NewOAuthProviders(
 		log,
-		testConfig.OAuthProviders.GitHub.ClientID,
-		testConfig.OAuthProviders.GitHub.ClientSecret,
-		testConfig.OAuthProviders.Google.ClientID,
-		testConfig.OAuthProviders.Google.ClientSecret,
-		testConfig.BackendDomain,
+		_testConfig.OAuthProviders.GitHub.ClientID,
+		_testConfig.OAuthProviders.GitHub.ClientSecret,
+		_testConfig.OAuthProviders.Google.ClientID,
+		_testConfig.OAuthProviders.Google.ClientSecret,
+		_testConfig.BackendDomain,
 	)
-	testServices = services.NewServices(
+	_testServices = services.NewServices(
 		log,
-		testDatabase,
-		testCache,
+		_testDatabase,
+		_testCache,
 		testObjectStorage,
 		mailer,
-		testTokens,
+		_testTokens,
 		testOAuthProvider,
 	)
-	testApp = app.CreateApp(
+	_testApp = app.CreateApp(
 		log,
 		storage,
 		dbConnPool,
 		s3Client,
-		&testConfig.Email,
-		&testConfig.Tokens,
-		&testConfig.Limiter,
-		&testConfig.OAuthProviders,
-		testConfig.ObjectStorage.Bucket,
-		testConfig.BackendDomain,
-		testConfig.FrontendDomain,
-		testConfig.RefreshCookieName,
-		testConfig.CookieSecret,
+		&_testConfig.Email,
+		&_testConfig.Tokens,
+		&_testConfig.Limiter,
+		&_testConfig.OAuthProviders,
+		_testConfig.ObjectStorage.Bucket,
+		_testConfig.BackendDomain,
+		_testConfig.FrontendDomain,
+		_testConfig.RefreshCookieName,
+		_testConfig.CookieSecret,
 	)
 }
 
 func GetTestConfig(t *testing.T) *app.Config {
-	if testConfig == nil {
+	if _testConfig == nil {
 		initTestServicesAndApp(t)
 	}
 
-	return testConfig
+	return _testConfig
 }
 
 func GetTestServices(t *testing.T) *services.Services {
-	if testServices == nil {
+	if _testServices == nil {
 		initTestServicesAndApp(t)
 	}
 
-	return testServices
+	return _testServices
 }
 
 func GetTestApp(t *testing.T) *fiber.App {
-	if testApp == nil {
+	if _testApp == nil {
 		initTestServicesAndApp(t)
 	}
 
-	return testApp
+	return _testApp
 }
 
 func GetTestTokens(t *testing.T) *tokens.Tokens {
-	if testTokens == nil {
+	if _testTokens == nil {
 		initTestServicesAndApp(t)
 	}
 
-	return testTokens
+	return _testTokens
 }
 
 func GetTestDatabase(t *testing.T) *db.Database {
-	if testDatabase == nil {
+	if _testDatabase == nil {
 		initTestServicesAndApp(t)
 	}
 
-	return testDatabase
+	return _testDatabase
 }
 
 func GetTestCache(t *testing.T) *cc.Cache {
-	if testCache == nil {
+	if _testCache == nil {
 		initTestServicesAndApp(t)
 	}
 
-	return testCache
+	return _testCache
 }
 
 func CreateTestJSONRequestBody(t *testing.T, reqBody interface{}) *bytes.Reader {
@@ -288,8 +288,12 @@ func AssertNotFoundResponse(t *testing.T, resp *http.Response) {
 	assertRequestErrorResponse(t, resp, controllers.StatusNotFound, services.MessageNotFound)
 }
 
+func AssertConflictResponse(t *testing.T, resp *http.Response, message string) {
+	assertRequestErrorResponse(t, resp, controllers.StatusConflict, message)
+}
+
 func AssertConflictDuplicateKeyResponse(t *testing.T, resp *http.Response) {
-	assertRequestErrorResponse(t, resp, controllers.StatusConflict, services.MessageDuplicateKey)
+	AssertConflictResponse(t, resp, services.MessageDuplicateKey)
 }
 
 type ValidationErrorAssertion struct {
@@ -392,6 +396,7 @@ type TestRequestCase[R any] struct {
 	AssertFn  func(t *testing.T, req R, resp *http.Response)
 	DelayMs   int
 	Path      string
+	PathFn    func() string
 	Method    string
 }
 
@@ -403,6 +408,25 @@ func PerformTestRequestCase[R any](t *testing.T, method, path string, tc TestReq
 
 	// Act
 	resp := PerformTestRequest(t, fiberApp, tc.DelayMs, method, path, accessToken, jsonBody)
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	// Assert
+	AssertTestStatusCode(t, resp, tc.ExpStatus)
+	tc.AssertFn(t, reqBody, resp)
+}
+
+func PerformTestRequestCaseWithPathFn[R any](t *testing.T, method string, tc TestRequestCase[R]) {
+	// Arrange
+	reqBody, accessToken := tc.ReqFn(t)
+	jsonBody := CreateTestJSONRequestBody(t, reqBody)
+	fiberApp := GetTestApp(t)
+
+	// Act
+	resp := PerformTestRequest(t, fiberApp, tc.DelayMs, method, tc.PathFn(), accessToken, jsonBody)
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
 			t.Fatal(err)

@@ -109,15 +109,11 @@ func TestCreateSections(t *testing.T) {
 				}, accessToken
 			},
 			ExpStatus: fiber.StatusBadRequest,
-			AssertFn: func(t *testing.T, req dtos.CreateSectionBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
-				AssertEqual(t, resBody.Code, controllers.StatusValidation)
-				AssertEqual(t, resBody.Message, "Invalid request")
-				AssertEqual(t, len(resBody.Fields), 2)
-				AssertEqual(t, resBody.Fields[0].Param, "title")
-				AssertEqual(t, resBody.Fields[0].Message, controllers.StrFieldErrMessageMax)
-				AssertEqual(t, resBody.Fields[1].Param, "description")
-				AssertEqual(t, resBody.Fields[1].Message, controllers.FieldErrMessageRequired)
+			AssertFn: func(t *testing.T, _ dtos.CreateSectionBody, resp *http.Response) {
+				AssertValidationErrorResponse(t, resp, []ValidationErrorAssertion{
+					{Param: "title", Message: controllers.StrFieldErrMessageMax},
+					{Param: "description", Message: controllers.FieldErrMessageRequired},
+				})
 			},
 			Path: baseLanguagesPath + "/rust/series/existing-series/sections",
 		},
@@ -254,7 +250,7 @@ func TestGetSection(t *testing.T) {
 			SeriesSlug:   "existing-series",
 			Description:  "Some description",
 		})
-		if err != nil {
+		if serviceErr != nil {
 			t.Fatal("Failed to create section", "serviceError", serviceErr)
 		}
 		sectionID = section.ID
@@ -728,7 +724,7 @@ func TestUpdateSection(t *testing.T) {
 			SeriesSlug:   "existing-series",
 			Description:  "Some description",
 		})
-		if err != nil {
+		if serviceErr != nil {
 			t.Fatal("Failed to create section", "serviceError", serviceErr)
 		}
 		sectionID = section.ID
@@ -958,6 +954,204 @@ func TestUpdateSection(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			PerformTestRequestCase(t, http.MethodPut, tc.Path, tc)
+		})
+	}
+
+	t.Cleanup(languagesCleanUp(t))
+	t.Cleanup(userCleanUp(t))
+}
+
+func TestDeleteSection(t *testing.T) {
+	languagesCleanUp(t)()
+	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+	var sectionID int32
+	func() {
+		testDb := GetTestDatabase(t)
+		params := db.CreateLanguageParams{
+			Name:     "Rust",
+			Icon:     strings.TrimSpace(languageIcons["Rust"]),
+			AuthorID: testUser.ID,
+			Slug:     "rust",
+		}
+		if _, err := testDb.CreateLanguage(context.Background(), params); err != nil {
+			t.Fatal("Failed to create language", err)
+		}
+
+		series, err := testDb.CreateSeries(context.Background(), db.CreateSeriesParams{
+			Title:        "Existing Series",
+			Slug:         "existing-series",
+			Description:  "Some description",
+			LanguageSlug: "rust",
+			AuthorID:     testUser.ID,
+		})
+		if err != nil {
+			t.Fatal("Failed to create series", "error", err)
+		}
+
+		isPubPrms := db.UpdateSeriesIsPublishedParams{
+			IsPublished: true,
+			ID:          series.ID,
+		}
+		if _, err := testDb.UpdateSeriesIsPublished(context.Background(), isPubPrms); err != nil {
+			t.Fatal("Failed to update series is published", "error", err)
+		}
+	}()
+
+	beforeEach := func(t *testing.T) {
+		testServices := GetTestServices(t)
+
+		section, serviceErr := testServices.CreateSection(context.Background(), services.CreateSectionOptions{
+			UserID:       testUser.ID,
+			Title:        "Some Section",
+			LanguageSlug: "rust",
+			SeriesSlug:   "existing-series",
+			Description:  "Some description",
+		})
+		if serviceErr != nil {
+			t.Fatal("Failed to create section", "serviceError", serviceErr)
+		}
+		sectionID = section.ID
+	}
+
+	afterEach := func(t *testing.T) {
+		testDb := GetTestDatabase(t)
+
+		if err := testDb.DeleteSectionById(context.Background(), sectionID); err != nil {
+			t.Fatal("Failed to delete section", "error", err)
+		}
+	}
+
+	testCases := []TestRequestCase[string]{
+		{
+			Name: "Should return 204 NO CONTENT when deleted section successfully",
+			ReqFn: func(t *testing.T) (string, string) {
+				beforeEach(t)
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusNoContent,
+			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf("%s/rust/series/existing-series/sections/%d", baseLanguagesPath, sectionID)
+			},
+		},
+		{
+			Name: "Should return 409 conflict when the section has students",
+			ReqFn: func(t *testing.T) (string, string) {
+				beforeEach(t)
+				testDb := GetTestDatabase(t)
+
+				pubSec := db.UpdateSectionIsPublishedParams{
+					IsPublished: true,
+					ID:          sectionID,
+				}
+				if _, err := testDb.UpdateSectionIsPublished(context.Background(), pubSec); err != nil {
+					t.Fatal("Failed to publish section", "error", err)
+				}
+
+				progUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+				langProg, err := testDb.CreateLanguageProgress(context.Background(), db.CreateLanguageProgressParams{
+					LanguageSlug: "rust",
+					UserID:       progUser.ID,
+				})
+				if err != nil {
+					t.Fatal("Failed to create language progress", "error", err)
+				}
+
+				seriesProg, err := testDb.CreateSeriesProgress(context.Background(), db.CreateSeriesProgressParams{
+					LanguageSlug:       "rust",
+					SeriesSlug:         "existing-series",
+					LanguageProgressID: langProg.ID,
+					UserID:             progUser.ID,
+				})
+				if err != nil {
+					t.Fatal("Failed to create series progress", "error", err)
+				}
+
+				secProgPrms := db.CreateSectionProgressParams{
+					LanguageSlug:       "rust",
+					SeriesSlug:         "existing-series",
+					SectionID:          sectionID,
+					LanguageProgressID: langProg.ID,
+					SeriesProgressID:   seriesProg.ID,
+					UserID:             progUser.ID,
+				}
+				if _, err := testDb.CreateSectionProgress(context.Background(), secProgPrms); err != nil {
+					t.Fatal("Failed to create section progress", "error", err)
+				}
+
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusConflict,
+			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
+				AssertConflictResponse(t, resp, "Section has students")
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf("%s/rust/series/existing-series/sections/%d", baseLanguagesPath, sectionID)
+			},
+		},
+		{
+			Name: "Should return 404 NOT FOUND when section is not found",
+			ReqFn: func(t *testing.T) (string, string) {
+				beforeEach(t)
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return baseLanguagesPath + "/rust/series/existing-series/sections/987654321"
+			},
+		},
+		{
+			Name: "Should return 404 NOT FOUND when series is not found",
+			ReqFn: func(t *testing.T) (string, string) {
+				beforeEach(t)
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf("%s/rust/series/non-existing-series/sections/%d", baseLanguagesPath, sectionID)
+			},
+		},
+		{
+			Name: "Should return 404 NOT FOUND when language is not found",
+			ReqFn: func(t *testing.T) (string, string) {
+				beforeEach(t)
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf("%s/python/series/existing-series/sections/%d", baseLanguagesPath, sectionID)
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			PerformTestRequestCaseWithPathFn(t, http.MethodDelete, tc)
 		})
 	}
 
