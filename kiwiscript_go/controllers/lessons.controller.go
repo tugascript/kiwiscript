@@ -97,16 +97,9 @@ func (c *Controllers) CreateLesson(ctx *fiber.Ctx) error {
 
 func (c *Controllers) findLessonFiles(
 	userCtx context.Context,
-	params *dtos.LessonPathParams,
-	sectionID,
 	lessonID int32,
 ) ([]db.LessonFile, *services.FileURLsContainer, *services.ServiceError) {
-	lessonFiles, serviceErr := c.services.FindLessonFiles(userCtx, services.FindLessonFilesOptions{
-		LanguageSlug: params.LanguageSlug,
-		SeriesSlug:   params.SeriesSlug,
-		LessonID:     lessonID,
-		IsPublished:  false,
-	})
+	lessonFiles, serviceErr := c.services.FindLessonFilesWithNoCheck(userCtx, lessonID)
 	if serviceErr != nil {
 		return nil, nil, serviceErr
 	}
@@ -194,7 +187,7 @@ func (c *Controllers) GetLesson(ctx *fiber.Ctx) error {
 				return c.serviceErrorResponse(serviceErr, ctx)
 			}
 
-			files, fileUrls, serviceErr := c.findLessonFiles(userCtx, &params, sectionIDi32, lessonIDi32)
+			files, fileUrls, serviceErr := c.findLessonFiles(userCtx, lessonIDi32)
 			if serviceErr != nil {
 				return c.serviceErrorResponse(serviceErr, ctx)
 			}
@@ -227,7 +220,7 @@ func (c *Controllers) GetLesson(ctx *fiber.Ctx) error {
 			return c.serviceErrorResponse(serviceErr, ctx)
 		}
 
-		files, fileUrls, serviceErr := c.findLessonFiles(userCtx, &params, sectionIDi32, lessonIDi32)
+		files, fileUrls, serviceErr := c.findLessonFiles(userCtx, lessonIDi32)
 		if serviceErr != nil {
 			return c.serviceErrorResponse(serviceErr, ctx)
 		}
@@ -256,7 +249,7 @@ func (c *Controllers) GetLesson(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	files, fileUrls, serviceErr := c.findLessonFiles(userCtx, &params, sectionIDi32, lessonIDi32)
+	files, fileUrls, serviceErr := c.findLessonFiles(userCtx, lessonIDi32)
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
@@ -541,7 +534,7 @@ func (c *Controllers) UpdateLesson(ctx *fiber.Ctx) error {
 		videoURL = video.Url
 	}
 
-	files, fileUrls, serviceErr := c.findLessonFiles(userCtx, &params, sectionIDi32, lessonIDi32)
+	files, fileUrls, serviceErr := c.findLessonFiles(userCtx, lessonIDi32)
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
@@ -668,7 +661,7 @@ func (c *Controllers) UpdateLessonIsPublished(ctx *fiber.Ctx) error {
 		videoURL = video.Url
 	}
 
-	files, fileUrls, serviceErr := c.findLessonFiles(userCtx, &params, sectionIDi32, lessonIDi32)
+	files, fileUrls, serviceErr := c.findLessonFiles(userCtx, lessonIDi32)
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}

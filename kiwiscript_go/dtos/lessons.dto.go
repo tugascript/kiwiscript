@@ -72,7 +72,7 @@ func newLessonLinks(
 	if readTimeSeconds > 0 {
 		article = &LinkResponse{
 			Href: fmt.Sprintf(
-				"https://%s%s/%s%s/%s%s/%d%s/%d%s",
+				"https://%s/api%s/%s%s/%s%s/%d%s/%d%s",
 				backendDomain,
 				paths.LanguagePathV1,
 				languageSlug,
@@ -89,7 +89,7 @@ func newLessonLinks(
 	if watchTimeSeconds > 0 {
 		video = &LinkResponse{
 			Href: fmt.Sprintf(
-				"https://%s%s/%s%s/%s%s/%d%s/%d%s",
+				"https://%s/api%s/%s%s/%s%s/%d%s/%d%s",
 				backendDomain,
 				paths.LanguagePathV1,
 				languageSlug,
@@ -112,7 +112,7 @@ func newLessonLinks(
 	return LessonLinks{
 		Self: LinkResponse{
 			Href: fmt.Sprintf(
-				"https://%s%s/%s%s/%s%s/%d%s/%d",
+				"https://%s/api%s/%s%s/%s%s/%d%s/%d",
 				backendDomain,
 				paths.LanguagePathV1,
 				languageSlug,
@@ -126,7 +126,7 @@ func newLessonLinks(
 		},
 		Section: LinkResponse{
 			Href: fmt.Sprintf(
-				"https://%s%s/%s%s/%s%s/%d",
+				"https://%s/api%s/%s%s/%s%s/%d",
 				backendDomain,
 				paths.LanguagePathV1,
 				languageSlug,
@@ -164,7 +164,7 @@ func newLessonArticleEmbedded(
 		Links: SelfLinkResponse{
 			Self: LinkResponse{
 				Href: fmt.Sprintf(
-					"https://%s%s/%s%s/%s%s/%d%s/%d%s",
+					"https://%s/api%s/%s%s/%s%s/%d%s/%d%s",
 					backendDomain,
 					paths.LanguagePathV1,
 					lesson.LanguageSlug,
@@ -203,7 +203,7 @@ func newLessonVideoEmbedded(
 		Links: SelfLinkResponse{
 			Self: LinkResponse{
 				Href: fmt.Sprintf(
-					"https://%s%s/%s%s/%s%s/%d%s/%d%s",
+					"https://%s/api%s/%s%s/%s%s/%d%s/%d%s",
 					backendDomain,
 					paths.LanguagePathV1,
 					lesson.LanguageSlug,
@@ -242,7 +242,7 @@ func newFileEmbedded(
 		Links: SelfLinkResponse{
 			Self: LinkResponse{
 				Href: fmt.Sprintf(
-					"https://%s%s/%s%s/%s%s/%d%s/%d%s/%s",
+					"https://%s/api%s/%s%s/%s%s/%d%s/%d%s/%s",
 					backendDomain,
 					paths.LanguagePathV1,
 					lesson.LanguageSlug,

@@ -199,7 +199,7 @@ func (s *Services) FindLessonFiles(
 	ctx context.Context,
 	opts FindLessonFilesOptions,
 ) ([]db.LessonFile, *ServiceError) {
-	log := s.log.WithGroup("services.lessonFiles.GetLessonFiles").With(
+	log := s.log.WithGroup("services.lessonFiles.FindLessonFiles").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
 		"seriesPartId", opts.SectionID,
@@ -223,6 +223,20 @@ func (s *Services) FindLessonFiles(
 	}
 
 	lessonFiles, err := s.database.FindLessonFilesByLessonID(ctx, opts.LessonID)
+	if err != nil {
+		log.ErrorContext(ctx, "Error finding lesson files", "error", err)
+		return nil, FromDBError(err)
+	}
+
+	log.InfoContext(ctx, "Lesson files found")
+	return lessonFiles, nil
+}
+
+func (s *Services) FindLessonFilesWithNoCheck(ctx context.Context, lessonID int32) ([]db.LessonFile, *ServiceError) {
+	log := s.log.WithGroup("services_lessonFiles_FindLessonFilesWithNoCheck").With("lessonId", lessonID)
+	log.InfoContext(ctx, "Finding lesson files...")
+
+	lessonFiles, err := s.database.FindLessonFilesByLessonID(ctx, lessonID)
 	if err != nil {
 		log.ErrorContext(ctx, "Error finding lesson files", "error", err)
 		return nil, FromDBError(err)

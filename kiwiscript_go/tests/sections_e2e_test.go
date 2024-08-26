@@ -31,7 +31,7 @@ import (
 	"testing"
 )
 
-func TestCreateSections(t *testing.T) {
+func TestCreateSection(t *testing.T) {
 	languagesCleanUp(t)()
 	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 
