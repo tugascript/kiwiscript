@@ -76,10 +76,13 @@ func main() {
 		panic(err)
 	}
 	s3Client := s3.NewFromConfig(s3Cfg, func(o *s3.Options) {
+		o.UsePathStyle = true
+
 		if cfg.Logger.Env == "production" {
 			o.BaseEndpoint = aws.String(fmt.Sprintf("https://%s.%s.com", cfg.ObjectStorage.Region, cfg.ObjectStorage.Host))
+		} else {
+			o.BaseEndpoint = aws.String("http://" + cfg.ObjectStorage.Host)
 		}
-		o.BaseEndpoint = aws.String("http://" + cfg.ObjectStorage.Host)
 	})
 	log.Info("Finished building s3 client")
 

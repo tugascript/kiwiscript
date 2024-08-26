@@ -66,29 +66,32 @@ func (s *Services) FindFileURLs(ctx context.Context, opts []FindFileURLOptions) 
 	container := FileURLsContainer{
 		urls: make(map[uuid.UUID]string),
 	}
-	errChan := make(chan *ServiceError)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	for _, opt := range opts {
 		wg.Add(1)
-		go func(opt FindFileURLOptions) {
+		go func() {
 			defer wg.Done()
-			url, err := s.FindFileURL(ctx, opt)
-			if err != nil {
-				errChan <- err
-				cancel() // Cancel remaining goroutines
+
+			if ctx.Err() != nil {
 				return
 			}
+
+			url, err := s.FindFileURL(ctx, opt)
+			if err != nil {
+				cancel()
+				return
+			}
+
 			container.Set(opt.FileID, url)
-		}(opt)
+		}()
 	}
 	wg.Wait()
 
-	select {
-	case err := <-errChan:
-		return nil, err
-	case <-ctx.Done():
-		return &container, nil
+	if ctx.Err() != nil {
+		return nil, NewServerError()
 	}
+
+	return &container, nil
 }

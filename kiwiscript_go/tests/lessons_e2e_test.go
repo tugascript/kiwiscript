@@ -26,6 +26,7 @@ import (
 	"github.com/kiwiscript/kiwiscript_go/dtos"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/services"
+	"mime/multipart"
 	"net/http"
 	"strings"
 	"testing"
@@ -292,6 +293,62 @@ func TestGetLesson(t *testing.T) {
 						sectionID,
 					),
 				)
+			},
+			Path: fmt.Sprintf(
+				"%s/rust/series/existing-series/sections/%d/lessons/%d",
+				baseLanguagesPath, sectionID, lessonID,
+			),
+		},
+		{
+			Name: "Should return 200 OK with files",
+			ReqFn: func(t *testing.T) (string, string) {
+				testServices := GetTestServices(t)
+				fheaders := [2]*multipart.FileHeader{
+					FileUploadMock(t),
+					FileUploadMock(t),
+				}
+
+				for i, fh := range fheaders {
+					uploadOpts := services.UploadLessonFileOptions{
+						UserID:       testUser.ID,
+						LanguageSlug: "rust",
+						SeriesSlug:   "existing-series",
+						SectionID:    sectionID,
+						LessonID:     lessonID,
+						Name:         fmt.Sprintf("test-file-%d.pdf", i),
+						FileHeader:   fh,
+					}
+					if _, err := testServices.UploadLessonFile(context.Background(), uploadOpts); err != nil {
+						t.Fatal("Failed to create lesson file", "error", err)
+					}
+				}
+
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.LessonResponse{})
+				AssertNotEmpty(t, resBody.Title)
+				AssertEqual(t, resBody.IsCompleted, false)
+				AssertEqual(
+					t,
+					resBody.Links.Self.Href,
+					fmt.Sprintf(
+						"https://api.kiwiscript.com/api/v1/languages/rust/series/existing-series/sections/%d/lessons/%d",
+						sectionID, lessonID,
+					),
+				)
+				AssertEqual(
+					t,
+					resBody.Links.Section.Href,
+					fmt.Sprintf(
+						"https://api.kiwiscript.com/api/v1/languages/rust/series/existing-series/sections/%d",
+						sectionID,
+					),
+				)
+				AssertEqual(t, len(resBody.Embedded.Files), 2)
 			},
 			Path: fmt.Sprintf(
 				"%s/rust/series/existing-series/sections/%d/lessons/%d",

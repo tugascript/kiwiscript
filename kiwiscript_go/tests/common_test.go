@@ -25,8 +25,10 @@ import (
 	"github.com/kiwiscript/kiwiscript_go/providers/oauth"
 	"io"
 	"math"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -89,7 +91,9 @@ func initTestServicesAndApp(t *testing.T) {
 		log.ErrorContext(ctx, "Failed to load s3 config", "error", err)
 		t.Fatal("Failed to load s3 config", err)
 	}
+
 	s3Client := s3.NewFromConfig(s3Cfg, func(o *s3.Options) {
+		o.UsePathStyle = true
 		o.BaseEndpoint = aws.String("http://" + _testConfig.ObjectStorage.Host)
 	})
 	log.Info("Finished building s3 client")
@@ -440,4 +444,51 @@ func PerformTestRequestCaseWithPathFn[R any](t *testing.T, method string, tc Tes
 	// Assert
 	AssertTestStatusCode(t, resp, tc.ExpStatus)
 	tc.AssertFn(t, reqBody, resp)
+}
+
+func FileUploadMock(t *testing.T) *multipart.FileHeader {
+	// Create a buffer to hold the file and form data
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+
+	// Add file to the form data
+	part, err := writer.CreateFormFile("file", "lorem-ipsum-test.pdf")
+	if err != nil {
+		t.Fatalf("Failed to create form file: %v", err)
+	}
+
+	// Open a file to simulate file upload
+	file, err := os.Open("./fixtures/lorem-ipsum-test.pdf")
+	if err != nil {
+		t.Fatal("Failed to open file", "error", err)
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Fatal("Failed to close file", "error", err)
+		}
+	}()
+
+	// Copy the file content to the multipart writer
+	_, err = io.Copy(part, file)
+	if err != nil {
+		t.Fatalf("Failed to copy file content: %v", err)
+	}
+
+	// Close the writer to finalize the multipart form data
+	err = writer.Close()
+	if err != nil {
+		t.Fatalf("Failed to close writer: %v", err)
+	}
+
+	// Now parse the multipart form from the buffer
+	reader := multipart.NewReader(body, writer.Boundary())
+	form, err := reader.ReadForm(10 << 20) // Limit to 10 MB
+	if err != nil {
+		t.Fatalf("Failed to parse multipart form: %v", err)
+	}
+
+	// Extract the file header
+	fileHeader := form.File["file"][0]
+
+	return fileHeader
 }

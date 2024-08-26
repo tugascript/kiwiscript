@@ -1,6 +1,6 @@
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2024-08-24T11:43:27.430Z
+-- Generated at: 2024-08-26T12:30:36.968Z
 
 CREATE TABLE "users" (
   "id" serial PRIMARY KEY,
@@ -228,6 +228,8 @@ CREATE INDEX "series_images_author_id_idx" ON "series_pictures" ("author_id");
 
 CREATE UNIQUE INDEX "sections_title_series_slug_unique_idx" ON "sections" ("title", "series_slug");
 
+CREATE INDEX "sections_series_slug_position_unique_idx" ON "sections" ("series_slug", "position");
+
 CREATE INDEX "sections_language_slug_series_slug_idx" ON "sections" ("language_slug", "series_slug");
 
 CREATE INDEX "sections_language_slug_series_slug_is_published_idx" ON "sections" ("language_slug", "series_slug", "is_published");
@@ -274,11 +276,13 @@ CREATE UNIQUE INDEX "lesson_videos_lesson_id_unique_idx" ON "lesson_videos" ("le
 
 CREATE INDEX "lesson_videos_author_id_idx" ON "lesson_videos" ("author_id");
 
-CREATE UNIQUE INDEX "lesson_files_lesson_id_unique_idx" ON "lesson_files" ("lesson_id");
+CREATE INDEX "lesson_files_lesson_id_idx" ON "lesson_files" ("lesson_id");
 
 CREATE INDEX "lesson_files_author_id_idx" ON "lesson_files" ("author_id");
 
 CREATE INDEX "lesson_files_created_at_idx" ON "lesson_files" ("created_at");
+
+CREATE UNIQUE INDEX "lesson_files_lesson_id_name_unique_idx" ON "lesson_files" ("lesson_id", "name");
 
 CREATE UNIQUE INDEX "language_progress_user_id_language_slug_unique_idx" ON "language_progress" ("user_id", "language_slug");
 
