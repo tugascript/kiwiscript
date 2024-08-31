@@ -28,15 +28,20 @@ import (
 	"github.com/kiwiscript/kiwiscript_go/utils"
 )
 
-func (c *Controllers) CreateLanguage(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.languages.CreateLanguage")
-	userCtx := ctx.UserContext()
-	var request dtos.LanguageBody
-	user, err := c.GetUserClaims(ctx)
+const languagesLocation string = "languages"
 
+func (c *Controllers) CreateLanguage(ctx *fiber.Ctx) error {
+	requestID := c.requestID(ctx)
+	userCtx := ctx.UserContext()
+	log := c.buildLogger(ctx, requestID, languagesLocation, "CreateLanguage")
+	log.InfoContext(userCtx, "Creating language...")
+
+	user, err := c.GetUserClaims(ctx)
 	if err != nil || !user.IsAdmin {
 		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
 	}
+
+	var request dtos.LanguageBody
 	if err := ctx.BodyParser(&request); err != nil {
 		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 	}
@@ -57,21 +62,26 @@ func (c *Controllers) CreateLanguage(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) GetLanguage(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.languages.GetLanguage")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	slug := ctx.Params("languageSlug")
-	log.InfoContext(userCtx, "get language", "slug", slug)
-	params := dtos.LanguagePathParams{LanguageSlug: slug}
+	log := c.buildLogger(ctx, requestID, languagesLocation, "GetLanguage").With("slug", slug)
+	log.InfoContext(userCtx, "Getting language...")
 
+	params := dtos.LanguagePathParams{LanguageSlug: slug}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}
 
 	if user, err := c.GetUserClaims(ctx); err == nil {
-		language, serviceErr := c.services.FindLanguageWithProgressBySlug(userCtx, services.FindLanguageProgressOptions{
-			UserID:       user.ID,
-			LanguageSlug: slug,
-		})
+		language, serviceErr := c.services.FindLanguageWithProgressBySlug(
+			userCtx,
+			services.FindLanguageWithProgressBySlugOptions{
+				RequestID:    requestID,
+				UserID:       user.ID,
+				LanguageSlug: slug,
+			},
+		)
 		if serviceErr != nil {
 			return c.serviceErrorResponse(serviceErr, ctx)
 		}
@@ -88,15 +98,16 @@ func (c *Controllers) GetLanguage(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) GetLanguages(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.languages.GetLanguages")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
-	log.InfoContext(userCtx, "get languages")
+	log := c.buildLogger(ctx, requestID, languagesLocation, "GetLanguages")
+	log.InfoContext(userCtx, "Getting languages...")
+
 	queryParams := dtos.GetLanguagesQueryParams{
 		Offset: int32(ctx.QueryInt("offset", dtos.OffsetDefault)),
 		Limit:  int32(ctx.QueryInt("limit", dtos.LimitDefault)),
 		Search: ctx.Query("search"),
 	}
-
 	if err := c.validate.StructCtx(userCtx, queryParams); err != nil {
 		return c.validateQueryErrorResponse(log, userCtx, err, ctx)
 	}
@@ -106,10 +117,11 @@ func (c *Controllers) GetLanguages(ctx *fiber.Ctx) error {
 			languages, count, serviceErr := c.services.FindFilteredPaginatedLanguagesWithProgress(
 				userCtx,
 				services.FindFilteredPaginatedLanguagesWithProgressOptions{
-					UserID: user.ID,
-					Search: queryParams.Search,
-					Offset: queryParams.Offset,
-					Limit:  queryParams.Limit,
+					RequestID: requestID,
+					UserID:    user.ID,
+					Search:    queryParams.Search,
+					Offset:    queryParams.Offset,
+					Limit:     queryParams.Limit,
 				},
 			)
 			if serviceErr != nil {
@@ -131,9 +143,10 @@ func (c *Controllers) GetLanguages(ctx *fiber.Ctx) error {
 		languages, count, serviceErr := c.services.FindPaginatedLanguagesWithProgress(
 			userCtx,
 			services.FindPaginatedLanguagesWithProgressOptions{
-				UserID: user.ID,
-				Offset: queryParams.Offset,
-				Limit:  queryParams.Limit,
+				RequestID: requestID,
+				UserID:    user.ID,
+				Offset:    queryParams.Offset,
+				Limit:     queryParams.Limit,
 			},
 		)
 		if serviceErr != nil {
@@ -152,9 +165,10 @@ func (c *Controllers) GetLanguages(ctx *fiber.Ctx) error {
 	}
 
 	languages, count, serviceErr := c.services.FindPaginatedLanguages(userCtx, services.FindPaginatedLanguagesOptions{
-		Search: queryParams.Search,
-		Offset: queryParams.Offset,
-		Limit:  queryParams.Limit,
+		RequestID: requestID,
+		Search:    queryParams.Search,
+		Offset:    queryParams.Offset,
+		Limit:     queryParams.Limit,
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
@@ -173,10 +187,13 @@ func (c *Controllers) GetLanguages(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) UpdateLanguage(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.languages.UpdateLanguage")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	slug := ctx.Params("languageSlug")
-	log.InfoContext(userCtx, "update language", "slug", slug)
+	log := c.buildLogger(ctx, requestID, languagesLocation, "UpdateLanguage").With(
+		"slug", slug,
+	)
+	log.InfoContext(userCtx, "Updating languages...")
 
 	user, err := c.GetUserClaims(ctx)
 	if err != nil || !user.IsAdmin {
@@ -197,9 +214,10 @@ func (c *Controllers) UpdateLanguage(ctx *fiber.Ctx) error {
 	}
 
 	language, serviceErr := c.services.UpdateLanguage(userCtx, services.UpdateLanguageOptions{
-		Slug: slug,
-		Name: utils.CapitalizedFirst(request.Name),
-		Icon: strings.TrimSpace(request.Icon),
+		RequestID: requestID,
+		Slug:      slug,
+		Name:      utils.CapitalizedFirst(request.Name),
+		Icon:      strings.TrimSpace(request.Icon),
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
@@ -209,10 +227,11 @@ func (c *Controllers) UpdateLanguage(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) DeleteLanguage(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.languages.DeleteLanguage")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	slug := ctx.Params("languageSlug")
-	log.InfoContext(userCtx, "delete language", "name", slug)
+	log := c.buildLogger(ctx, requestID, languagesLocation, "DeleteLanguage").With("slug", slug)
+	log.InfoContext(userCtx, "Deleting language...")
 
 	user, err := c.GetUserClaims(ctx)
 	if err != nil || !user.IsAdmin {
@@ -224,7 +243,10 @@ func (c *Controllers) DeleteLanguage(ctx *fiber.Ctx) error {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}
 
-	serviceErr := c.services.DeleteLanguage(userCtx, slug)
+	serviceErr := c.services.DeleteLanguage(userCtx, services.DeleteLanguageOptions{
+		RequestID: requestID,
+		Slug:      params.LanguageSlug,
+	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}

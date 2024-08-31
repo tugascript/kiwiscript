@@ -112,8 +112,8 @@ func (ur *GitHubUserResponse) ToUserData() *UserData {
 	}
 }
 
-func (op *Providers) GetGitHubAuthorizationURL(ctx context.Context) (string, string, error) {
-	log := op.log.WithGroup("providers.oauth.GetGitHubAuthorizationURL")
+func (op *Providers) GetGitHubAuthorizationURL(ctx context.Context, requestID string) (string, string, error) {
+	log := op.buildLogger(requestID, "GetGitHubAuthorizationURL")
 	log.DebugContext(ctx, "Getting GitHub authorization url...")
 
 	state, err := GenerateState()
@@ -126,11 +126,16 @@ func (op *Providers) GetGitHubAuthorizationURL(ctx context.Context) (string, str
 	return op.gitHub.AuthCodeURL(state), state, nil
 }
 
-func (op *Providers) GetGitHubAccessToken(ctx context.Context, code string) (string, error) {
-	log := op.log.WithGroup("providers.oauth.GetGitHubAccessToken")
+type GetGitHubAccessTokenOptions struct {
+	RequestID string
+	Code      string
+}
+
+func (op *Providers) GetGitHubAccessToken(ctx context.Context, opts GetGitHubAccessTokenOptions) (string, error) {
+	log := op.buildLogger(opts.RequestID, "GetGitHubAccessToken")
 	log.DebugContext(ctx, "Getting GitHub access token...")
 
-	token, err := op.gitHub.Exchange(ctx, code)
+	token, err := op.gitHub.Exchange(ctx, opts.Code)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to exchange the code for a token", "error", err)
 		return "", err
@@ -140,11 +145,16 @@ func (op *Providers) GetGitHubAccessToken(ctx context.Context, code string) (str
 	return token.AccessToken, nil
 }
 
-func (op *Providers) GetGitHubUserData(ctx context.Context, token string) (ToUserData, int, error) {
-	log := op.log.WithGroup("providers.oauth.GetGitHubUserData")
+type GetGitHubUserDataOptions struct {
+	RequestID string
+	Token     string
+}
+
+func (op *Providers) GetGitHubUserData(ctx context.Context, opts GetGitHubUserDataOptions) (ToUserData, int, error) {
+	log := op.buildLogger(opts.RequestID, "GetGitHubUserData")
 	log.DebugContext(ctx, "Getting GitHub user data...")
 
-	body, status, err := getUserResponse(log, ctx, gitHubUserURL, token)
+	body, status, err := getUserResponse(log, ctx, gitHubUserURL, opts.Token)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to get user data", "error", err)
 		return nil, status, err

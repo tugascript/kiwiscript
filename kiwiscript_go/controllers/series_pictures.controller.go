@@ -23,17 +23,18 @@ import (
 	"github.com/kiwiscript/kiwiscript_go/services"
 )
 
+const seriesPicturesLocation string = "seriesPictures"
+
 func (c *Controllers) UploadSeriesPicture(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series_pictures.UploadLessonFile")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
-	params := dtos.SeriesPathParams{
-		LanguageSlug: ctx.Params("languageSlug"),
-		SeriesSlug:   ctx.Params("seriesSlug"),
-	}
-	log.InfoContext(userCtx, "Uploading series picture...",
-		"languageSlug", params.LanguageSlug,
-		"seriesSlug", params.SeriesSlug,
+	languageSlug := ctx.Params("languageSlug")
+	seriesSlug := ctx.Params("seriesSlug")
+	log := c.buildLogger(ctx, requestID, seriesPicturesLocation, "UploadSeriesPicture").With(
+		"languageSlug", languageSlug,
+		"seriesSlug", seriesSlug,
 	)
+	log.InfoContext(userCtx, "Uploading series picture...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
@@ -41,6 +42,10 @@ func (c *Controllers) UploadSeriesPicture(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
 	}
 
+	params := dtos.SeriesPathParams{
+		LanguageSlug: languageSlug,
+		SeriesSlug:   seriesSlug,
+	}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}
@@ -66,9 +71,10 @@ func (c *Controllers) UploadSeriesPicture(ctx *fiber.Ctx) error {
 	}
 
 	pictureURL, serviceErr := c.services.FindFileURL(userCtx, services.FindFileURLOptions{
-		UserID:  user.ID,
-		FileID:  seriesPicture.ID,
-		FileExt: seriesPicture.Ext,
+		RequestID: requestID,
+		UserID:    user.ID,
+		FileID:    seriesPicture.ID,
+		FileExt:   seriesPicture.Ext,
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
@@ -83,17 +89,20 @@ func (c *Controllers) UploadSeriesPicture(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) GetSeriesPicture(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series_pictures.GetSeriesPicture")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
-	params := dtos.SeriesPathParams{
-		LanguageSlug: ctx.Params("languageSlug"),
-		SeriesSlug:   ctx.Params("seriesSlug"),
-	}
-	log.InfoContext(userCtx, "Getting series picture...",
-		"languageSlug", params.LanguageSlug,
-		"seriesSlug", params.SeriesSlug,
+	languageSlug := ctx.Params("languageSlug")
+	seriesSlug := ctx.Params("seriesSlug")
+	log := c.buildLogger(ctx, requestID, seriesPicturesLocation, "GetSeriesPicture").With(
+		"languageSlug", languageSlug,
+		"seriesSlug", seriesSlug,
 	)
+	log.InfoContext(userCtx, "Getting series picture...")
 
+	params := dtos.SeriesPathParams{
+		LanguageSlug: languageSlug,
+		SeriesSlug:   seriesSlug,
+	}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}
@@ -110,15 +119,22 @@ func (c *Controllers) GetSeriesPicture(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(services.NewNotFoundError(), ctx)
 	}
 
-	seriesPicture, serviceErr := c.services.FindSeriesPictureBySeriesID(userCtx, series.ID)
+	seriesPicture, serviceErr := c.services.FindSeriesPictureBySeriesID(
+		userCtx,
+		services.FindSeriesPictureBySeriesIDOptions{
+			RequestID: requestID,
+			SeriesID:  series.ID,
+		},
+	)
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
 	pictureURL, serviceErr := c.services.FindFileURL(userCtx, services.FindFileURLOptions{
-		UserID:  seriesPicture.AuthorID,
-		FileID:  seriesPicture.ID,
-		FileExt: seriesPicture.Ext,
+		RequestID: requestID,
+		UserID:    seriesPicture.AuthorID,
+		FileID:    seriesPicture.ID,
+		FileExt:   seriesPicture.Ext,
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
@@ -133,16 +149,15 @@ func (c *Controllers) GetSeriesPicture(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) DeleteSeriesPicture(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series_pictures.DeleteSeriesPicture")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
-	params := dtos.SeriesPathParams{
-		LanguageSlug: ctx.Params("languageSlug"),
-		SeriesSlug:   ctx.Params("seriesSlug"),
-	}
-	log.InfoContext(userCtx, "Deleting series picture...",
-		"languageSlug", params.LanguageSlug,
-		"seriesSlug", params.SeriesSlug,
+	languageSlug := ctx.Params("languageSlug")
+	seriesSlug := ctx.Params("seriesSlug")
+	log := c.buildLogger(ctx, requestID, seriesPicturesLocation, "DeleteSeriesPicture").With(
+		"languageSlug", languageSlug,
+		"seriesSlug", seriesSlug,
 	)
+	log.InfoContext(userCtx, "Deleting series picture...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
@@ -150,6 +165,10 @@ func (c *Controllers) DeleteSeriesPicture(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
 	}
 
+	params := dtos.SeriesPathParams{
+		LanguageSlug: languageSlug,
+		SeriesSlug:   seriesSlug,
+	}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}

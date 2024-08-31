@@ -23,12 +23,18 @@ import (
 	"github.com/kiwiscript/kiwiscript_go/services"
 )
 
+const seriesProgressLocation string = "series_progress"
+
 func (c *Controllers) CreateOrUpdateSeriesProgress(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series_progress.CreateOrUpdateSeriesProgress")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
-	log.InfoContext(userCtx, "Creating or updating series progress", "languageSlug", languageSlug, "seriesSlug", seriesSlug)
+	log := c.buildLogger(ctx, requestID, seriesProgressLocation, "CreateOrUpdateSeriesProgress").With(
+		"languageSlug", languageSlug,
+		"seriesSlug", seriesSlug,
+	)
+	log.InfoContext(userCtx, "Creating or updating series progress...")
 
 	user, err := c.GetUserClaims(ctx)
 	if err != nil {
@@ -47,6 +53,7 @@ func (c *Controllers) CreateOrUpdateSeriesProgress(ctx *fiber.Ctx) error {
 	series, seriesProgress, serviceErr := c.services.CreateOrUpdateSeriesProgress(
 		userCtx,
 		services.CreateOrUpdateSeriesProgressOptions{
+			RequestID:    requestID,
 			UserID:       user.ID,
 			LanguageSlug: params.LanguageSlug,
 			SeriesSlug:   params.SeriesSlug,
@@ -81,11 +88,15 @@ func (c *Controllers) CreateOrUpdateSeriesProgress(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) ResetSeriesProgress(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series_progress.ResetSeriesProgress")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
-	log.InfoContext(userCtx, "Resetting series progress", "languageSlug", languageSlug, "seriesSlug", seriesSlug)
+	log := c.buildLogger(ctx, requestID, seriesProgressLocation, "ResetSeriesProgress").With(
+		"languageSlug", languageSlug,
+		"seriesSlug", seriesSlug,
+	)
+	log.InfoContext(userCtx, "Resetting series progress...")
 
 	user, err := c.GetUserClaims(ctx)
 	if err != nil {
@@ -102,6 +113,7 @@ func (c *Controllers) ResetSeriesProgress(ctx *fiber.Ctx) error {
 	}
 
 	opts := services.DeleteSeriesProgressOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,

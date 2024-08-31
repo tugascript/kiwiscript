@@ -18,6 +18,7 @@
 package cc
 
 import (
+	"context"
 	"fmt"
 	"github.com/google/uuid"
 	"time"
@@ -30,12 +31,19 @@ func creteFileURLKey(userID int32, fileID uuid.UUID) string {
 }
 
 type AddFileURLOptions struct {
-	UserID int32
-	FileID uuid.UUID
-	URL    string
+	RequestID string
+	UserID    int32
+	FileID    uuid.UUID
+	URL       string
 }
 
-func (c *Cache) AddFileURL(opts AddFileURLOptions) error {
+func (c *Cache) AddFileURL(ctx context.Context, opts AddFileURLOptions) error {
+	log := c.buildLogger(opts.RequestID, "AddFileURL").With(
+		"userId", opts.UserID,
+		"fileId", opts.FileID,
+		"url", opts.URL,
+	)
+	log.DebugContext(ctx, "Adding file URL...")
 	key := creteFileURLKey(opts.UserID, opts.FileID)
 	val := []byte(opts.URL)
 	exp := time.Hour*23 + time.Minute*55
@@ -43,18 +51,26 @@ func (c *Cache) AddFileURL(opts AddFileURLOptions) error {
 }
 
 type GetFileURLOptions struct {
-	UserID int32
-	FileID uuid.UUID
+	RequestID string
+	UserID    int32
+	FileID    uuid.UUID
 }
 
-func (c *Cache) GetFileURL(opts GetFileURLOptions) (string, error) {
+func (c *Cache) GetFileURL(ctx context.Context, opts GetFileURLOptions) (string, error) {
+	log := c.buildLogger(opts.RequestID, "GetFileURL").With(
+		"userId", opts.UserID,
+		"fileId", opts.FileID,
+	)
+	log.DebugContext(ctx, "Getting file URL...")
 	key := creteFileURLKey(opts.UserID, opts.FileID)
 	valByte, err := c.storage.Get(key)
 
 	if err != nil {
+		log.ErrorContext(ctx, "Error getting file URL", "error", err)
 		return "", err
 	}
 	if valByte == nil {
+		log.DebugContext(ctx, "File URL not found")
 		return "", nil
 	}
 

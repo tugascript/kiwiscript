@@ -17,52 +17,57 @@
 
 package cc
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 const (
 	oauthStatePrefix  string = "oauth_state"
-	oauthEmailPrefix  string = "oauth_email"
 	oauthStateSeconds int    = 120
 )
 
-func (c *Cache) AddOAuthState(state, provider string) error {
+type AddOAuthStateOptions struct {
+	RequestID string
+	State     string
+	Provider  string
+}
+
+func (c *Cache) AddOAuthState(ctx context.Context, opts AddOAuthStateOptions) error {
+	log := c.buildLogger(opts.RequestID, "AddOAuthState").With(
+		"state", opts.State,
+		"provider", opts.Provider,
+	)
+	log.DebugContext(ctx, "Adding OAuth state...")
 	return c.storage.Set(
-		oauthStatePrefix+":"+state,
-		[]byte(provider),
+		oauthStatePrefix+":"+opts.State,
+		[]byte(opts.Provider),
 		time.Duration(oauthStateSeconds)*time.Second,
 	)
 }
 
-func (c *Cache) VerifyOAuthState(state, provider string) (bool, error) {
-	valByte, err := c.storage.Get(oauthStatePrefix + ":" + state)
+type VerifyOAuthStateOptions struct {
+	RequestID string
+	State     string
+	Provider  string
+}
+
+func (c *Cache) VerifyOAuthState(ctx context.Context, opts VerifyOAuthStateOptions) (bool, error) {
+	log := c.buildLogger(opts.RequestID, "VerifyOAuthState").With(
+		"state", opts.State,
+		"provider", opts.Provider,
+	)
+	log.DebugContext(ctx, "Verifying OAuth state...")
+	valByte, err := c.storage.Get(oauthStatePrefix + ":" + opts.State)
 
 	if err != nil {
+		log.ErrorContext(ctx, "Error verifying OAuth state", "error", err)
 		return false, err
 	}
 	if valByte == nil {
+		log.DebugContext(ctx, "OAuth state not found")
 		return false, nil
 	}
 
-	return string(valByte) == provider, nil
-}
-
-func (c *Cache) AddOAuthEmail(code, email string) error {
-	return c.storage.Set(
-		oauthEmailPrefix+":"+code,
-		[]byte(email),
-		time.Duration(oauthStateSeconds)*time.Second,
-	)
-}
-
-func (c *Cache) GetOAuthEmail(code string) (string, error) {
-	valByte, err := c.storage.Get(oauthEmailPrefix + ":" + code)
-	if err != nil {
-		return "", err
-	}
-
-	if valByte == nil {
-		return "", nil
-	}
-
-	return string(valByte), nil
+	return string(valByte) == opts.Provider, nil
 }

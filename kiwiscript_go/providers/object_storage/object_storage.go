@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
+	"github.com/kiwiscript/kiwiscript_go/utils"
 	"io"
 	"log/slog"
 	"mime/multipart"
@@ -83,13 +84,30 @@ func (o *ObjectStorage) closeFile(f io.Closer) {
 	}
 }
 
+func (o *ObjectStorage) buildLogger(requestID, function string) *slog.Logger {
+	return utils.BuildLogger(o.log, utils.LoggerOptions{
+		Layer:     utils.ProvidersLogLayer,
+		Location:  "object_storage",
+		Function:  function,
+		RequestID: requestID,
+	})
+}
+
 type GetFileURLOptions struct {
-	UserID  int32
-	FileID  uuid.UUID
-	FileExt string
+	RequestID string
+	UserID    int32
+	FileID    uuid.UUID
+	FileExt   string
 }
 
 func (o *ObjectStorage) GetFileUrl(ctx context.Context, opts GetFileURLOptions) (string, error) {
+	log := o.buildLogger(opts.RequestID, "GetFileUrl").With(
+		"userID", opts.UserID,
+		"fileID", opts.FileID.String(),
+		"fileExt", opts.FileExt,
+	)
+	log.DebugContext(ctx, "Getting file URL...")
+
 	req, err := o.getClient.PresignGetObject(
 		ctx,
 		&s3.GetObjectInput{
@@ -99,6 +117,7 @@ func (o *ObjectStorage) GetFileUrl(ctx context.Context, opts GetFileURLOptions) 
 		s3.WithPresignExpires(time.Hour*24),
 	)
 	if err != nil {
+		log.ErrorContext(ctx, "Error getting file URL", "error", err)
 		return "", err
 	}
 

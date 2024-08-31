@@ -18,31 +18,44 @@
 package cc
 
 import (
+	"context"
 	"time"
 )
 
 const blackListPrefix string = "black_list"
 
-type AddBlackListOptions struct {
-	ID  string
-	Exp time.Time
+type AddBlacklistOptions struct {
+	RequestID string
+	ID        string
+	Exp       time.Time
 }
 
-func (c *Cache) AddBlackList(options AddBlackListOptions) error {
-	key := blackListPrefix + ":" + options.ID
-	val := []byte(options.ID)
-	exp := time.Until(options.Exp)
+func (c *Cache) AddBlacklist(ctx context.Context, opts AddBlacklistOptions) error {
+	log := c.buildLogger(opts.RequestID, "AddBlacklist")
+	log.DebugContext(ctx, "Blacklisting refresh token", "id", opts.ID, "exp", opts.Exp.Format(time.RFC3339))
+	key := blackListPrefix + ":" + opts.ID
+	val := []byte(opts.ID)
+	exp := time.Until(opts.Exp)
 	return c.storage.Set(key, val, exp)
 }
 
-func (c *Cache) IsBlackListed(id string) (bool, error) {
-	key := blackListPrefix + ":" + id
+type IsBlacklistedOptions struct {
+	RequestID string
+	ID        string
+}
+
+func (c *Cache) IsBlacklisted(ctx context.Context, opts IsBlacklistedOptions) (bool, error) {
+	log := c.buildLogger(opts.RequestID, "IsBlacklisted")
+	log.DebugContext(ctx, "Checking if refresh token is blacklisted")
+	key := blackListPrefix + ":" + opts.ID
 	valByte, err := c.storage.Get(key)
 
 	if err != nil {
+		log.ErrorContext(ctx, "Error checking if refresh token is blacklisted", "error", err)
 		return false, err
 	}
 	if valByte == nil {
+		log.DebugContext(ctx, "Refresh token is not blacklisted")
 		return false, nil
 	}
 

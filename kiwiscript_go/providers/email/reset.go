@@ -1,17 +1,17 @@
 // Copyright (C) 2024 Afonso Barracha
-// 
+//
 // This file is part of KiwiScript.
-// 
+//
 // KiwiScript is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-// 
+//
 // KiwiScript is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
@@ -19,6 +19,7 @@ package email
 
 import (
 	"bytes"
+	"context"
 	"html/template"
 )
 
@@ -56,27 +57,36 @@ type resetEmailData struct {
 }
 
 type ResetEmailOptions struct {
+	RequestID  string
 	Email      string
 	FirstName  string
 	LastName   string
 	ResetToken string
 }
 
-func (m *Mail) SendResetEmail(options ResetEmailOptions) error {
+func (m *Mail) SendResetEmail(ctx context.Context, opts ResetEmailOptions) error {
+	log := m.buildLogger(opts.RequestID, "SendResetEmail").With(
+		"firstName", opts.FirstName,
+		"lastName", opts.LastName,
+	)
+	log.DebugContext(ctx, "Sending reset email...")
 	t, err := template.New("reset").Parse(resetTemplate)
 
 	if err != nil {
+		log.ErrorContext(ctx, "Failed to parse email template", "error", err)
 		return err
 	}
 
+	data := resetEmailData{
+		FirstName: opts.FirstName,
+		LastName:  opts.LastName,
+		ResetURL:  m.buildUrl(resetPath, opts.ResetToken),
+	}
 	var emailContent bytes.Buffer
-	if err = t.Execute(&emailContent, resetEmailData{
-		FirstName: options.FirstName,
-		LastName:  options.LastName,
-		ResetURL:  m.buildUrl(resetPath, options.ResetToken),
-	}); err != nil {
+	if err := t.Execute(&emailContent, data); err != nil {
+		log.ErrorContext(ctx, "Failed to execute email template", "error", err)
 		return err
 	}
 
-	return m.sendMail(options.Email, "Password Reset", emailContent.String())
+	return m.sendMail(opts.Email, "Password Reset", emailContent.String())
 }

@@ -18,7 +18,9 @@
 package app
 
 import (
+	"github.com/google/uuid"
 	"github.com/kiwiscript/kiwiscript_go/providers/oauth"
+	"github.com/kiwiscript/kiwiscript_go/utils"
 	"log/slog"
 	"time"
 
@@ -28,7 +30,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/encryptcookie"
 	"github.com/gofiber/fiber/v2/middleware/helmet"
 	"github.com/gofiber/fiber/v2/middleware/limiter"
-	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
 	"github.com/gofiber/storage/redis/v3"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -58,14 +59,26 @@ func CreateApp(
 	cookieSecret string,
 ) *fiber.App {
 	// Build the app
-	log.Info("Building the app...")
+	appLog := utils.BuildLogger(log, utils.LoggerOptions{
+		Layer:     utils.AppLogLayer,
+		Location:  "app",
+		Function:  "CreateApp",
+		RequestID: "init",
+	})
+
+	appLog.Info("Building the app...")
 	app := fiber.New()
 
 	// Load common middlewares
-	log.Info("Loading common middlewares...")
-	app.Use(logger.New())
+	appLog.Info("Loading common middlewares...")
 	app.Use(helmet.New())
-	app.Use(requestid.New())
+	app.Use(requestid.New(requestid.Config{
+		Header: fiber.HeaderXRequestID,
+		Generator: func() string {
+			return uuid.NewString()
+		},
+		ContextKey: utils.RequestIDKey,
+	}))
 	app.Use(limiter.New(limiter.Config{
 		Max:               int(limiterConfig.Max),
 		Expiration:        time.Duration(limiterConfig.ExpSec) * time.Second,
@@ -75,10 +88,10 @@ func CreateApp(
 	app.Use(encryptcookie.New(encryptcookie.Config{
 		Key: cookieSecret,
 	}))
-	log.Info("Finished loading common middlewares")
+	appLog.Info("Finished loading common middlewares")
 
 	database := db.NewDatabase(dbConnPool)
-	cache := cc.NewCache(storage)
+	cache := cc.NewCache(log, storage)
 	objStg := stg.NewObjectStorage(log, s3Client, s3Bucket)
 	tokenProv := tokens.NewTokens(
 		tokens.NewTokenSecretData(tokensConfig.Access.PublicKey, tokensConfig.Access.PrivateKey, tokensConfig.Access.TtlSec),
@@ -88,6 +101,7 @@ func CreateApp(
 		"https://"+backendDomain,
 	)
 	mailer := email.NewMail(
+		log,
 		mailConfig.Username,
 		mailConfig.Password,
 		mailConfig.Port,
@@ -105,47 +119,47 @@ func CreateApp(
 	)
 
 	// Validators
-	log.Info("Loading validators...")
+	appLog.Info("Loading validators...")
 	vld := validator.New()
 	if err := vld.RegisterValidation(svgValidatorTag, isValidSVG); err != nil {
-		log.Error("Failed to register svg validator", "error", err)
+		appLog.Error("Failed to register svg validator", "error", err)
 		panic(err)
 	}
 	if err := vld.RegisterValidation(extAlphaNumTag, isValidExtAlphaNum); err != nil {
-		log.Error("Failed to register extalphanum validator", "error", err)
+		appLog.Error("Failed to register extalphanum validator", "error", err)
 		panic(err)
 	}
 	if err := vld.RegisterValidation(slugValidatorTag, isValidSlug); err != nil {
-		log.Error("Failed to register slug validator", "error", err)
+		appLog.Error("Failed to register slug validator", "error", err)
 		panic(err)
 	}
 	if err := vld.RegisterValidation(markdownValidatorTag, isValidMarkdown); err != nil {
-		log.Error("Failed to register markdown validator", "error", err)
+		appLog.Error("Failed to register markdown validator", "error", err)
 		panic(err)
 	}
-	log.Info("Successfully loaded validators")
+	appLog.Info("Successfully loaded validators")
 
 	// Build service
-	log.Info("Building services...")
+	appLog.Info("Building services...")
 	srvs := services.NewServices(log, database, cache, objStg, mailer, tokenProv, oauthProviders)
-	log.Info("Successfully built services")
+	appLog.Info("Successfully built services")
 
 	// Build controllers
-	log.Info("Building controllers...")
+	appLog.Info("Building controllers...")
 	ctrls := controllers.NewControllers(log, srvs, vld, frontendDomain, backendDomain, refreshCookieName)
-	log.Info("Successfully built controllers")
+	appLog.Info("Successfully built controllers")
 
-	log.Info("Load user claims...")
+	appLog.Info("Load user claims...")
 	app.Use(ctrls.AccessClaimsMiddleware)
-	log.Info("Successfully loaded user claims")
+	appLog.Info("Successfully loaded user claims")
 
 	// Build router
-	log.Info("Building router...")
+	appLog.Info("Building router...")
 	rtr := routers.NewRouter(app, ctrls)
-	log.Info("Successfully built router")
+	appLog.Info("Successfully built router")
 
 	// Build routes, public routes need to be defined before private ones
-	log.Info("Loading public routes...")
+	appLog.Info("Loading public routes...")
 	rtr.HealthRoutes()
 	rtr.AuthPublicRoutes()
 	rtr.OAuthPublicRoutes()
@@ -158,25 +172,25 @@ func CreateApp(
 	rtr.LessonVideoPublicRoutes()
 	rtr.LessonFilesPublicRoutes()
 	rtr.CertificatesPublicRoutes()
-	log.Info("Successfully loaded public routes")
+	appLog.Info("Successfully loaded public routes")
 
 	// User
-	log.Info("Loading user routes...")
+	appLog.Info("Loading user routes...")
 	rtr.UsersRoutes()
-	log.Info("Successfully loaded user routes")
+	appLog.Info("Successfully loaded user routes")
 
 	// Private routes
-	log.Info("Loading private routes...")
+	appLog.Info("Loading private routes...")
 	rtr.AuthPrivateRoutes()
 	rtr.LanguageProgressPrivateRoutes()
 	rtr.SeriesProgressPrivateRoutes()
 	rtr.SectionProgressPrivateRoutes()
 	rtr.LessonProgressPrivateRoutes()
 	rtr.CertificatesPrivateRoutes()
-	log.Info("Successfully loaded private routes")
+	appLog.Info("Successfully loaded private routes")
 
 	// Staff routes
-	log.Info("Loading staff routes...")
+	appLog.Info("Loading staff routes...")
 	rtr.SeriesStaffRoutes()
 	rtr.SeriesPicturesStaffRoutes()
 	rtr.SectionStaffRoutes()
@@ -184,13 +198,13 @@ func CreateApp(
 	rtr.LessonArticleStaffRoutes()
 	rtr.LessonVideoStaffRoutes()
 	rtr.LessonFilesStaffRoutes()
-	log.Info("Successfully loaded staff routes")
+	appLog.Info("Successfully loaded staff routes")
 
 	// Admin Routes
-	log.Info("Loading admin routes...")
+	appLog.Info("Loading admin routes...")
 	rtr.LanguageAdminRoutes()
-	log.Info("Successfully loaded admin routes")
+	appLog.Info("Successfully loaded admin routes")
 
-	log.Info("Successfully built the app")
+	appLog.Info("Successfully built the app")
 	return app
 }

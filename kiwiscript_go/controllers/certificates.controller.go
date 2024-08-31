@@ -26,11 +26,16 @@ import (
 	"github.com/kiwiscript/kiwiscript_go/services"
 )
 
+const certificatesLocation string = "certificates"
+
 func (c *Controllers) GetCertificate(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.certificates.GetCertificate")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	certificateID := ctx.Params("certificateID")
-	log.InfoContext(userCtx, "Getting certificate...", "certificateId", certificateID)
+	log := c.buildLogger(ctx, requestID, certificatesLocation, "GetCertificate").With(
+		"certificateId", certificateID,
+	)
+	log.InfoContext(userCtx, "Getting certificate...")
 
 	params := dtos.CertificatesPathParams{CertificateID: certificateID}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
@@ -48,7 +53,10 @@ func (c *Controllers) GetCertificate(ctx *fiber.Ctx) error {
 			}}))
 	}
 
-	certificate, serviceErr := c.services.FindCertificateByID(userCtx, parsedCertificateID)
+	certificate, serviceErr := c.services.FindCertificateByID(userCtx, services.FindCertificateByIDOptions{
+		RequestID: requestID,
+		ID:        parsedCertificateID,
+	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
@@ -57,8 +65,9 @@ func (c *Controllers) GetCertificate(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) GetUserCertificates(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.certificates.GetUserCertificates")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
+	log := c.buildLogger(ctx, requestID, certificatesLocation, "GetUserCertificate")
 	log.InfoContext(userCtx, "Getting user certificates...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
@@ -78,9 +87,10 @@ func (c *Controllers) GetUserCertificates(ctx *fiber.Ctx) error {
 	certificates, count, serviceErr := c.services.FindPaginatedCertificates(
 		userCtx,
 		services.FindPaginatedCertificatesOptions{
-			UserID: user.ID,
-			Offset: queryParams.Offset,
-			Limit:  queryParams.Limit,
+			RequestID: requestID,
+			UserID:    user.ID,
+			Offset:    queryParams.Offset,
+			Limit:     queryParams.Limit,
 		},
 	)
 	if serviceErr != nil {

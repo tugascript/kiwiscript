@@ -30,19 +30,20 @@ import (
 	"github.com/kiwiscript/kiwiscript_go/services"
 )
 
+const lessonLocation string = "lesson"
+
 func (c *Controllers) CreateLesson(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.CreateLesson")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
-	log.InfoContext(
-		userCtx,
-		"Creating lesson...",
+	log := c.buildLogger(ctx, requestID, lessonLocation, "CreateLesson").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
+		"sectionId", sectionID,
 	)
+	log.InfoContext(userCtx, "Creating lesson...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
@@ -80,6 +81,7 @@ func (c *Controllers) CreateLesson(ctx *fiber.Ctx) error {
 
 	sectionIDi32 := int32(parsedSectionID)
 	lesson, serviceErr := c.services.CreateLesson(userCtx, services.CreateLessonOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
@@ -126,20 +128,19 @@ func (c *Controllers) findLessonFiles(
 }
 
 func (c *Controllers) GetLesson(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.GetLesson")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	lessonID := ctx.Params("lessonID")
-	log.InfoContext(
-		userCtx,
-		"Getting lesson...",
+	log := c.buildLogger(ctx, requestID, lessonLocation, "GetLesson").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
 		"sectionID", sectionID,
 		"lessonID", lessonID,
 	)
+	log.InfoContext(userCtx, "Getting lesson...")
 
 	params := dtos.LessonPathParams{
 		LanguageSlug: languageSlug,
@@ -178,6 +179,7 @@ func (c *Controllers) GetLesson(ctx *fiber.Ctx) error {
 	if user, serviceErr := c.GetUserClaims(ctx); serviceErr == nil {
 		if user.IsStaff {
 			lesson, serviceErr := c.services.FindLessonWithArticleAndVideo(userCtx, services.FindLessonOptions{
+				RequestID:    requestID,
 				LanguageSlug: params.LanguageSlug,
 				SeriesSlug:   params.SeriesSlug,
 				SectionID:    sectionIDi32,
@@ -209,6 +211,7 @@ func (c *Controllers) GetLesson(ctx *fiber.Ctx) error {
 		lesson, serviceErr := c.services.FindPublishedLessonWithProgressArticleAndVideo(
 			userCtx,
 			services.FindLessonWithProgressOptions{
+				RequestID:    requestID,
 				UserID:       user.ID,
 				LanguageSlug: params.LanguageSlug,
 				SeriesSlug:   params.SeriesSlug,
@@ -240,6 +243,7 @@ func (c *Controllers) GetLesson(ctx *fiber.Ctx) error {
 	}
 
 	lesson, serviceErr := c.services.FindPublishedLessonWithArticleAndVideo(userCtx, services.FindLessonOptions{
+		RequestID:    requestID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
 		SectionID:    sectionIDi32,
@@ -269,18 +273,17 @@ func (c *Controllers) GetLesson(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) GetLessons(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.GetLessons")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
-	log.InfoContext(
-		userCtx,
-		"Creating lesson...",
+	log := c.buildLogger(ctx, requestID, lessonLocation, "GetLessons").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
+		"sectionId", sectionID,
 	)
+	log.InfoContext(userCtx, "Creating lesson...")
 
 	params := dtos.SectionPathParams{
 		LanguageSlug: languageSlug,
@@ -314,6 +317,7 @@ func (c *Controllers) GetLessons(ctx *fiber.Ctx) error {
 	if user, serviceErr := c.GetUserClaims(ctx); serviceErr == nil {
 		if user.IsStaff {
 			lessons, count, serviceErr := c.services.FindPaginatedLessons(userCtx, services.FindPaginatedLessonsOptions{
+				RequestID:    requestID,
 				LanguageSlug: params.LanguageSlug,
 				SeriesSlug:   params.SeriesSlug,
 				SectionID:    sectionIDi32,
@@ -328,8 +332,7 @@ func (c *Controllers) GetLessons(ctx *fiber.Ctx) error {
 				dtos.NewPaginatedResponse(
 					c.backendDomain,
 					fmt.Sprintf(
-						"https://%s%s/%s%s/%s%s/%d%s",
-						c.backendDomain,
+						"%s/%s%s/%s%s/%d%s",
 						paths.LanguagePathV1,
 						languageSlug,
 						paths.SeriesPath,
@@ -351,6 +354,7 @@ func (c *Controllers) GetLessons(ctx *fiber.Ctx) error {
 		lessons, count, serviceErr := c.services.FindPaginatedPublishedLessonsWithProgress(
 			userCtx,
 			services.FindPaginatedPublishedLessonsWithProgressOptions{
+				RequestID:    requestID,
 				UserID:       user.ID,
 				LanguageSlug: params.LanguageSlug,
 				SeriesSlug:   params.SeriesSlug,
@@ -367,8 +371,7 @@ func (c *Controllers) GetLessons(ctx *fiber.Ctx) error {
 			dtos.NewPaginatedResponse(
 				c.backendDomain,
 				fmt.Sprintf(
-					"https://%s%s/%s%s/%s%s/%d%s",
-					c.backendDomain,
+					"%s/%s%s/%s%s/%d%s",
 					paths.LanguagePathV1,
 					languageSlug,
 					paths.SeriesPath,
@@ -390,6 +393,7 @@ func (c *Controllers) GetLessons(ctx *fiber.Ctx) error {
 	lessons, count, serviceErr := c.services.FindPaginatedPublishedLessons(
 		userCtx,
 		services.FindPaginatedLessonsOptions{
+			RequestID:    requestID,
 			LanguageSlug: params.LanguageSlug,
 			SeriesSlug:   params.SeriesSlug,
 			SectionID:    sectionIDi32,
@@ -405,8 +409,7 @@ func (c *Controllers) GetLessons(ctx *fiber.Ctx) error {
 		dtos.NewPaginatedResponse(
 			c.backendDomain,
 			fmt.Sprintf(
-				"https://%s%s/%s%s/%s%s/%d%s",
-				c.backendDomain,
+				"%s/%s%s/%s%s/%d%s",
 				paths.LanguagePathV1,
 				languageSlug,
 				paths.SeriesPath,
@@ -426,20 +429,19 @@ func (c *Controllers) GetLessons(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) UpdateLesson(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.UpdateLesson")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	lessonID := ctx.Params("lessonID")
-	log.InfoContext(
-		userCtx,
-		"Updating lesson...",
+	log := c.buildLogger(ctx, requestID, lessonLocation, "UpdateLesson").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
+		"sectionId", sectionID,
 		"lessonID", lessonID,
 	)
+	log.InfoContext(userCtx, "Updating lesson...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
@@ -490,6 +492,7 @@ func (c *Controllers) UpdateLesson(ctx *fiber.Ctx) error {
 	sectionIDi32 := int32(parsedSectionID)
 	lessonIDi32 := int32(parsedLessonID)
 	lesson, serviceErr := c.services.UpdateLesson(userCtx, services.UpdateLessonOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
@@ -506,7 +509,13 @@ func (c *Controllers) UpdateLesson(ctx *fiber.Ctx) error {
 	var articleID pgtype.Int4
 	var articleContent string
 	if lesson.ReadTimeSeconds > 0 {
-		article, serviceErr = c.services.FindLessonArticleByLessonID(userCtx, lesson.ID)
+		article, serviceErr = c.services.FindLessonArticleByLessonID(
+			userCtx,
+			services.FindLessonArticleByLessonIDOptions{
+				RequestID: requestID,
+				LessonID:  lessonIDi32,
+			},
+		)
 		if serviceErr != nil {
 			return c.serviceErrorResponse(serviceErr, ctx)
 		}
@@ -522,7 +531,10 @@ func (c *Controllers) UpdateLesson(ctx *fiber.Ctx) error {
 	var videoID pgtype.Int4
 	var videoURL string
 	if lesson.WatchTimeSeconds > 0 {
-		video, serviceErr = c.services.FindLessonVideoByLessonID(userCtx, lesson.ID)
+		video, serviceErr = c.services.FindLessonVideoByLessonID(userCtx, services.FindLessonVideoByLessonIDOptions{
+			RequestID: requestID,
+			LessonID:  lessonIDi32,
+		})
 		if serviceErr != nil {
 			return c.serviceErrorResponse(serviceErr, ctx)
 		}
@@ -554,20 +566,19 @@ func (c *Controllers) UpdateLesson(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) UpdateLessonIsPublished(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.UpdateLesson")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	lessonID := ctx.Params("lessonID")
-	log.InfoContext(
-		userCtx,
-		"Updating lesson...",
+	log := c.buildLogger(ctx, requestID, lessonLocation, "UpdateLessonIsPublished").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
+		"sectionId", sectionID,
 		"lessonID", lessonID,
 	)
+	log.InfoContext(userCtx, "Updating lesson...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
@@ -618,6 +629,7 @@ func (c *Controllers) UpdateLessonIsPublished(ctx *fiber.Ctx) error {
 	sectionIDi32 := int32(parsedSectionID)
 	lessonIDi32 := int32(parsedLessonID)
 	lesson, serviceErr := c.services.UpdateLessonIsPublished(userCtx, services.UpdateLessonIsPublishedOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
@@ -633,7 +645,13 @@ func (c *Controllers) UpdateLessonIsPublished(ctx *fiber.Ctx) error {
 	var articleID pgtype.Int4
 	var articleContent string
 	if lesson.ReadTimeSeconds > 0 {
-		article, serviceErr = c.services.FindLessonArticleByLessonID(userCtx, lesson.ID)
+		article, serviceErr = c.services.FindLessonArticleByLessonID(
+			userCtx,
+			services.FindLessonArticleByLessonIDOptions{
+				RequestID: requestID,
+				LessonID:  lessonIDi32,
+			},
+		)
 		if serviceErr != nil {
 			return c.serviceErrorResponse(serviceErr, ctx)
 		}
@@ -649,7 +667,10 @@ func (c *Controllers) UpdateLessonIsPublished(ctx *fiber.Ctx) error {
 	var videoID pgtype.Int4
 	var videoURL string
 	if lesson.WatchTimeSeconds > 0 {
-		video, serviceErr = c.services.FindLessonVideoByLessonID(userCtx, lesson.ID)
+		video, serviceErr = c.services.FindLessonVideoByLessonID(userCtx, services.FindLessonVideoByLessonIDOptions{
+			RequestID: requestID,
+			LessonID:  lessonIDi32,
+		})
 		if serviceErr != nil {
 			return c.serviceErrorResponse(serviceErr, ctx)
 		}
@@ -681,20 +702,19 @@ func (c *Controllers) UpdateLessonIsPublished(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) DeleteLesson(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.DeleteLesson")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	lessonID := ctx.Params("lessonID")
-	log.InfoContext(
-		userCtx,
-		"Updating lesson...",
+	log := c.buildLogger(ctx, requestID, lessonLocation, "DeleteLesson").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
+		"sectionId", sectionID,
 		"lessonID", lessonID,
 	)
+	log.InfoContext(userCtx, "Deleting lesson...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
@@ -737,6 +757,7 @@ func (c *Controllers) DeleteLesson(ctx *fiber.Ctx) error {
 	sectionIDi32 := int32(parsedSectionID)
 	lessonIDi32 := int32(parsedLessonID)
 	opts := services.DeleteLessonOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,

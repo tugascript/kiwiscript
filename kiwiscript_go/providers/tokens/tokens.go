@@ -84,19 +84,3 @@ func NewTokens(accessData, refreshData, emailData, oauthData TokenSecretData, ur
 		iss:         url,
 	}
 }
-
-func (t *Tokens) GetAccessTtl() int64 {
-	return t.accessData.ttlSec
-}
-
-func (t *Tokens) GetRefreshTtl() int64 {
-	return t.refreshData.ttlSec
-}
-
-func (t *Tokens) GetEmailTtl() int64 {
-	return t.emailData.ttlSec
-}
-
-func (t *Tokens) GetOAuthTtl() int64 {
-	return t.oauthData.ttlSec
-}

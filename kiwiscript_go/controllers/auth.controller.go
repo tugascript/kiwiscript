@@ -26,6 +26,8 @@ import (
 	"github.com/kiwiscript/kiwiscript_go/utils"
 )
 
+const authLocation string = "auth"
+
 type passwordValidity struct {
 	hasLowercase bool
 	hasUppercase bool
@@ -71,16 +73,19 @@ func (c *Controllers) processAuthResponse(ctx *fiber.Ctx, authRes *services.Auth
 }
 
 func (c *Controllers) SignUp(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.auth.SignUp")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
-	var request dtos.SignUpBody
+	log := c.buildLogger(ctx, requestID, authLocation, "SignUp")
+	log.InfoContext(userCtx, "Signing up...")
 
+	var request dtos.SignUpBody
 	if err := ctx.BodyParser(&request); err != nil {
 		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 	}
 	if err := c.validate.StructCtx(userCtx, request); err != nil {
 		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
+
 	if err := passwordValidator(request.Password1); err != nil {
 		log.WarnContext(userCtx, "Failed to validate password", "error", err)
 		return ctx.
@@ -91,6 +96,7 @@ func (c *Controllers) SignUp(ctx *fiber.Ctx) error {
 	}
 
 	opts := services.SignUpOptions{
+		RequestID: requestID,
 		Email:     utils.Lowered(request.Email),
 		FirstName: utils.Capitalized(request.FirstName),
 		LastName:  utils.Capitalized(request.LastName),
@@ -107,10 +113,12 @@ func (c *Controllers) SignUp(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) SignIn(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.auth.SignIn")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
-	var request dtos.SignInBody
+	log := c.buildLogger(ctx, requestID, authLocation, "SignIn")
+	log.InfoContext(userCtx, "Signing in...")
 
+	var request dtos.SignInBody
 	if err := ctx.BodyParser(&request); err != nil {
 		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 	}
@@ -119,8 +127,9 @@ func (c *Controllers) SignIn(ctx *fiber.Ctx) error {
 	}
 
 	opts := services.SignInOptions{
-		Email:    utils.Lowered(request.Email),
-		Password: request.Password,
+		RequestID: requestID,
+		Email:     utils.Lowered(request.Email),
+		Password:  request.Password,
 	}
 	if serviceErr := c.services.SignIn(userCtx, opts); serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
@@ -132,10 +141,12 @@ func (c *Controllers) SignIn(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) ConfirmSignIn(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.auth.ConfirmSignIn")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
-	var request dtos.ConfirmSignInBody
+	log := c.buildLogger(ctx, requestID, authLocation, "ConfirmSignIn")
+	log.InfoContext(userCtx, "Confirming sign in...")
 
+	var request dtos.ConfirmSignInBody
 	if err := ctx.BodyParser(&request); err != nil {
 		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 	}
@@ -143,9 +154,10 @@ func (c *Controllers) ConfirmSignIn(ctx *fiber.Ctx) error {
 		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
 
-	authRes, serviceErr := c.services.TwoFactor(ctx.UserContext(), services.TwoFactorOptions{
-		Email: request.Email,
-		Code:  request.Code,
+	authRes, serviceErr := c.services.TwoFactor(userCtx, services.TwoFactorOptions{
+		RequestID: requestID,
+		Email:     request.Email,
+		Code:      request.Code,
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
@@ -155,11 +167,12 @@ func (c *Controllers) ConfirmSignIn(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) SignOut(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.auth.SignOut")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
-	refreshToken := ctx.Cookies(c.refreshCookieName)
+	log := c.buildLogger(ctx, requestID, authLocation, "SignOut")
+	log.InfoContext(userCtx, "Signing out...")
 
-	log.Info("SignOut", "refreshToken", refreshToken)
+	refreshToken := ctx.Cookies(c.refreshCookieName)
 	if refreshToken == "" {
 		var request dtos.SignOutBody
 
@@ -172,7 +185,12 @@ func (c *Controllers) SignOut(ctx *fiber.Ctx) error {
 
 		refreshToken = request.RefreshToken
 	}
-	if serviceErr := c.services.SignOut(ctx.UserContext(), refreshToken); serviceErr != nil {
+
+	opts := services.SignOutOptions{
+		RequestID: requestID,
+		Token:     refreshToken,
+	}
+	if serviceErr := c.services.SignOut(userCtx, opts); serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
@@ -180,10 +198,12 @@ func (c *Controllers) SignOut(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) Refresh(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.auth.Refresh")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
-	refreshToken := ctx.Cookies(c.refreshCookieName)
+	log := c.buildLogger(ctx, requestID, authLocation, "Refresh")
+	log.InfoContext(userCtx, "Refreshing access token...")
 
+	refreshToken := ctx.Cookies(c.refreshCookieName)
 	if refreshToken == "" {
 		var request dtos.RefreshBody
 
@@ -197,7 +217,10 @@ func (c *Controllers) Refresh(ctx *fiber.Ctx) error {
 		refreshToken = request.RefreshToken
 	}
 
-	authRes, serviceErr := c.services.Refresh(ctx.UserContext(), refreshToken)
+	authRes, serviceErr := c.services.Refresh(userCtx, services.RefreshOptions{
+		RequestID: requestID,
+		Token:     refreshToken,
+	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
@@ -206,10 +229,12 @@ func (c *Controllers) Refresh(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) ConfirmEmail(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.auth.ConfirmEmail")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
-	var request dtos.ConfirmBody
+	log := c.buildLogger(ctx, requestID, authLocation, "ConfirmEmail")
+	log.InfoContext(userCtx, "Confirming user email...")
 
+	var request dtos.ConfirmBody
 	if err := ctx.BodyParser(&request); err != nil {
 		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 	}
@@ -217,7 +242,10 @@ func (c *Controllers) ConfirmEmail(ctx *fiber.Ctx) error {
 		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
 
-	authRes, serviceErr := c.services.ConfirmEmail(ctx.UserContext(), request.ConfirmationToken)
+	authRes, serviceErr := c.services.ConfirmEmail(userCtx, services.ConfirmEmailOptions{
+		RequestID: requestID,
+		Token:     request.ConfirmationToken,
+	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
@@ -226,17 +254,24 @@ func (c *Controllers) ConfirmEmail(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) ForgotPassword(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.auth.ForgotPassword")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
-	var request dtos.ForgotPasswordBody
+	log := c.buildLogger(ctx, requestID, authLocation, "ForgotPassword")
+	log.InfoContext(userCtx, "Sending forgot password email...")
 
+	var request dtos.ForgotPasswordBody
 	if err := ctx.BodyParser(&request); err != nil {
 		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 	}
 	if err := c.validate.Struct(request); err != nil {
 		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
-	if serviceErr := c.services.ForgotPassword(ctx.UserContext(), request.Email); serviceErr != nil {
+
+	opts := services.ForgotPasswordOptions{
+		RequestID: requestID,
+		Email:     utils.Lowered(request.Email),
+	}
+	if serviceErr := c.services.ForgotPassword(userCtx, opts); serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
@@ -246,22 +281,26 @@ func (c *Controllers) ForgotPassword(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) ResetPassword(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.auth.ForgotPassword")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
-	var request dtos.ResetPasswordBody
+	log := c.buildLogger(ctx, requestID, authLocation, "ResetPassword")
+	log.InfoContext(userCtx, "Resetting user password...")
 
+	var request dtos.ResetPasswordBody
 	if err := ctx.BodyParser(&request); err != nil {
 		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
 	}
 	if err := c.validate.Struct(request); err != nil {
 		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
+
 	if serviceErr := passwordValidator(request.Password1); serviceErr != nil {
 		log.WarnContext(userCtx, "Failed to validate password", "error", serviceErr)
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
 	opts := services.ResetPasswordOptions{
+		RequestID:   requestID,
 		ResetToken:  request.ResetToken,
 		NewPassword: request.Password1,
 	}
@@ -275,8 +314,10 @@ func (c *Controllers) ResetPassword(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) UpdatePassword(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.auth.UpdatePassword")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
+	log := c.buildLogger(ctx, requestID, authLocation, "UpdatePassword")
+	log.InfoContext(userCtx, "Updating password...")
 
 	userClaims, err := c.GetUserClaims(ctx)
 	if err != nil {
@@ -295,7 +336,8 @@ func (c *Controllers) UpdatePassword(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(err, ctx)
 	}
 
-	authRes, serviceErr := c.services.UpdatePassword(ctx.UserContext(), services.UpdatePasswordOptions{
+	authRes, serviceErr := c.services.UpdatePassword(userCtx, services.UpdatePasswordOptions{
+		RequestID:   requestID,
 		UserID:      userClaims.ID,
 		UserVersion: userClaims.Version,
 		OldPassword: request.OldPassword,
@@ -309,8 +351,10 @@ func (c *Controllers) UpdatePassword(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) UpdateEmail(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.auth.UpdatePassword")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
+	log := c.buildLogger(ctx, requestID, authLocation, "UpdateEmail")
+	log.InfoContext(userCtx, "Updating email...")
 
 	userClaims, err := c.GetUserClaims(ctx)
 	if err != nil {
@@ -326,7 +370,8 @@ func (c *Controllers) UpdateEmail(ctx *fiber.Ctx) error {
 		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
 
-	authRes, serviceErr := c.services.UpdateEmail(ctx.UserContext(), services.UpdateEmailOptions{
+	authRes, serviceErr := c.services.UpdateEmail(userCtx, services.UpdateEmailOptions{
+		RequestID:   requestID,
 		UserID:      userClaims.ID,
 		UserVersion: userClaims.Version,
 		NewEmail:    request.Email,

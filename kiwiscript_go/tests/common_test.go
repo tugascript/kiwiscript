@@ -106,6 +106,7 @@ func initTestServicesAndApp(t *testing.T) {
 		"https://"+_testConfig.BackendDomain,
 	)
 	mailer := email.NewMail(
+		log,
 		_testConfig.Email.Username,
 		_testConfig.Email.Password,
 		_testConfig.Email.Port,
@@ -114,7 +115,7 @@ func initTestServicesAndApp(t *testing.T) {
 		_testConfig.FrontendDomain,
 	)
 	_testDatabase = db.NewDatabase(dbConnPool)
-	_testCache = cc.NewCache(storage)
+	_testCache = cc.NewCache(log, storage)
 	testObjectStorage := stg.NewObjectStorage(log, s3Client, _testConfig.ObjectStorage.Bucket)
 	testOAuthProvider := oauth.NewOAuthProviders(
 		log,

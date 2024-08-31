@@ -21,14 +21,20 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/kiwiscript/kiwiscript_go/dtos"
 	"github.com/kiwiscript/kiwiscript_go/services"
+	"github.com/kiwiscript/kiwiscript_go/utils"
 	"strconv"
 )
 
+const usersLocation string = "users"
+
 func (c *Controllers) GetUser(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.users.GetUserByID")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	userID := ctx.Params("userID")
-	log.InfoContext(userCtx, "Getting user...", "userId", userID)
+	log := c.buildLogger(ctx, requestID, usersLocation, "GetUser").With(
+		"userID", userID,
+	)
+	log.InfoContext(userCtx, "Getting user...")
 
 	params := dtos.UserPathParams{UserID: userID}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
@@ -46,7 +52,10 @@ func (c *Controllers) GetUser(ctx *fiber.Ctx) error {
 			}}))
 	}
 
-	user, serviceErr := c.services.FindUserByID(userCtx, int32(parsedUserID))
+	user, serviceErr := c.services.FindUserByID(userCtx, services.FindUserByIDOptions{
+		RequestID: requestID,
+		ID:        int32(parsedUserID),
+	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
@@ -67,8 +76,9 @@ func (c *Controllers) GetUser(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) GetMe(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.users.GetMe")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
+	log := c.buildLogger(ctx, requestID, usersLocation, "GetMe")
 	log.InfoContext(userCtx, "Getting me...")
 
 	currentUser, serviceErr := c.GetUserClaims(ctx)
@@ -76,10 +86,82 @@ func (c *Controllers) GetMe(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(services.NewUnauthorizedError(), ctx)
 	}
 
-	user, serviceErr := c.services.FindUserByID(userCtx, currentUser.ID)
+	user, serviceErr := c.services.FindUserByID(userCtx, services.FindUserByIDOptions{
+		RequestID: requestID,
+		ID:        currentUser.ID,
+	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
 	return ctx.JSON(dtos.NewUserResponse(c.backendDomain, user.ToUserModel()))
+}
+
+func (c *Controllers) UpdateCurrentAccount(ctx *fiber.Ctx) error {
+	requestID := c.requestID(ctx)
+	userCtx := ctx.UserContext()
+	log := c.buildLogger(ctx, requestID, usersLocation, "UpdateCurrentAccount")
+	log.InfoContext(userCtx, "Updating me...")
+
+	currentUser, serviceErr := c.GetUserClaims(ctx)
+	if serviceErr != nil {
+		return c.serviceErrorResponse(services.NewUnauthorizedError(), ctx)
+	}
+
+	var body dtos.UpdateUserBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
+	}
+	if err := c.validate.StructCtx(userCtx, body); err != nil {
+		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
+	}
+
+	user, serviceErr := c.services.UpdateUser(userCtx, services.UpdateUserOptions{
+		RequestID: requestID,
+		ID:        currentUser.ID,
+		FirstName: utils.Capitalized(body.FirstName),
+		LastName:  utils.Capitalized(body.LastName),
+		Location:  utils.Uppercased(body.Location),
+	})
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	return ctx.JSON(dtos.NewUserResponse(c.backendDomain, user.ToUserModel()))
+}
+
+func (c *Controllers) DeleteCurrentAccount(ctx *fiber.Ctx) error {
+	requestID := c.requestID(ctx)
+	userCtx := ctx.UserContext()
+	log := c.buildLogger(ctx, requestID, usersLocation, "DeleteCurrentAccount")
+	log.InfoContext(userCtx, "Deleting me...")
+
+	currentUser, serviceErr := c.GetUserClaims(ctx)
+	if serviceErr != nil {
+		return c.serviceErrorResponse(services.NewUnauthorizedError(), ctx)
+	}
+
+	if currentUser.IsAdmin || currentUser.IsStaff {
+		log.WarnContext(userCtx, "Staff and admin users cannot delete their accounts")
+		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+	}
+
+	var body dtos.DeleteUserBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
+	}
+	if err := c.validate.StructCtx(userCtx, body); err != nil {
+		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
+	}
+
+	serviceErr = c.services.DeleteUser(userCtx, services.DeleteUserOptions{
+		RequestID: requestID,
+		ID:        currentUser.ID,
+		Password:  body.Password,
+	})
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	return ctx.SendStatus(fiber.StatusNoContent)
 }

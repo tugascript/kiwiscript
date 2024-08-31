@@ -28,14 +28,18 @@ import (
 	"github.com/kiwiscript/kiwiscript_go/services"
 )
 
-// TODO: add get lessons
+const sectionsLocation string = "sections"
 
 func (c *Controllers) CreateSection(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.CreateSection")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
-	log.InfoContext(userCtx, "Creating series part...", "languageSlug", languageSlug, "seriesSlug", seriesSlug)
+	log := c.buildLogger(ctx, requestID, sectionsLocation, "CreateSection").With(
+		"languageSlug", languageSlug,
+		"seriesSlug", seriesSlug,
+	)
+	log.InfoContext(userCtx, "Creating section...")
 
 	user, err := c.GetUserClaims(ctx)
 	if err != nil || !user.IsStaff {
@@ -60,6 +64,7 @@ func (c *Controllers) CreateSection(ctx *fiber.Ctx) error {
 	}
 
 	section, serviceErr := c.services.CreateSection(userCtx, services.CreateSectionOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
@@ -76,12 +81,17 @@ func (c *Controllers) CreateSection(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) GetSection(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.GetSingleSeries")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
-	log.InfoContext(userCtx, "Getting series part...", "languageSlug", languageSlug, "seriesSlug", seriesSlug, "sectionID", sectionID)
+	log := c.buildLogger(ctx, requestID, sectionsLocation, "GetSection").With(
+		"languageSlug", languageSlug,
+		"seriesSlug", seriesSlug,
+		"sectionId", sectionID,
+	)
+	log.InfoContext(userCtx, "Getting section...")
 
 	params := dtos.SectionPathParams{
 		LanguageSlug: languageSlug,
@@ -107,6 +117,7 @@ func (c *Controllers) GetSection(ctx *fiber.Ctx) error {
 	if user, serviceErr := c.GetUserClaims(ctx); serviceErr == nil {
 		if user.IsStaff {
 			section, serviceErr := c.services.FindSectionBySlugsAndID(userCtx, services.FindSectionBySlugsAndIDOptions{
+				RequestID:    requestID,
 				LanguageSlug: params.LanguageSlug,
 				SeriesSlug:   params.SeriesSlug,
 				SectionID:    parsedSectionIDi32,
@@ -121,6 +132,7 @@ func (c *Controllers) GetSection(ctx *fiber.Ctx) error {
 		servicePart, serviceErr := c.services.FindPublishedSectionBySlugsAndIDWithProgress(
 			userCtx,
 			services.FindPublishedSectionBySlugsAndIDWithProgressOptions{
+				RequestID:    requestID,
 				UserID:       user.ID,
 				LanguageSlug: params.LanguageSlug,
 				SeriesSlug:   params.SeriesSlug,
@@ -135,6 +147,7 @@ func (c *Controllers) GetSection(ctx *fiber.Ctx) error {
 	}
 
 	section, serviceErr := c.services.FindPublishedSectionBySlugsAndID(userCtx, services.FindSectionBySlugsAndIDOptions{
+		RequestID:    requestID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
 		SectionID:    int32(parsedSectionID),
@@ -147,11 +160,15 @@ func (c *Controllers) GetSection(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) GetSections(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.GetSingleSeries")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
-	log.InfoContext(userCtx, "Getting series parts...", "languageSlug", languageSlug, "seriesSlug", seriesSlug)
+	log := c.buildLogger(ctx, requestID, sectionsLocation, "GetSections").With(
+		"languageSlug", languageSlug,
+		"seriesSlug", seriesSlug,
+	)
+	log.InfoContext(userCtx, "Getting sections...")
 
 	params := dtos.SeriesPathParams{
 		LanguageSlug: languageSlug,
@@ -174,6 +191,7 @@ func (c *Controllers) GetSections(ctx *fiber.Ctx) error {
 			sections, count, serviceErr := c.services.FindPaginatedSectionsBySlugs(
 				userCtx,
 				services.FindPaginatedSectionsBySlugsOptions{
+					RequestID:    requestID,
 					LanguageSlug: params.LanguageSlug,
 					SeriesSlug:   params.SeriesSlug,
 					Offset:       queryParams.Offset,
@@ -208,6 +226,7 @@ func (c *Controllers) GetSections(ctx *fiber.Ctx) error {
 		sections, count, serviceErr := c.services.FindPaginatedPublishedSectionsBySlugsWithProgress(
 			userCtx,
 			services.FindSectionBySlugsAndIDWithProgressOptions{
+				RequestID:    requestID,
 				UserID:       user.ID,
 				LanguageSlug: params.LanguageSlug,
 				SeriesSlug:   params.SeriesSlug,
@@ -243,6 +262,7 @@ func (c *Controllers) GetSections(ctx *fiber.Ctx) error {
 	sections, count, serviceErr := c.services.FindPaginatedPublishedSectionsBySlugs(
 		userCtx,
 		services.FindPaginatedSectionsBySlugsOptions{
+			RequestID:    requestID,
 			LanguageSlug: params.LanguageSlug,
 			SeriesSlug:   params.SeriesSlug,
 			Offset:       queryParams.Offset,
@@ -275,21 +295,17 @@ func (c *Controllers) GetSections(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) UpdateSection(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.UpdateSingleSeries")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
-	log.InfoContext(
-		userCtx,
-		"Updating series part...",
-		"languageSlug",
-		languageSlug,
-		"seriesSlug",
-		seriesSlug,
-		"sectionID",
-		sectionID,
+	log := c.buildLogger(ctx, requestID, sectionsLocation, "UpdateSection").With(
+		"languageSlug", languageSlug,
+		"seriesSlug", seriesSlug,
+		"sectionId", sectionID,
 	)
+	log.InfoContext(userCtx, "Updating series part...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
@@ -326,6 +342,7 @@ func (c *Controllers) UpdateSection(ctx *fiber.Ctx) error {
 	}
 
 	section, serviceErr := c.services.UpdateSection(userCtx, services.UpdateSectionOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
@@ -342,21 +359,17 @@ func (c *Controllers) UpdateSection(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) UpdateSectionIsPublished(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.UpdateSingleSeries")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
-	log.InfoContext(
-		userCtx,
-		"Updating series part...",
-		"languageSlug",
-		languageSlug,
-		"seriesSlug",
-		seriesSlug,
-		"sectionID",
-		sectionID,
+	log := c.buildLogger(ctx, requestID, sectionsLocation, "UpdateSectionIsPublished").With(
+		"languageSlug", languageSlug,
+		"seriesSlug", seriesSlug,
+		"sectionId", sectionID,
 	)
+	log.InfoContext(userCtx, "Updating section is published...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
@@ -393,6 +406,7 @@ func (c *Controllers) UpdateSectionIsPublished(ctx *fiber.Ctx) error {
 	}
 
 	section, serviceErr := c.services.UpdateSectionIsPublished(userCtx, services.UpdateSectionIsPublishedOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
@@ -407,21 +421,17 @@ func (c *Controllers) UpdateSectionIsPublished(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) DeleteSection(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.UpdateSingleSeries")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
-	log.InfoContext(
-		userCtx,
-		"Updating series part...",
-		"languageSlug",
-		languageSlug,
-		"seriesSlug",
-		seriesSlug,
-		"sectionID",
-		sectionID,
+	log := c.buildLogger(ctx, requestID, sectionsLocation, "DeleteSection").With(
+		"languageSlug", languageSlug,
+		"seriesSlug", seriesSlug,
+		"sectionID", sectionID,
 	)
+	log.InfoContext(userCtx, "Updating series part...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
@@ -450,6 +460,7 @@ func (c *Controllers) DeleteSection(ctx *fiber.Ctx) error {
 	}
 
 	serviceErr = c.services.DeleteSection(userCtx, services.DeleteSectionOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,

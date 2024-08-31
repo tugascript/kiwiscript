@@ -24,21 +24,22 @@ import (
 	"strconv"
 )
 
+const lessonArticlesLocation string = "lesson_articles"
+
 func (c *Controllers) CreateLessonArticle(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.CreateLessonActicle")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	lectureID := ctx.Params("lectureID")
-	log.InfoContext(
-		userCtx,
-		"Creating lecture article...",
+	log := c.buildLogger(ctx, requestID, lessonArticlesLocation, "CreateLessonArticle").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
 		"sectionID", sectionID,
 		"lectureID", lectureID,
 	)
+	log.InfoContext(userCtx, "Creating lecture article...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
@@ -89,6 +90,7 @@ func (c *Controllers) CreateLessonArticle(ctx *fiber.Ctx) error {
 	sectionIDi32 := int32(parsedSectionID)
 	lectureIDi32 := int32(parsedLessonID)
 	article, serviceErr := c.services.CreateLessonArticle(userCtx, services.CreateLessonArticleOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
@@ -114,20 +116,19 @@ func (c *Controllers) CreateLessonArticle(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) GetLessonArticle(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.CreateLessonActicle")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	lectureID := ctx.Params("lectureID")
-	log.InfoContext(
-		userCtx,
-		"Creating lecture article...",
+	log := c.buildLogger(ctx, requestID, lessonArticlesLocation, "GetLessonArticle").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
-		"lectureID", lectureID,
+		"sectionId", sectionID,
+		"lectureId", lectureID,
 	)
+	log.InfoContext(userCtx, "Creating lecture article...")
 
 	params := dtos.LessonPathParams{
 		LanguageSlug: languageSlug,
@@ -169,6 +170,7 @@ func (c *Controllers) GetLessonArticle(ctx *fiber.Ctx) error {
 	}
 
 	article, serviceErr := c.services.FindLessonArticle(userCtx, services.FindLessonArticleOptions{
+		RequestID:    requestID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
 		SectionID:    sectionIDi32,
@@ -193,20 +195,19 @@ func (c *Controllers) GetLessonArticle(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) UpdateLessonArticle(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.UpdateLessonArticle")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	lectureID := ctx.Params("lectureID")
-	log.InfoContext(
-		userCtx,
-		"Updating lecture article...",
+	log := c.buildLogger(ctx, requestID, lessonArticlesLocation, "UpdateLessonArticle").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
 		"sectionID", sectionID,
 		"lectureID", lectureID,
 	)
+	log.InfoContext(userCtx, "Updating lecture article...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
@@ -257,6 +258,7 @@ func (c *Controllers) UpdateLessonArticle(ctx *fiber.Ctx) error {
 	sectionIDi32 := int32(parsedSectionID)
 	lectureIDi32 := int32(parsedLessonID)
 	article, serviceErr := c.services.UpdateLessonArticle(userCtx, services.UpdateLessonArticleOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
@@ -281,20 +283,19 @@ func (c *Controllers) UpdateLessonArticle(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) DeleteLessonArticle(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.DeleteLessonArticle")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	lectureID := ctx.Params("lectureID")
-	log.InfoContext(
-		userCtx,
-		"Delete lecture article...",
+	log := c.buildLogger(ctx, requestID, lessonArticlesLocation, "DeleteLessonArticle").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
 		"sectionID", sectionID,
 		"lectureID", lectureID,
 	)
+	log.InfoContext(userCtx, "Delete lecture article...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
@@ -337,6 +338,7 @@ func (c *Controllers) DeleteLessonArticle(ctx *fiber.Ctx) error {
 	sectionIDi32 := int32(parsedSectionID)
 	lectureIDi32 := int32(parsedLessonID)
 	opts := services.DeleteLessonArticleOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,

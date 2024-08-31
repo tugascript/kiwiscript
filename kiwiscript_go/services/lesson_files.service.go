@@ -21,10 +21,14 @@ import (
 	"context"
 	"github.com/google/uuid"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
+	objStg "github.com/kiwiscript/kiwiscript_go/providers/object_storage"
 	"mime/multipart"
 )
 
+const lessonFilesLocation string = "lesson_files"
+
 type UploadLessonFileOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -38,20 +42,18 @@ func (s *Services) UploadLessonFile(
 	ctx context.Context,
 	opts UploadLessonFileOptions,
 ) (*db.LessonFile, *ServiceError) {
-	log := s.
-		log.
-		WithGroup("services.lessonFiles.UploadLessonFile").
-		With(
-			"userId", opts.UserID,
-			"languageSlug", opts.LanguageSlug,
-			"seriesSlug", opts.SeriesSlug,
-			"sectionId", opts.SectionID,
-			"lessonId", opts.LessonID,
-			"name", opts.Name,
-		)
+	log := s.buildLogger(opts.RequestID, lessonFilesLocation, "UploadLessonFile").With(
+		"userId", opts.UserID,
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+		"sectionId", opts.SectionID,
+		"lessonId", opts.LessonID,
+		"name", opts.Name,
+	)
 	log.InfoContext(ctx, "Uploading lesson file...")
 
 	lessonOpts := AssertLessonOwnershipOptions{
+		RequestID:    opts.RequestID,
 		UserID:       opts.UserID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
@@ -62,7 +64,11 @@ func (s *Services) UploadLessonFile(
 		return nil, serviceErr
 	}
 
-	fileId, docExt, err := s.objStg.UploadDocument(ctx, opts.UserID, opts.FileHeader)
+	fileId, docExt, err := s.objStg.UploadDocument(ctx, objStg.UploadDocumentOptions{
+		RequestID: opts.RequestID,
+		UserId:    opts.UserID,
+		FH:        opts.FileHeader,
+	})
 	if err != nil {
 		log.ErrorContext(ctx, "Error uploading document", "error", err)
 		return nil, NewServerError()
@@ -84,6 +90,7 @@ func (s *Services) UploadLessonFile(
 }
 
 type DeleteLessonFileOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -96,10 +103,13 @@ func (s *Services) DeleteLessonFile(
 	ctx context.Context,
 	opts DeleteLessonFileOptions,
 ) *ServiceError {
-	log := s.
-		log.
-		WithGroup("services.lessonFiles.DeleteLessonFile").
-		With("file", opts.File.String())
+	log := s.buildLogger(opts.RequestID, lessonFilesLocation, "DeleteLessonFile").With(
+		"userId", opts.UserID,
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+		"sectionId", opts.SectionID,
+		"lessonId", opts.LessonID,
+	)
 	log.InfoContext(ctx, "Deleting lesson file...")
 
 	lessonOpts := AssertLessonOwnershipOptions{
@@ -142,6 +152,7 @@ func (s *Services) DeleteLessonFile(
 }
 
 type FindLessonFileOptions struct {
+	RequestID    string
 	LanguageSlug string
 	SeriesSlug   string
 	SectionID    int32
@@ -154,10 +165,13 @@ func (s *Services) FindLessonFile(
 	ctx context.Context,
 	opts FindLessonFileOptions,
 ) (*db.LessonFile, *ServiceError) {
-	log := s.
-		log.
-		WithGroup("services.lessonFiles.GetLessonFile").
-		With("file", opts.File.String())
+	log := s.buildLogger(opts.RequestID, lessonFilesLocation, "FindLessonFile").With(
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+		"sectionId", opts.SectionID,
+		"lessonId", opts.LessonID,
+		"file", opts.File.String(),
+	)
 	log.InfoContext(ctx, "Getting lesson file...")
 
 	lesson, serviceErr := s.FindLessonBySlugsAndIDs(ctx, FindLessonOptions{
@@ -188,6 +202,7 @@ func (s *Services) FindLessonFile(
 }
 
 type FindLessonFilesOptions struct {
+	RequestID    string
 	LanguageSlug string
 	SeriesSlug   string
 	SectionID    int32
@@ -199,15 +214,17 @@ func (s *Services) FindLessonFiles(
 	ctx context.Context,
 	opts FindLessonFilesOptions,
 ) ([]db.LessonFile, *ServiceError) {
-	log := s.log.WithGroup("services.lessonFiles.FindLessonFiles").With(
+	log := s.buildLogger(opts.RequestID, lessonFilesLocation, "FindLessonFiles").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
 		"seriesPartId", opts.SectionID,
 		"lessonId", opts.LessonID,
+		"isPublished", opts.IsPublished,
 	)
 	log.InfoContext(ctx, "Getting lesson files...")
 
 	lesson, serviceErr := s.FindLessonBySlugsAndIDs(ctx, FindLessonOptions{
+		RequestID:    opts.RequestID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
 		SectionID:    opts.SectionID,
@@ -247,6 +264,7 @@ func (s *Services) FindLessonFilesWithNoCheck(ctx context.Context, lessonID int3
 }
 
 type UpdateLessonFileOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -260,10 +278,14 @@ func (s *Services) UpdateLessonFile(
 	ctx context.Context,
 	opts UpdateLessonFileOptions,
 ) (*db.LessonFile, *ServiceError) {
-	log := s.
-		log.
-		WithGroup("services.lessonFiles.UpdateLessonFile").
-		With("file", opts.File.String())
+	log := s.buildLogger(opts.RequestID, lessonFilesLocation, "UpdateLessonFile").With(
+		"userId", opts.UserID,
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+		"sectionId", opts.SectionID,
+		"lessonId", opts.LessonID,
+		"name", opts.Name,
+	)
 	log.InfoContext(ctx, "Updating lesson file...")
 
 	lessonOpts := AssertLessonOwnershipOptions{

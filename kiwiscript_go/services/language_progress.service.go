@@ -22,7 +22,10 @@ import (
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 )
 
+const languageProgressLocation string = "languageProgress"
+
 type FindLanguageProgressOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 }
@@ -48,6 +51,7 @@ func (s *Services) FindLanguageProgressBySlug(ctx context.Context, opts FindLang
 }
 
 type CreateOrUpdateLanguageProgressOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 }
@@ -73,8 +77,11 @@ func (s *Services) CreateOrUpdateLanguageProgress(
 	ctx context.Context,
 	opts CreateOrUpdateLanguageProgressOptions,
 ) (*db.Language, *db.LanguageProgress, *ServiceError) {
-	log := s.log.WithGroup("service.language.UpdateLanguageProgress").With("userID", opts.UserID, "languageSlug", opts.LanguageSlug)
-	log.InfoContext(ctx, "Updating language progress")
+	log := s.buildLogger(opts.RequestID, languageProgressLocation, "CreateOrUpdateLanguageProgress").With(
+		"userID", opts.UserID,
+		"languageSlug", opts.LanguageSlug,
+	)
+	log.InfoContext(ctx, "Updating language progress...")
 
 	language, serviceErr := s.FindLanguageBySlug(ctx, opts.LanguageSlug)
 	if serviceErr != nil {
@@ -105,20 +112,24 @@ func (s *Services) CreateOrUpdateLanguageProgress(
 }
 
 type DeleteLanguageProgressOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 }
 
 func (s *Services) DeleteLanguageProgress(ctx context.Context, opts DeleteLanguageProgressOptions) *ServiceError {
-	log := s.log.WithGroup("service.language.DeleteLanguageProgress").With("userID", opts.UserID, "languageSlug", opts.LanguageSlug)
-	log.InfoContext(ctx, "Deleting language progress")
+	log := s.buildLogger(opts.RequestID, languageProgressLocation, "DeleteLanguageProgress").With(
+		"userID", opts.UserID,
+		"languageSlug", opts.LanguageSlug,
+	)
+	log.InfoContext(ctx, "Deleting language progress...")
 
 	languageProgress, serviceErr := s.FindLanguageProgressBySlug(ctx, FindLanguageProgressOptions{
 		UserID:       opts.UserID,
 		LanguageSlug: opts.LanguageSlug,
 	})
 	if serviceErr != nil {
-		log.InfoContext(ctx, "Language progress not found")
+		log.WarnContext(ctx, "Language progress not found")
 		return serviceErr
 	}
 

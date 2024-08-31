@@ -27,6 +27,8 @@ import (
 	"strconv"
 )
 
+const oauthLocation string = "oauth"
+
 func (c *Controllers) generateOAuthAcceptURL(ctx *fiber.Ctx, response *services.OAuthResponse) error {
 	params := make(url.Values)
 	params.Add("code", response.Code)
@@ -38,11 +40,15 @@ func (c *Controllers) generateOAuthAcceptURL(ctx *fiber.Ctx, response *services.
 }
 
 func (c *Controllers) GitHubSignIn(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.oauth.GitHubSignIn")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
+	log := c.buildLogger(ctx, requestID, oauthLocation, "GitHubSignIn")
 	log.InfoContext(userCtx, "Signing up with GitHub...")
 
-	authUrl, serviceErr := c.services.GetAuthorizationURL(userCtx, utils.ProviderGitHub)
+	authUrl, serviceErr := c.services.GetAuthorizationURL(userCtx, services.GetAuthorizationURLOptions{
+		RequestID: requestID,
+		Provider:  utils.ProviderGitHub,
+	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
@@ -52,8 +58,9 @@ func (c *Controllers) GitHubSignIn(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) GitHubCallback(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.oauth.GitHubCallback")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
+	log := c.buildLogger(ctx, requestID, oauthLocation, "GitHubCallback")
 	log.InfoContext(userCtx, "Getting GitHub token...")
 
 	queryParams := dtos.OAuthTokenParams{
@@ -65,17 +72,19 @@ func (c *Controllers) GitHubCallback(ctx *fiber.Ctx) error {
 	}
 
 	token, serviceErr := c.services.GetOAuthToken(userCtx, services.GetOAuthTokenOptions{
-		Provider: utils.ProviderGitHub,
-		Code:     queryParams.Code,
-		State:    queryParams.State,
+		RequestID: requestID,
+		Provider:  utils.ProviderGitHub,
+		Code:      queryParams.Code,
+		State:     queryParams.State,
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
 	response, serviceErr := c.services.ExtOAuthSignIn(userCtx, services.ExtOAuthSignInOptions{
-		Provider: utils.ProviderGitHub,
-		Token:    token,
+		RequestID: requestID,
+		Provider:  utils.ProviderGitHub,
+		Token:     token,
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
@@ -85,11 +94,15 @@ func (c *Controllers) GitHubCallback(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) GoogleSignIn(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.oauth.GoogleSignIn")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
+	log := c.buildLogger(ctx, requestID, oauthLocation, "GoogleSignIn")
 	log.InfoContext(userCtx, "Signing up with Google...")
 
-	authUrl, serviceErr := c.services.GetAuthorizationURL(userCtx, utils.ProviderGoogle)
+	authUrl, serviceErr := c.services.GetAuthorizationURL(userCtx, services.GetAuthorizationURLOptions{
+		RequestID: requestID,
+		Provider:  utils.ProviderGitHub,
+	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
@@ -99,8 +112,9 @@ func (c *Controllers) GoogleSignIn(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) GoogleCallback(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.oauth.GoogleCallback")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
+	log := c.buildLogger(ctx, requestID, oauthLocation, "GoogleCallback")
 	log.InfoContext(userCtx, "Getting Google token...")
 
 	queryParams := dtos.OAuthTokenParams{
@@ -112,17 +126,19 @@ func (c *Controllers) GoogleCallback(ctx *fiber.Ctx) error {
 	}
 
 	token, serviceErr := c.services.GetOAuthToken(userCtx, services.GetOAuthTokenOptions{
-		Provider: utils.ProviderGoogle,
-		Code:     queryParams.Code,
-		State:    queryParams.State,
+		RequestID: requestID,
+		Provider:  utils.ProviderGoogle,
+		Code:      queryParams.Code,
+		State:     queryParams.State,
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
 	response, serviceErr := c.services.ExtOAuthSignIn(userCtx, services.ExtOAuthSignInOptions{
-		Provider: utils.ProviderGoogle,
-		Token:    token,
+		RequestID: requestID,
+		Provider:  utils.ProviderGoogle,
+		Token:     token,
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
@@ -132,8 +148,9 @@ func (c *Controllers) GoogleCallback(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) OAuthToken(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.oauth.OAuthToken")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
+	log := c.buildLogger(ctx, requestID, oauthLocation, "OAuthToken")
 	log.InfoContext(userCtx, "Generating oauth token...")
 
 	userClaims, serviceErr := c.services.ProcessOAuthHeader(userCtx, ctx.Get("Authorization"))
@@ -155,6 +172,7 @@ func (c *Controllers) OAuthToken(ctx *fiber.Ctx) error {
 	}
 
 	authRes, serviceErr := c.services.OAuthToken(userCtx, services.IntOAuthSignInOptions{
+		RequestID:   requestID,
 		UserID:      userClaims.ID,
 		UserVersion: userClaims.Version,
 		Code:        body.Code,

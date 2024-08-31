@@ -64,3 +64,7 @@ func (t *Tokens) VerifyRefreshToken(token string) (RefreshUserClaims, string, ti
 	})
 	return claims.User, claims.ID, claims.ExpiresAt.Time, err
 }
+
+func (t *Tokens) GetRefreshTtl() int64 {
+	return t.refreshData.ttlSec
+}

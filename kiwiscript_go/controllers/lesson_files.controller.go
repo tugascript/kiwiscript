@@ -26,23 +26,22 @@ import (
 	"strconv"
 )
 
+const lessonFilesLocation string = "lesson_files"
+
 func (c *Controllers) UploadLessonFile(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.lesson_files.UploadLessonFile")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	lessonID := ctx.Params("lessonID")
-	name := ctx.FormValue("name")
-	log.InfoContext(
-		userCtx,
-		"Uploading lesson file...",
+	log := c.buildLogger(ctx, requestID, lessonFilesLocation, "UploadLessonFile").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
-		"lessonID", lessonID,
-		"name", name,
+		"sectionId", sectionID,
+		"lessonId", lessonID,
 	)
+	log.InfoContext(userCtx, "Uploading lesson file...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
@@ -92,7 +91,7 @@ func (c *Controllers) UploadLessonFile(ctx *fiber.Ctx) error {
 			}}))
 	}
 
-	request := dtos.LessonFileBody{Name: name}
+	request := dtos.LessonFileBody{Name: ctx.FormValue("name")}
 	if err := c.validate.StructCtx(userCtx, request); err != nil {
 		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
@@ -133,20 +132,19 @@ func (c *Controllers) UploadLessonFile(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) GetLessonFiles(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.lesson_files.GetLessonFiles")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	lessonID := ctx.Params("lessonID")
-	log.InfoContext(
-		userCtx,
-		"Getting lesson files...",
+	log := c.buildLogger(ctx, requestID, lessonFilesLocation, "GetLessonFiles").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
-		"lessonID", lessonID,
+		"sectionId", sectionID,
+		"lessonId", lessonID,
 	)
+	log.InfoContext(userCtx, "Getting lesson files...")
 
 	params := dtos.LessonPathParams{
 		LanguageSlug: languageSlug,
@@ -188,6 +186,7 @@ func (c *Controllers) GetLessonFiles(ctx *fiber.Ctx) error {
 	}
 
 	lessonFiles, serviceErr := c.services.FindLessonFiles(userCtx, services.FindLessonFilesOptions{
+		RequestID:    requestID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
 		SectionID:    sectionIDi32,
@@ -206,9 +205,10 @@ func (c *Controllers) GetLessonFiles(ctx *fiber.Ctx) error {
 	optsList := make([]services.FindFileURLOptions, 0, filesLen)
 	for _, lessonFile := range lessonFiles {
 		optsList = append(optsList, services.FindFileURLOptions{
-			UserID:  lessonFile.AuthorID,
-			FileID:  lessonFile.ID,
-			FileExt: lessonFile.Ext,
+			RequestID: requestID,
+			UserID:    lessonFile.AuthorID,
+			FileID:    lessonFile.ID,
+			FileExt:   lessonFile.Ext,
 		})
 	}
 
@@ -240,22 +240,21 @@ func (c *Controllers) GetLessonFiles(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) GetLessonFile(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.lesson_files.GetLessonFile")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	lessonID := ctx.Params("lessonID")
 	fileID := ctx.Params("fileID")
-	log.InfoContext(
-		userCtx,
-		"Deleting lesson file...",
+	log := c.buildLogger(ctx, requestID, lessonFilesLocation, "GetLessonFile").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
-		"lessonID", lessonID,
-		"fileID", fileID,
+		"sectionId", sectionID,
+		"lessonId", lessonID,
+		"fileId", fileID,
 	)
+	log.InfoContext(userCtx, "Getting lesson file...")
 
 	params := dtos.LessonFilePathParams{
 		LanguageSlug: languageSlug,
@@ -309,6 +308,7 @@ func (c *Controllers) GetLessonFile(ctx *fiber.Ctx) error {
 	}
 
 	lessonFile, serviceErr := c.services.FindLessonFile(userCtx, services.FindLessonFileOptions{
+		RequestID:    requestID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
 		SectionID:    sectionIDi32,
@@ -321,9 +321,10 @@ func (c *Controllers) GetLessonFile(ctx *fiber.Ctx) error {
 	}
 
 	fileUrl, serviceErr := c.services.FindFileURL(userCtx, services.FindFileURLOptions{
-		UserID:  lessonFile.AuthorID,
-		FileID:  lessonFile.ID,
-		FileExt: lessonFile.Ext,
+		RequestID: requestID,
+		UserID:    lessonFile.AuthorID,
+		FileID:    lessonFile.ID,
+		FileExt:   lessonFile.Ext,
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
@@ -341,22 +342,21 @@ func (c *Controllers) GetLessonFile(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) DeleteLessonFile(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.lesson_files.DeleteLessonFile")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	lessonID := ctx.Params("lessonID")
 	fileID := ctx.Params("fileID")
-	log.InfoContext(
-		userCtx,
-		"Deleting lesson file...",
+	log := c.buildLogger(ctx, requestID, lessonFilesLocation, "DeleteLessonFile").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
-		"lessonID", lessonID,
-		"fileID", fileID,
+		"sectionId", sectionID,
+		"lessonId", lessonID,
+		"fileId", fileID,
 	)
+	log.InfoContext(userCtx, "Deleting lesson file...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
@@ -411,6 +411,7 @@ func (c *Controllers) DeleteLessonFile(ctx *fiber.Ctx) error {
 	sectionIDi32 := int32(parsedSectionID)
 	lessonIDi32 := int32(parsedLessonID)
 	opts := services.DeleteLessonFileOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
@@ -426,24 +427,21 @@ func (c *Controllers) DeleteLessonFile(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) UpdateLessonFile(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.lesson_files.UpdateLessonFile")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	lessonID := ctx.Params("lessonID")
 	fileID := ctx.Params("fileID")
-	name := ctx.FormValue("name")
-	log.InfoContext(
-		userCtx,
-		"Updating lesson file...",
+	log := c.buildLogger(ctx, requestID, lessonFilesLocation, "UpdateLessonFile").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
-		"lessonID", lessonID,
-		"fileID", fileID,
-		"name", name,
+		"sectionId", sectionID,
+		"lessonId", lessonID,
+		"fileId", fileID,
 	)
+	log.InfoContext(userCtx, "Updating lesson file...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
@@ -495,7 +493,7 @@ func (c *Controllers) UpdateLessonFile(ctx *fiber.Ctx) error {
 			}}))
 	}
 
-	request := dtos.LessonFileBody{Name: name}
+	request := dtos.LessonFileBody{Name: ctx.FormValue("name")}
 	if err := c.validate.StructCtx(userCtx, request); err != nil {
 		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
@@ -503,6 +501,7 @@ func (c *Controllers) UpdateLessonFile(ctx *fiber.Ctx) error {
 	sectionIDi32 := int32(parsedSectionID)
 	lessonIDi32 := int32(parsedLessonID)
 	lessonFile, serviceErr := c.services.UpdateLessonFile(userCtx, services.UpdateLessonFileOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
@@ -516,9 +515,10 @@ func (c *Controllers) UpdateLessonFile(ctx *fiber.Ctx) error {
 	}
 
 	fileUrl, serviceErr := c.services.FindFileURL(userCtx, services.FindFileURLOptions{
-		UserID:  user.ID,
-		FileID:  lessonFile.ID,
-		FileExt: lessonFile.Ext,
+		RequestID: requestID,
+		UserID:    user.ID,
+		FileID:    lessonFile.ID,
+		FileExt:   lessonFile.Ext,
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)

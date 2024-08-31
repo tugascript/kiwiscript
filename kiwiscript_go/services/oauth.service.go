@@ -19,6 +19,7 @@ package services
 
 import (
 	"context"
+	cc "github.com/kiwiscript/kiwiscript_go/providers/cache"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/providers/oauth"
 	"github.com/kiwiscript/kiwiscript_go/providers/tokens"
@@ -27,17 +28,24 @@ import (
 	"strings"
 )
 
-func (s *Services) GetAuthorizationURL(ctx context.Context, provider string) (string, *ServiceError) {
-	log := s.log.WithGroup("services.oauth.GetAuthorizationURL").With("provider", provider)
+const oauthLocation string = "oauth"
+
+type GetAuthorizationURLOptions struct {
+	RequestID string
+	Provider  string
+}
+
+func (s *Services) GetAuthorizationURL(ctx context.Context, opts GetAuthorizationURLOptions) (string, *ServiceError) {
+	log := s.buildLogger(opts.RequestID, oauthLocation, "GetAuthorizationURL")
 	log.InfoContext(ctx, "Getting authorization url")
 
 	var url, state string
 	var err error
-	switch provider {
+	switch opts.Provider {
 	case utils.ProviderGitHub:
-		url, state, err = s.oauthProviders.GetGitHubAuthorizationURL(ctx)
+		url, state, err = s.oauthProviders.GetGitHubAuthorizationURL(ctx, opts.RequestID)
 	case utils.ProviderGoogle:
-		url, state, err = s.oauthProviders.GetGoogleAuthorizationURL(ctx)
+		url, state, err = s.oauthProviders.GetGoogleAuthorizationURL(ctx, opts.RequestID)
 	default:
 		log.ErrorContext(ctx, "Authorization url must be for 'github' or 'google'")
 		return "", NewServerError()
@@ -47,7 +55,12 @@ func (s *Services) GetAuthorizationURL(ctx context.Context, provider string) (st
 		return "", NewServerError()
 	}
 
-	if err := s.cache.AddOAuthState(state, provider); err != nil {
+	stateOpts := cc.AddOAuthStateOptions{
+		RequestID: opts.RequestID,
+		State:     state,
+		Provider:  opts.Provider,
+	}
+	if err := s.cache.AddOAuthState(ctx, stateOpts); err != nil {
 		log.ErrorContext(ctx, "Failed to cache state", "error", err)
 		return "", NewServerError()
 	}
@@ -56,16 +69,21 @@ func (s *Services) GetAuthorizationURL(ctx context.Context, provider string) (st
 }
 
 type GetOAuthTokenOptions struct {
-	Provider string
-	Code     string
-	State    string
+	RequestID string
+	Provider  string
+	Code      string
+	State     string
 }
 
 func (s *Services) GetOAuthToken(ctx context.Context, opts GetOAuthTokenOptions) (string, *ServiceError) {
-	log := s.log.WithGroup("services.oauth.GetOAuthToken")
+	log := s.buildLogger(opts.RequestID, oauthLocation, "GetOAuthToken")
 	log.InfoContext(ctx, "Getting oauth token")
 
-	ok, err := s.cache.VerifyOAuthState(opts.State, opts.Provider)
+	ok, err := s.cache.VerifyOAuthState(ctx, cc.VerifyOAuthStateOptions{
+		RequestID: opts.RequestID,
+		State:     opts.State,
+		Provider:  opts.Provider,
+	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to verify oauth state", "error", err)
 		return "", NewServerError()
@@ -78,22 +96,44 @@ func (s *Services) GetOAuthToken(ctx context.Context, opts GetOAuthTokenOptions)
 	var token string
 	switch opts.Provider {
 	case utils.ProviderGitHub:
-		token, err = s.oauthProviders.GetGitHubAccessToken(ctx, opts.Code)
+		token, err = s.oauthProviders.GetGitHubAccessToken(ctx, oauth.GetGitHubAccessTokenOptions{
+			RequestID: opts.RequestID,
+			Code:      opts.Code,
+		})
 	case utils.ProviderGoogle:
-		token, err = s.oauthProviders.GetGoogleAccessToken(ctx, opts.Code)
+		token, err = s.oauthProviders.GetGoogleAccessToken(ctx, oauth.GetGoogleAccessTokenOptions{
+			RequestID: opts.RequestID,
+			Code:      opts.Code,
+		})
 	default:
 		log.ErrorContext(ctx, "Provider must be 'github' or 'google'")
 		return "", NewServerError()
 	}
 
+	if err != nil {
+		log.WarnContext(ctx, "Failed to get oauth access token", "error", err)
+		return "", NewUnauthorizedError()
+	}
+
 	return token, nil
 }
 
-func (s *Services) generateEmailCode(ctx context.Context, log *slog.Logger, email string) (string, *ServiceError) {
+func (s *Services) generateEmailCode(
+	ctx context.Context,
+	log *slog.Logger,
+	requestId,
+	email string,
+) (string, *ServiceError) {
 	log.InfoContext(ctx, "Generating email code...")
 
 	code := utils.Base62UUID()
-	if err := s.cache.AddOAuthEmail(code, email); err != nil {
+	oauthEmailOpts := cc.AddOAuthEmailOptions{
+		RequestID:       requestId,
+		Code:            code,
+		Email:           email,
+		DurationSeconds: s.jwt.GetOAuthTtl(),
+	}
+	if err := s.cache.AddOAuthEmail(ctx, oauthEmailOpts); err != nil {
 		log.ErrorContext(ctx, "Failed to cache code", "error", err)
 		return "", NewServerError()
 	}
@@ -105,8 +145,9 @@ func (s *Services) generateOAuthResponse(
 	ctx context.Context,
 	log *slog.Logger,
 	user *db.User,
+	requestID string,
 ) (*OAuthResponse, *ServiceError) {
-	code, serviceErr := s.generateEmailCode(ctx, log, user.Email)
+	code, serviceErr := s.generateEmailCode(ctx, log, requestID, user.Email)
 	if serviceErr != nil {
 		return nil, serviceErr
 	}
@@ -133,12 +174,13 @@ type OAuthResponse struct {
 }
 
 type ExtOAuthSignInOptions struct {
-	Provider string
-	Token    string
+	RequestID string
+	Provider  string
+	Token     string
 }
 
 func (s *Services) ExtOAuthSignIn(ctx context.Context, opts ExtOAuthSignInOptions) (*OAuthResponse, *ServiceError) {
-	log := s.log.WithGroup("services.oauth.ExtOAuthSignIn")
+	log := s.buildLogger(opts.RequestID, oauthLocation, "ExtOAuthSignIn")
 	log.InfoContext(ctx, "Generating internal code and state...")
 
 	var toUserData oauth.ToUserData
@@ -146,9 +188,15 @@ func (s *Services) ExtOAuthSignIn(ctx context.Context, opts ExtOAuthSignInOption
 	var err error
 	switch opts.Provider {
 	case utils.ProviderGitHub:
-		toUserData, status, err = s.oauthProviders.GetGitHubUserData(ctx, opts.Token)
+		toUserData, status, err = s.oauthProviders.GetGitHubUserData(ctx, oauth.GetGitHubUserDataOptions{
+			RequestID: opts.RequestID,
+			Token:     opts.Token,
+		})
 	case utils.ProviderGoogle:
-		toUserData, status, err = s.oauthProviders.GetGoogleUserData(ctx, opts.Token)
+		toUserData, status, err = s.oauthProviders.GetGoogleUserData(ctx, oauth.GetGoogleUserDataOptions{
+			RequestID: opts.RequestID,
+			Token:     opts.Token,
+		})
 	default:
 		log.ErrorContext(ctx, "Provider must be 'github' or 'google'")
 		return nil, NewServerError()
@@ -165,7 +213,10 @@ func (s *Services) ExtOAuthSignIn(ctx context.Context, opts ExtOAuthSignInOption
 	}
 
 	userData := toUserData.ToUserData()
-	user, serviceErr := s.FindUserByEmail(ctx, userData.Email)
+	user, serviceErr := s.FindUserByEmail(ctx, FindUserByEmailOptions{
+		RequestID: opts.RequestID,
+		Email:     userData.Email,
+	})
 	if serviceErr != nil {
 		if serviceErr.Code != CodeNotFound {
 			log.ErrorContext(ctx, "Failed to find user by email", "error", serviceErr)
@@ -185,7 +236,7 @@ func (s *Services) ExtOAuthSignIn(ctx context.Context, opts ExtOAuthSignInOption
 			return nil, NewServerError()
 		}
 
-		return s.generateOAuthResponse(ctx, log, user)
+		return s.generateOAuthResponse(ctx, log, user, opts.RequestID)
 	}
 
 	findProvPrms := db.FindAuthProviderByEmailAndProviderParams{
@@ -209,7 +260,7 @@ func (s *Services) ExtOAuthSignIn(ctx context.Context, opts ExtOAuthSignInOption
 		}
 	}
 
-	return s.generateOAuthResponse(ctx, log, user)
+	return s.generateOAuthResponse(ctx, log, user, opts.RequestID)
 }
 
 func (s *Services) ProcessOAuthHeader(ctx context.Context, authHeader string) (*tokens.OAuthUserClaims, *ServiceError) {
@@ -243,16 +294,23 @@ func (s *Services) ProcessOAuthHeader(ctx context.Context, authHeader string) (*
 }
 
 type IntOAuthSignInOptions struct {
+	RequestID   string
 	UserID      int32
 	UserVersion int16
 	Code        string
 }
 
 func (s *Services) OAuthToken(ctx context.Context, opts IntOAuthSignInOptions) (*AuthResponse, *ServiceError) {
-	log := s.log.WithGroup("services.oauth.OAuthToken")
+	log := s.buildLogger(opts.RequestID, oauthLocation, "OAuthToken").With(
+		"tokenUserId", opts.UserID,
+		"tokenUserVersion", opts.UserVersion,
+	)
 	log.InfoContext(ctx, "Sign in the user with a local token...")
 
-	email, err := s.cache.GetOAuthEmail(opts.Code)
+	email, err := s.cache.GetOAuthEmail(ctx, cc.GetOAuthEmailOptions{
+		RequestID: opts.RequestID,
+		Code:      opts.Code,
+	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to fetch email by code")
 		return nil, NewServerError()
@@ -263,7 +321,10 @@ func (s *Services) OAuthToken(ctx context.Context, opts IntOAuthSignInOptions) (
 		return nil, NewUnauthorizedError()
 	}
 
-	user, serviceErr := s.FindUserByEmail(ctx, email)
+	user, serviceErr := s.FindUserByEmail(ctx, FindUserByEmailOptions{
+		RequestID: opts.RequestID,
+		Email:     email,
+	})
 	if serviceErr != nil {
 		if serviceErr.Code == CodeNotFound {
 			return nil, NewUnauthorizedError()
@@ -278,8 +339,6 @@ func (s *Services) OAuthToken(ctx context.Context, opts IntOAuthSignInOptions) (
 			"User id or version do not match the token's user id or version",
 			"userId", user.ID,
 			"userVersion", user.Version,
-			"tokenUserId", opts.UserID,
-			"tokenUserVersion", opts.UserVersion,
 		)
 		return nil, NewUnauthorizedError()
 	}

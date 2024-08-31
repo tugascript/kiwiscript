@@ -23,5 +23,7 @@ func (r *Router) UsersRoutes() {
 	users := r.router.Group(paths.UsersPathV1)
 
 	users.Get("/me", r.controllers.GetMe)
+	users.Put("/me", r.controllers.UpdateCurrentAccount)
+	users.Delete("/me", r.controllers.DeleteCurrentAccount)
 	users.Get("/:userID", r.controllers.GetUser)
 }

@@ -24,21 +24,22 @@ import (
 	"strconv"
 )
 
+const lessonVideosLocation string = "lesson_videos"
+
 func (c *Controllers) CreateLessonVideo(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.CreateLessonVideo")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	lectureID := ctx.Params("lectureID")
-	log.InfoContext(
-		userCtx,
-		"Creating lecture video...",
+	log := c.buildLogger(ctx, requestID, lessonVideosLocation, "CreateLessonVideo").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
-		"lectureID", lectureID,
+		"sectionId", sectionID,
+		"lectureId", lectureID,
 	)
+	log.InfoContext(userCtx, "Creating lecture video...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
@@ -89,6 +90,7 @@ func (c *Controllers) CreateLessonVideo(ctx *fiber.Ctx) error {
 	sectionIDi32 := int32(parsedSectionID)
 	lectureIDi32 := int32(parsedLessonID)
 	video, serviceErr := c.services.CreateLessonVideo(userCtx, services.CreateLessonVideoOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
@@ -115,20 +117,19 @@ func (c *Controllers) CreateLessonVideo(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) GetLessonVideo(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.CreateLessonActicle")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	lectureID := ctx.Params("lectureID")
-	log.InfoContext(
-		userCtx,
-		"Creating lecture video...",
+	log := c.buildLogger(ctx, requestID, lessonVideosLocation, "CreateLessonVideo").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
-		"lectureID", lectureID,
+		"sectionId", sectionID,
+		"lectureId", lectureID,
 	)
+	log.InfoContext(userCtx, "Creating lecture video...")
 
 	params := dtos.LessonPathParams{
 		LanguageSlug: languageSlug,
@@ -170,6 +171,7 @@ func (c *Controllers) GetLessonVideo(ctx *fiber.Ctx) error {
 	}
 
 	video, serviceErr := c.services.FindLessonVideo(userCtx, services.FindLessonVideoOptions{
+		RequestID:    requestID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
 		SectionID:    sectionIDi32,
@@ -194,20 +196,19 @@ func (c *Controllers) GetLessonVideo(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) UpdateLessonVideo(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.UpdateLessonVideo")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	lectureID := ctx.Params("lectureID")
-	log.InfoContext(
-		userCtx,
-		"Updating lecture video...",
+	log := c.buildLogger(ctx, requestID, lessonVideosLocation, "UpdateLessonVideo").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
-		"lectureID", lectureID,
+		"sectionId", sectionID,
+		"lectureId", lectureID,
 	)
+	log.InfoContext(userCtx, "Updating lecture video...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
@@ -258,6 +259,7 @@ func (c *Controllers) UpdateLessonVideo(ctx *fiber.Ctx) error {
 	sectionIDi32 := int32(parsedSectionID)
 	lectureIDi32 := int32(parsedLessonID)
 	video, serviceErr := c.services.UpdateLessonVideo(userCtx, services.UpdateLessonVideoOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
@@ -283,19 +285,17 @@ func (c *Controllers) UpdateLessonVideo(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) DeleteLessonVideo(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.DeleteLessonVideo")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	lectureID := ctx.Params("lectureID")
-	log.InfoContext(
-		userCtx,
-		"Delete lecture video...",
+	log := c.buildLogger(ctx, requestID, lessonVideosLocation, "DeleteLessonVideo").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
-		"lectureID", lectureID,
+		"sectionId", sectionID,
+		"lectureId", lectureID,
 	)
 
 	user, serviceErr := c.GetUserClaims(ctx)
@@ -339,6 +339,7 @@ func (c *Controllers) DeleteLessonVideo(ctx *fiber.Ctx) error {
 	sectionIDi32 := int32(parsedSectionID)
 	lectureIDi32 := int32(parsedLessonID)
 	opts := services.DeleteLessonVideoOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,

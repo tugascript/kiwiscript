@@ -63,3 +63,7 @@ func (t *Tokens) VerifyOAuthToken(token string) (OAuthUserClaims, error) {
 	})
 	return claims.User, err
 }
+
+func (t *Tokens) GetOAuthTtl() int64 {
+	return t.oauthData.ttlSec
+}

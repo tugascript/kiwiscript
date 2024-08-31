@@ -23,11 +23,23 @@ import (
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 )
 
-func (s *Services) FindLessonVideoByLessonID(ctx context.Context, lessonID int32) (*db.LessonVideo, *ServiceError) {
-	log := s.log.WithGroup("services.lessons.FindLessonVideoByLessonID").With("lessonId", lessonID)
+const lessonVideosLocation string = "lesson_videos"
+
+type FindLessonVideoByLessonIDOptions struct {
+	RequestID string
+	LessonID  int32
+}
+
+func (s *Services) FindLessonVideoByLessonID(
+	ctx context.Context,
+	opts FindLessonVideoByLessonIDOptions,
+) (*db.LessonVideo, *ServiceError) {
+	log := s.buildLogger(opts.RequestID, lessonVideosLocation, "FindLessonVideoByLessonID").With(
+		"lessonId", opts.LessonID,
+	)
 	log.InfoContext(ctx, "Getting lesson video...")
 
-	lessonVideo, err := s.database.GetLessonVideoByLessonID(ctx, lessonID)
+	lessonVideo, err := s.database.GetLessonVideoByLessonID(ctx, opts.LessonID)
 	if err != nil {
 		return nil, FromDBError(err)
 	}
@@ -36,6 +48,7 @@ func (s *Services) FindLessonVideoByLessonID(ctx context.Context, lessonID int32
 }
 
 type CreateLessonVideoOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -49,7 +62,7 @@ func (s *Services) CreateLessonVideo(
 	ctx context.Context,
 	opts CreateLessonVideoOptions,
 ) (*db.LessonVideo, *ServiceError) {
-	log := s.log.WithGroup("services.lessons.CreateLessonVideo").With(
+	log := s.buildLogger(opts.RequestID, lessonVideosLocation, "CreateLessonVideo").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -69,7 +82,11 @@ func (s *Services) CreateLessonVideo(
 		return nil, serviceErr
 	}
 
-	if _, serviceErr := s.FindLessonVideoByLessonID(ctx, opts.LessonID); serviceErr == nil {
+	findOpts := FindLessonVideoByLessonIDOptions{
+		RequestID: opts.RequestID,
+		LessonID:  opts.LessonID,
+	}
+	if _, serviceErr := s.FindLessonVideoByLessonID(ctx, findOpts); serviceErr == nil {
 		return nil, NewConflictError("Lesson video already exists")
 	}
 
@@ -103,6 +120,7 @@ func (s *Services) CreateLessonVideo(
 }
 
 type UpdateLessonVideoOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -116,12 +134,14 @@ func (s *Services) UpdateLessonVideo(
 	ctx context.Context,
 	opts UpdateLessonVideoOptions,
 ) (*db.LessonVideo, *ServiceError) {
-	log := s.log.WithGroup("services.lessons.UpdateLessonVideo").With(
+	log := s.buildLogger(opts.RequestID, lessonVideosLocation, "UpdateLessonVideo").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
 		"sectionId", opts.SectionID,
 		"lessonId", opts.LessonID,
+		"url", opts.Url,
+		"watchTime", opts.WatchTime,
 	)
 	log.InfoContext(ctx, "Updating lesson video...")
 
@@ -136,7 +156,10 @@ func (s *Services) UpdateLessonVideo(
 		return nil, serviceErr
 	}
 
-	lessonVideo, serviceErr := s.FindLessonVideoByLessonID(ctx, opts.LessonID)
+	lessonVideo, serviceErr := s.FindLessonVideoByLessonID(ctx, FindLessonVideoByLessonIDOptions{
+		RequestID: opts.RequestID,
+		LessonID:  opts.LessonID,
+	})
 	if serviceErr != nil {
 		return nil, serviceErr
 	}
@@ -194,6 +217,7 @@ func (s *Services) UpdateLessonVideo(
 }
 
 type DeleteLessonVideoOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -205,7 +229,7 @@ func (s *Services) DeleteLessonVideo(
 	ctx context.Context,
 	opts DeleteLessonVideoOptions,
 ) *ServiceError {
-	log := s.log.WithGroup("services.lessons.DeleteLessonVideo").With(
+	log := s.buildLogger(opts.RequestID, lessonVideosLocation, "DeleteLessonVideo").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -225,7 +249,10 @@ func (s *Services) DeleteLessonVideo(
 		return serviceErr
 	}
 
-	lessonVideo, serviceErr := s.FindLessonVideoByLessonID(ctx, opts.LessonID)
+	lessonVideo, serviceErr := s.FindLessonVideoByLessonID(ctx, FindLessonVideoByLessonIDOptions{
+		RequestID: opts.RequestID,
+		LessonID:  opts.LessonID,
+	})
 	if serviceErr != nil {
 		return serviceErr
 	}
@@ -260,6 +287,7 @@ func (s *Services) DeleteLessonVideo(
 }
 
 type FindLessonVideoOptions struct {
+	RequestID    string
 	LanguageSlug string
 	SeriesSlug   string
 	SectionID    int32
@@ -271,7 +299,7 @@ func (s *Services) FindLessonVideo(
 	ctx context.Context,
 	opts FindLessonVideoOptions,
 ) (*db.LessonVideo, *ServiceError) {
-	log := s.log.WithGroup("services.lessons.FindLessonVideo").With(
+	log := s.buildLogger(opts.RequestID, lessonVideosLocation, "FindLessonVideo").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
 		"sectionId", opts.SectionID,
@@ -289,7 +317,10 @@ func (s *Services) FindLessonVideo(
 		return nil, serviceErr
 	}
 
-	lessonVideo, serviceErr := s.FindLessonVideoByLessonID(ctx, opts.LessonID)
+	lessonVideo, serviceErr := s.FindLessonVideoByLessonID(ctx, FindLessonVideoByLessonIDOptions{
+		RequestID: opts.RequestID,
+		LessonID:  opts.LessonID,
+	})
 	if serviceErr != nil {
 		return nil, serviceErr
 	}

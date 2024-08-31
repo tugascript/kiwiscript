@@ -68,8 +68,8 @@ func (ur *GoogleUserResponse) ToUserData() *UserData {
 	}
 }
 
-func (op *Providers) GetGoogleAuthorizationURL(ctx context.Context) (string, string, error) {
-	log := op.log.WithGroup("providers.oauth.GetGoogleAuthorizationURL")
+func (op *Providers) GetGoogleAuthorizationURL(ctx context.Context, requestID string) (string, string, error) {
+	log := op.buildLogger(requestID, "GetGoogleAuthorizationURL")
 	log.DebugContext(ctx, "Getting Google authorization url...")
 
 	state, err := GenerateState()
@@ -82,11 +82,16 @@ func (op *Providers) GetGoogleAuthorizationURL(ctx context.Context) (string, str
 	return op.google.AuthCodeURL(state), state, nil
 }
 
-func (op *Providers) GetGoogleAccessToken(ctx context.Context, code string) (string, error) {
-	log := op.log.WithGroup("providers.oauth.GetGoogleAccessToken")
+type GetGoogleAccessTokenOptions struct {
+	RequestID string
+	Code      string
+}
+
+func (op *Providers) GetGoogleAccessToken(ctx context.Context, opts GetGoogleAccessTokenOptions) (string, error) {
+	log := op.buildLogger(opts.RequestID, "GetGoogleAccessToken")
 	log.DebugContext(ctx, "Getting Google access token...")
 
-	token, err := op.google.Exchange(ctx, code)
+	token, err := op.google.Exchange(ctx, opts.Code)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to exchange the code for a token", "error", err)
 		return "", err
@@ -96,11 +101,16 @@ func (op *Providers) GetGoogleAccessToken(ctx context.Context, code string) (str
 	return token.AccessToken, nil
 }
 
-func (op *Providers) GetGoogleUserData(ctx context.Context, token string) (ToUserData, int, error) {
-	log := op.log.WithGroup("providers.oauth.GetGoogleUserData")
+type GetGoogleUserDataOptions struct {
+	RequestID string
+	Token     string
+}
+
+func (op *Providers) GetGoogleUserData(ctx context.Context, opts GetGoogleUserDataOptions) (ToUserData, int, error) {
+	log := op.buildLogger(opts.RequestID, "GetGoogleUserData")
 	log.DebugContext(ctx, "Getting Google user data...")
 
-	body, status, err := getUserResponse(log, ctx, googleUserURL, token)
+	body, status, err := getUserResponse(log, ctx, googleUserURL, opts.Token)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to get user data", "error", err)
 		return nil, status, err

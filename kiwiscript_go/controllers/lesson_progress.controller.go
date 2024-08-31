@@ -24,20 +24,22 @@ import (
 	"strconv"
 )
 
+const lessonProgressLocation string = "lesson_progress"
+
 func (c *Controllers) CreateOrUpdateLessonProgress(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.CreateOrUpdateLessonProgress")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	lessonID := ctx.Params("lessonID")
-	log.InfoContext(
-		userCtx, "Create or update lesson progress...",
+	log := c.buildLogger(ctx, requestID, languageProgressLocation, "CreateOrUpdateLessonProgress").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
-		"lessonID", lessonID,
+		"sectionId", sectionID,
+		"lessonId", lessonID,
 	)
+	log.InfoContext(userCtx, "Create or update lesson progress...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil {
@@ -82,6 +84,7 @@ func (c *Controllers) CreateOrUpdateLessonProgress(ctx *fiber.Ctx) error {
 	lesson, progress, serviceErr := c.services.CreateOrUpdateLessonProgress(
 		userCtx,
 		services.CreateOrUpdateLessonProgressOptions{
+			RequestID:    requestID,
 			UserID:       user.ID,
 			LanguageSlug: params.LanguageSlug,
 			SeriesSlug:   params.SeriesSlug,
@@ -97,19 +100,19 @@ func (c *Controllers) CreateOrUpdateLessonProgress(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) CompleteLessonProgress(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.CompleteLessonProgress")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	lessonID := ctx.Params("lessonID")
-	log.InfoContext(
-		userCtx, "Completed lesson progress...",
+	log := c.buildLogger(ctx, requestID, languageProgressLocation, "CompleteLessonProgress").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
-		"lessonID", lessonID,
+		"sectionId", sectionID,
+		"lessonId", lessonID,
 	)
+	log.InfoContext(userCtx, "Completing lesson progress...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil {
@@ -154,6 +157,7 @@ func (c *Controllers) CompleteLessonProgress(ctx *fiber.Ctx) error {
 	lesson, progress, certificate, serviceErr := c.services.CompleteLessonProgress(
 		userCtx,
 		services.CompleteLessonProgressOptions{
+			RequestID:    requestID,
 			UserID:       user.ID,
 			LanguageSlug: params.LanguageSlug,
 			SeriesSlug:   params.SeriesSlug,
@@ -179,19 +183,19 @@ func (c *Controllers) CompleteLessonProgress(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) ResetLessonProgress(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.ResetLessonProgress")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
 	lessonID := ctx.Params("lessonID")
-	log.InfoContext(
-		userCtx, "Resetting lesson progress...",
+	log := c.buildLogger(ctx, requestID, languageProgressLocation, "CompleteLessonProgress").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
-		"lessonID", lessonID,
+		"sectionId", sectionID,
+		"lessonId", lessonID,
 	)
+	log.InfoContext(userCtx, "Resetting lesson progress...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil {
@@ -234,6 +238,7 @@ func (c *Controllers) ResetLessonProgress(ctx *fiber.Ctx) error {
 	parsedSectionIDi32 := int32(parsedSectionID)
 	parsedLessonIDi32 := int32(parsedLessonID)
 	opts := services.DeleteLessonProgressOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,

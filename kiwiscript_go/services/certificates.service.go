@@ -23,17 +23,20 @@ import (
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 )
 
+const certificatesLocation string = "certificates"
+
 type FindPaginatedCertificatesOptions struct {
-	UserID int32
-	Offset int32
-	Limit  int32
+	RequestID string
+	UserID    int32
+	Offset    int32
+	Limit     int32
 }
 
 func (s *Services) FindPaginatedCertificates(
 	ctx context.Context,
 	opts FindPaginatedCertificatesOptions,
 ) ([]db.FindPaginatedCertificatesByUserIDRow, int64, *ServiceError) {
-	log := s.log.WithGroup("services.certificates.FindPaginatedCertificates").With(
+	log := s.buildLogger(opts.RequestID, certificatesLocation, "FindPaginatedCertificates").With(
 		"userId", opts.UserID,
 		"offset", opts.Offset,
 		"limit", opts.Limit,
@@ -66,19 +69,26 @@ func (s *Services) FindPaginatedCertificates(
 	return certificates, count, nil
 }
 
+type FindCertificateByIDOptions struct {
+	RequestID string
+	ID        uuid.UUID
+}
+
 func (s *Services) FindCertificateByID(
 	ctx context.Context,
-	id uuid.UUID,
+	opts FindCertificateByIDOptions,
 ) (*db.FindCertificateByIDWithUserAndLanguageRow, *ServiceError) {
-	log := s.log.WithGroup("services.certificates.FindCertificateByID").With("id", id.String())
+	log := s.buildLogger(opts.RequestID, "certificatesLocation", "FindCertificateByID").With(
+		"id", opts.ID.String(),
+	)
 	log.InfoContext(ctx, "Find certificate by id...")
 
-	certificate, err := s.database.FindCertificateByIDWithUserAndLanguage(ctx, id)
+	certificate, err := s.database.FindCertificateByIDWithUserAndLanguage(ctx, opts.ID)
 	if err != nil {
 		log.WarnContext(ctx, "Certificate not found", "error", err)
 		return nil, FromDBError(err)
 	}
 
-	log.InfoContext(ctx, "Certificate found")
+	log.InfoContext(ctx, "Certificate found successfully")
 	return &certificate, nil
 }

@@ -21,12 +21,27 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"log/slog"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
 	"github.com/kiwiscript/kiwiscript_go/services"
+	"github.com/kiwiscript/kiwiscript_go/utils"
 )
+
+func (c *Controllers) buildLogger(ctx *fiber.Ctx, requestID, location, function string) *slog.Logger {
+	return utils.BuildLogger(c.log, utils.LoggerOptions{
+		Layer:     utils.ControllersLogLayer,
+		Location:  location,
+		Function:  function,
+		RequestID: requestID,
+	}).With("request", fmt.Sprintf("%s %s", ctx.Method(), ctx.Path()))
+}
+
+func (c *Controllers) requestID(ctx *fiber.Ctx) string {
+	return ctx.Get(utils.RequestIDKey, uuid.NewString())
+}
 
 func (c *Controllers) parseRequestErrorResponse(log *slog.Logger, userCtx context.Context, err error, ctx *fiber.Ctx) error {
 	log.WarnContext(userCtx, "Failed to parse request", "error", err)

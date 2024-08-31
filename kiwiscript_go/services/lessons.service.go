@@ -24,7 +24,10 @@ import (
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 )
 
+const lessonsLocation string = "lessons"
+
 type CreateLessonOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -33,10 +36,16 @@ type CreateLessonOptions struct {
 }
 
 func (s *Services) CreateLesson(ctx context.Context, opts CreateLessonOptions) (*db.Lesson, *ServiceError) {
-	log := s.log.WithGroup("services.lessons.CreateLesson").With("title", opts.Title)
+	log := s.buildLogger(opts.RequestID, lessonsLocation, "CreateLesson").With(
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+		"sectionId", opts.SectionID,
+		"title", opts.Title,
+	)
 	log.InfoContext(ctx, "Creating lessons...")
 
 	servicePart, serviceErr := s.AssertSectionOwnership(ctx, AssertSectionOwnershipOptions{
+		RequestID:    opts.RequestID,
 		UserID:       opts.UserID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
@@ -77,6 +86,7 @@ func (s *Services) FindLessonsBySectionID(ctx context.Context, seriesPartID int3
 }
 
 type FindLessonOptions struct {
+	RequestID    string
 	LanguageSlug string
 	SeriesSlug   string
 	SectionID    int32
@@ -145,6 +155,7 @@ func (s *Services) FindPublishedLessonBySlugsAndIDs(
 }
 
 type FindPaginatedLessonsOptions struct {
+	RequestID    string
 	LanguageSlug string
 	SeriesSlug   string
 	SectionID    int32
@@ -156,7 +167,13 @@ func (s *Services) FindPaginatedLessons(
 	ctx context.Context,
 	opts FindPaginatedLessonsOptions,
 ) ([]db.Lesson, int64, *ServiceError) {
-	log := s.log.WithGroup("services.lessons.FindLessons").With("series_slug", opts.SeriesSlug)
+	log := s.buildLogger(opts.RequestID, lessonsLocation, "FindPaginatedLessons").With(
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+		"sectionId", opts.SectionID,
+		"offset", opts.Offset,
+		"limit", opts.Limit,
+	)
 	log.InfoContext(ctx, "Finding lessons...")
 
 	count, err := s.database.CountLessonsBySectionID(ctx, opts.SectionID)
@@ -188,6 +205,7 @@ func (s *Services) FindPaginatedLessons(
 }
 
 type FindPaginatedPublishedLessonsWithProgressOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -226,7 +244,7 @@ func (s *Services) FindPaginatedPublishedLessonsWithProgress(
 	ctx context.Context,
 	opts FindPaginatedPublishedLessonsWithProgressOptions,
 ) ([]db.FindPaginatedPublishedLessonsBySlugsAndSectionIDWithProgressRow, int64, *ServiceError) {
-	log := s.log.WithGroup("services.lessons.FindPaginatedPublishedLessonsWithProgress").With(
+	log := s.buildLogger(opts.RequestID, lessonsLocation, "FindPaginatedPublishedLessonsWithProgress").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -267,7 +285,7 @@ func (s *Services) FindPaginatedPublishedLessons(
 	ctx context.Context,
 	opts FindPaginatedLessonsOptions,
 ) ([]db.Lesson, int64, *ServiceError) {
-	log := s.log.WithGroup("services.lessons.FindPaginatedPublishedLessonsWithProgress").With(
+	log := s.buildLogger(opts.RequestID, lessonsLocation, "FindPaginatedPublishedLessons").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
 		"sectionId", opts.SectionID,
@@ -306,7 +324,7 @@ func (s *Services) FindLessonWithArticleAndVideo(
 	ctx context.Context,
 	opts FindLessonOptions,
 ) (*db.FindLessonBySlugsAndIDsWithArticleAndVideoRow, *ServiceError) {
-	log := s.log.WithGroup("services.lessons.FindLessonWithArticleAndVideo").With(
+	log := s.buildLogger(opts.RequestID, lessonsLocation, "FindLessonWithArticleAndVideo").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
 		"sectionId", opts.SectionID,
@@ -335,7 +353,7 @@ func (s *Services) FindPublishedLessonWithArticleAndVideo(
 	ctx context.Context,
 	opts FindLessonOptions,
 ) (*db.FindLessonBySlugsAndIDsWithArticleAndVideoRow, *ServiceError) {
-	log := s.log.WithGroup("services.lessons.FindPublishedLessonWithArticleAndVideo").With(
+	log := s.buildLogger(opts.RequestID, lessonsLocation, "FindPublishedLessonWithArticleAndVideo").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
 		"sectionId", opts.SectionID,
@@ -366,6 +384,7 @@ func (s *Services) FindPublishedLessonWithArticleAndVideo(
 }
 
 type FindLessonWithProgressOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -377,7 +396,7 @@ func (s *Services) FindPublishedLessonWithProgressArticleAndVideo(
 	ctx context.Context,
 	opts FindLessonWithProgressOptions,
 ) (*db.FindPublishedLessonBySlugsAndIDsWithProgressArticleAndVideoRow, *ServiceError) {
-	log := s.log.WithGroup("services.lessons.FindPublishedLessonWithProgressArticleAndVideo").With(
+	log := s.buildLogger(opts.RequestID, lessonsLocation, "FindPublishedLessonWithProgressArticleAndVideo").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -405,6 +424,7 @@ func (s *Services) FindPublishedLessonWithProgressArticleAndVideo(
 }
 
 type AssertLessonOwnershipOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -413,7 +433,13 @@ type AssertLessonOwnershipOptions struct {
 }
 
 func (s *Services) AssertLessonOwnership(ctx context.Context, opts AssertLessonOwnershipOptions) (*db.Lesson, *ServiceError) {
-	log := s.log.WithGroup("services.lessons.AssertLessonOwnership").With("lesson_id", opts.LessonID)
+	log := s.buildLogger(opts.RequestID, lessonsLocation, "AssertLessonOwnership").With(
+		"userId", opts.UserID,
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+		"sectionId", opts.SectionID,
+		"lessonId", opts.LessonID,
+	)
 	log.InfoContext(ctx, "Asserting lesson ownership...")
 
 	lesson, serviceErr := s.FindLessonBySlugsAndIDs(ctx, FindLessonOptions{
@@ -435,6 +461,7 @@ func (s *Services) AssertLessonOwnership(ctx context.Context, opts AssertLessonO
 }
 
 type UpdateLessonOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -445,7 +472,15 @@ type UpdateLessonOptions struct {
 }
 
 func (s *Services) UpdateLesson(ctx context.Context, opts UpdateLessonOptions) (*db.Lesson, *ServiceError) {
-	log := s.log.WithGroup("services.lessons.UpdateLessons").With("title", opts.Title)
+	log := s.buildLogger(opts.RequestID, lessonsLocation, "UpdateLesson").With(
+		"userId", opts.UserID,
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+		"sectionId", opts.SectionID,
+		"lessonId", opts.LessonID,
+		"title", opts.Title,
+		"position", opts.Position,
+	)
 	log.InfoContext(ctx, "Updating lessons...")
 
 	lesson, serviceErr := s.AssertLessonOwnership(ctx, AssertLessonOwnershipOptions{
@@ -519,6 +554,7 @@ func (s *Services) UpdateLesson(ctx context.Context, opts UpdateLessonOptions) (
 }
 
 type DeleteLessonOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -527,7 +563,13 @@ type DeleteLessonOptions struct {
 }
 
 func (s *Services) DeleteLesson(ctx context.Context, opts DeleteLessonOptions) *ServiceError {
-	log := s.log.WithGroup("services.lessons.DeleteLessons").With("lesson_id", opts.LessonID)
+	log := s.buildLogger(opts.RequestID, lessonsLocation, "DeleteLesson").With(
+		"userId", opts.UserID,
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+		"sectionId", opts.SectionID,
+		"lessonId", opts.LessonID,
+	)
 	log.InfoContext(ctx, "Deleting lessons...")
 
 	lesson, serviceErr := s.AssertLessonOwnership(ctx, AssertLessonOwnershipOptions(opts))
@@ -562,6 +604,7 @@ func (s *Services) DeleteLesson(ctx context.Context, opts DeleteLessonOptions) *
 }
 
 type UpdateLessonIsPublishedOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -570,8 +613,18 @@ type UpdateLessonIsPublishedOptions struct {
 	IsPublished  bool
 }
 
-func (s *Services) UpdateLessonIsPublished(ctx context.Context, opts UpdateLessonIsPublishedOptions) (*db.Lesson, *ServiceError) {
-	log := s.log.WithGroup("services.lessons.UpdateLessonIsPublished").With("lesson_id", opts.LessonID)
+func (s *Services) UpdateLessonIsPublished(
+	ctx context.Context,
+	opts UpdateLessonIsPublishedOptions,
+) (*db.Lesson, *ServiceError) {
+	log := s.buildLogger(opts.RequestID, lessonsLocation, "UpdateLessonIsPublished").With(
+		"userId", opts.UserID,
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+		"sectionId", opts.SectionID,
+		"lessonId", opts.LessonID,
+		"isPublished", opts.IsPublished,
+	)
 	log.InfoContext(ctx, "Updating lesson article is published...")
 
 	lesson, serviceErr := s.AssertLessonOwnership(ctx, AssertLessonOwnershipOptions{

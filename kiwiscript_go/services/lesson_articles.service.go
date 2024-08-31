@@ -25,12 +25,25 @@ import (
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 )
 
-func (s *Services) FindLessonArticleByLessonID(ctx context.Context, lessonID int32) (*db.LessonArticle, *ServiceError) {
-	log := s.log.WithGroup("services.lessons.FindLessonArticleByLessonID").With("lessonId", lessonID)
+const lessonArticlesLocation string = "lesson_articles"
+
+type FindLessonArticleByLessonIDOptions struct {
+	RequestID string
+	LessonID  int32
+}
+
+func (s *Services) FindLessonArticleByLessonID(
+	ctx context.Context,
+	opts FindLessonArticleByLessonIDOptions,
+) (*db.LessonArticle, *ServiceError) {
+	log := s.buildLogger(opts.RequestID, lessonArticlesLocation, "FindLessonArticleByLessonID").With(
+		"lessonId", opts.LessonID,
+	)
 	log.InfoContext(ctx, "Getting lesson article...")
 
-	lessonArticle, err := s.database.GetLessonArticleByLessonID(ctx, lessonID)
+	lessonArticle, err := s.database.GetLessonArticleByLessonID(ctx, opts.LessonID)
 	if err != nil {
+		log.WarnContext(ctx, "Lesson article not found", "error", err)
 		return nil, FromDBError(err)
 	}
 
@@ -43,6 +56,7 @@ func CalculateReadingTime(content string) int32 {
 }
 
 type CreateLessonArticleOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -52,7 +66,7 @@ type CreateLessonArticleOptions struct {
 }
 
 func (s *Services) CreateLessonArticle(ctx context.Context, opts CreateLessonArticleOptions) (*db.LessonArticle, *ServiceError) {
-	log := s.log.WithGroup("services.lessons.CreateLessonArticle").With(
+	log := s.buildLogger(opts.RequestID, lessonArticlesLocation, "CreateLessonArticle").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -62,6 +76,7 @@ func (s *Services) CreateLessonArticle(ctx context.Context, opts CreateLessonArt
 	log.InfoContext(ctx, "Creating lesson article...")
 
 	lesson, serviceErr := s.AssertLessonOwnership(ctx, AssertLessonOwnershipOptions{
+		RequestID:    opts.RequestID,
 		UserID:       opts.UserID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
@@ -72,7 +87,12 @@ func (s *Services) CreateLessonArticle(ctx context.Context, opts CreateLessonArt
 		return nil, serviceErr
 	}
 
-	if _, serviceErr := s.FindLessonArticleByLessonID(ctx, opts.LessonID); serviceErr == nil {
+	byIdOpts := FindLessonArticleByLessonIDOptions{
+		RequestID: opts.RequestID,
+		LessonID:  opts.LessonID,
+	}
+	if _, serviceErr := s.FindLessonArticleByLessonID(ctx, byIdOpts); serviceErr == nil {
+		log.WarnContext(ctx, "Lesson article already exists")
 		return nil, NewConflictError("Lesson article already exists")
 	}
 
@@ -127,6 +147,7 @@ func (s *Services) CreateLessonArticle(ctx context.Context, opts CreateLessonArt
 }
 
 type UpdateLessonArticleOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -139,7 +160,7 @@ func (s *Services) UpdateLessonArticle(
 	ctx context.Context,
 	opts UpdateLessonArticleOptions,
 ) (*db.LessonArticle, *ServiceError) {
-	log := s.log.WithGroup("services.lessons.UpdateLessonArticle").With(
+	log := s.buildLogger(opts.RequestID, lessonArticlesLocation, "UpdateLessonArticle").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -149,6 +170,7 @@ func (s *Services) UpdateLessonArticle(
 	log.InfoContext(ctx, "Updating lesson article...")
 
 	lesson, serviceErr := s.AssertLessonOwnership(ctx, AssertLessonOwnershipOptions{
+		RequestID:    opts.RequestID,
 		UserID:       opts.UserID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
@@ -159,7 +181,10 @@ func (s *Services) UpdateLessonArticle(
 		return nil, serviceErr
 	}
 
-	lessonArticle, serviceErr := s.FindLessonArticleByLessonID(ctx, opts.LessonID)
+	lessonArticle, serviceErr := s.FindLessonArticleByLessonID(ctx, FindLessonArticleByLessonIDOptions{
+		RequestID: opts.RequestID,
+		LessonID:  opts.LessonID,
+	})
 	if serviceErr != nil {
 		return nil, serviceErr
 	}
@@ -218,6 +243,7 @@ func (s *Services) UpdateLessonArticle(
 }
 
 type DeleteLessonArticleOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -226,7 +252,7 @@ type DeleteLessonArticleOptions struct {
 }
 
 func (s *Services) DeleteLessonArticle(ctx context.Context, opts DeleteLessonArticleOptions) *ServiceError {
-	log := s.log.WithGroup("services.lessons.DeleteLessonArticle").With(
+	log := s.buildLogger(opts.RequestID, lessonArticlesLocation, "DeleteLessonArticle").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -246,7 +272,10 @@ func (s *Services) DeleteLessonArticle(ctx context.Context, opts DeleteLessonArt
 		return serviceErr
 	}
 
-	lessonArticle, serviceErr := s.FindLessonArticleByLessonID(ctx, opts.LessonID)
+	lessonArticle, serviceErr := s.FindLessonArticleByLessonID(ctx, FindLessonArticleByLessonIDOptions{
+		RequestID: opts.RequestID,
+		LessonID:  opts.LessonID,
+	})
 	if serviceErr != nil {
 		return serviceErr
 	}
@@ -281,6 +310,7 @@ func (s *Services) DeleteLessonArticle(ctx context.Context, opts DeleteLessonArt
 }
 
 type FindLessonArticleOptions struct {
+	RequestID    string
 	LanguageSlug string
 	SeriesSlug   string
 	SectionID    int32
@@ -288,8 +318,11 @@ type FindLessonArticleOptions struct {
 	IsPublished  bool
 }
 
-func (s *Services) FindLessonArticle(ctx context.Context, opts FindLessonArticleOptions) (*db.LessonArticle, *ServiceError) {
-	log := s.log.WithGroup("services.lessons.GetLessonArticle").With(
+func (s *Services) FindLessonArticle(
+	ctx context.Context,
+	opts FindLessonArticleOptions,
+) (*db.LessonArticle, *ServiceError) {
+	log := s.buildLogger(opts.RequestID, lessonArticlesLocation, "FindLessonArticle").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
 		"seriesPartId", opts.SectionID,
@@ -307,7 +340,10 @@ func (s *Services) FindLessonArticle(ctx context.Context, opts FindLessonArticle
 		return nil, serviceErr
 	}
 
-	lessonArticle, serviceErr := s.FindLessonArticleByLessonID(ctx, opts.LessonID)
+	lessonArticle, serviceErr := s.FindLessonArticleByLessonID(ctx, FindLessonArticleByLessonIDOptions{
+		RequestID: opts.RequestID,
+		LessonID:  opts.LessonID,
+	})
 	if serviceErr != nil {
 		return nil, serviceErr
 	}

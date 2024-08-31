@@ -28,7 +28,13 @@ type UserPathParams struct {
 }
 
 type DeleteUserBody struct {
-	Password string `json:"password" validate:"required,min=1"`
+	Password string `json:"password,omitempty" validate:"min=1"`
+}
+
+type UpdateUserBody struct {
+	FirstName string `json:"firstName" validate:"required,min=2,max=50"`
+	LastName  string `json:"lastName" validate:"required,min=2,max=50"`
+	Location  string `json:"location" validate:"required,min=3,max=3"`
 }
 
 type UserResponse struct {
@@ -51,7 +57,7 @@ func NewUserResponse(backendDomain string, user *db.UserModel) *UserResponse {
 		IsStaff:   user.IsStaff,
 		Links: SelfLinkResponse{
 			Self: LinkResponse{
-				Href: fmt.Sprintf("https://%s%s/%d", backendDomain, paths.UsersPathV1, user.ID),
+				Href: fmt.Sprintf("https://%s/api%s/%d", backendDomain, paths.UsersPathV1, user.ID),
 			},
 		},
 	}

@@ -22,7 +22,10 @@ import (
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 )
 
+const sectionProgressLocation string = "section_progress"
+
 type FindSectionProgressBySlugsAndIDOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -33,7 +36,7 @@ func (s *Services) FindSectionProgressBySlugsAndID(
 	ctx context.Context,
 	opts FindSectionProgressBySlugsAndIDOptions,
 ) (*db.SectionProgress, *ServiceError) {
-	log := s.log.WithGroup("services.series_part_progress.FindSectionProgressBySlugsAndID").With(
+	log := s.buildLogger(opts.RequestID, sectionProgressLocation, "FindSectionProgressBySlugsAndID").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -59,6 +62,7 @@ func (s *Services) FindSectionProgressBySlugsAndID(
 }
 
 type createSectionProgressOptions struct {
+	RequestID          string
 	UserID             int32
 	LanguageProgressID int32
 	SeriesProgressID   int32
@@ -71,7 +75,7 @@ func (s *Services) createSectionProgress(
 	ctx context.Context,
 	opts createSectionProgressOptions,
 ) (*db.SectionProgress, *ServiceError) {
-	log := s.log.WithGroup("services.series_part_progress.createSectionProgress").With(
+	log := s.buildLogger(opts.RequestID, sectionProgressLocation, "createSectionProgress").With(
 		"userID", opts.UserID,
 		"languageProgressID", opts.LanguageProgressID,
 		"seriesProgressID", opts.SeriesProgressID,
@@ -97,6 +101,7 @@ func (s *Services) createSectionProgress(
 }
 
 type CreateOrUpdateSectionProgressOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -107,7 +112,7 @@ func (s *Services) CreateOrUpdateSectionProgress(
 	ctx context.Context,
 	opts CreateOrUpdateSectionProgressOptions,
 ) (*db.Section, *db.SectionProgress, *ServiceError) {
-	log := s.log.WithGroup("services.series_part_progress.CreateOrUpdateSectionProgress").With(
+	log := s.buildLogger(opts.RequestID, sectionProgressLocation, "CreateOrUpdateSectionProgress").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -146,6 +151,7 @@ func (s *Services) CreateOrUpdateSectionProgress(
 	)
 	if serviceErr != nil {
 		seriesPartProgress, serviceErr := s.createSectionProgress(ctx, createSectionProgressOptions{
+			RequestID:          opts.RequestID,
 			UserID:             opts.UserID,
 			LanguageProgressID: seriesProgress.LanguageProgressID,
 			SeriesProgressID:   seriesProgress.ID,
@@ -170,6 +176,7 @@ func (s *Services) CreateOrUpdateSectionProgress(
 }
 
 type DeleteSectionProgressOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -180,7 +187,7 @@ func (s *Services) DeleteSectionProgress(
 	ctx context.Context,
 	opts DeleteSectionProgressOptions,
 ) *ServiceError {
-	log := s.log.WithGroup("services.series_part_progress.DeleteSectionProgress").With(
+	log := s.buildLogger(opts.RequestID, sectionProgressLocation, "DeleteSectionProgress").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,

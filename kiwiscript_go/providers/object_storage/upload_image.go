@@ -57,12 +57,17 @@ func decodeImage(f multipart.File) (image.Image, error) {
 	}
 }
 
-func (o *ObjectStorage) UploadImage(ctx context.Context, userId int32, fh *multipart.FileHeader) (uuid.UUID, string, error) {
-	log := o.log.WithGroup("providers.object_storage.UploadImage").With("userId", userId)
-	log.InfoContext(ctx, "Uploading image...")
-	fileId := uuid.UUID{}
+type UploadImageOptions struct {
+	RequestID string
+	UserID    int32
+	FH        *multipart.FileHeader
+}
 
-	f, err := fh.Open()
+func (o *ObjectStorage) UploadImage(ctx context.Context, opts UploadImageOptions) (uuid.UUID, string, error) {
+	log := o.buildLogger(opts.RequestID, "UploadImage").With("userId", opts.UserID)
+	log.DebugContext(ctx, "Uploading image...")
+
+	f, err := opts.FH.Open()
 	if err != nil {
 		log.ErrorContext(ctx, "Error opening file", "error", err)
 		return uuid.UUID{}, "", fmt.Errorf("error opening file")
@@ -70,21 +75,24 @@ func (o *ObjectStorage) UploadImage(ctx context.Context, userId int32, fh *multi
 	defer o.closeFile(f)
 
 	if mimeType, err := readMimeType(f); err != nil || !valImgMime(mimeType) {
-		return fileId, "", fmt.Errorf("mime type not supported")
+		return uuid.UUID{}, "", fmt.Errorf("mime type not supported")
 	}
 
 	img, err := decodeImage(f)
 	if err != nil {
-		return fileId, "", err
+		log.ErrorContext(ctx, "Error decoding image", "error", err)
+		return uuid.UUID{}, "", err
 	}
 
 	compressedImg, err := compressImage(img)
 	if err != nil {
-		return fileId, "", err
+		log.ErrorContext(ctx, "Error compressing image", "error", err)
+		return uuid.UUID{}, "", err
 	}
 
-	fileId, err = o.uploadFile(ctx, userId, imageExt, bytes.NewReader(compressedImg.Bytes()))
+	fileId, err := o.uploadFile(ctx, opts.UserID, imageExt, bytes.NewReader(compressedImg.Bytes()))
 	if err != nil {
+		log.ErrorContext(ctx, "Error uploading image", "error", err)
 		return uuid.UUID{}, "", err
 	}
 

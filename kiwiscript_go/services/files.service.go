@@ -8,14 +8,17 @@ import (
 	"sync"
 )
 
+const filesLocation string = "files"
+
 type FindFileURLOptions struct {
-	UserID  int32
-	FileID  uuid.UUID
-	FileExt string
+	RequestID string
+	UserID    int32
+	FileID    uuid.UUID
+	FileExt   string
 }
 
 func (s *Services) FindFileURL(ctx context.Context, opts FindFileURLOptions) (string, *ServiceError) {
-	log := s.log.WithGroup("services.files.FindFileURL").With(
+	log := s.buildLogger(opts.RequestID, filesLocation, "FindFileURL").With(
 		"userId", opts.UserID,
 		"fileId", opts.FileID,
 		"fileExt", opts.FileExt,
@@ -23,20 +26,33 @@ func (s *Services) FindFileURL(ctx context.Context, opts FindFileURLOptions) (st
 	log.Info("Finding file URL...")
 
 	cacheOpts := cc.GetFileURLOptions{
-		UserID: opts.UserID,
-		FileID: opts.FileID,
+		RequestID: opts.RequestID,
+		UserID:    opts.UserID,
+		FileID:    opts.FileID,
 	}
-	if url, err := s.cache.GetFileURL(cacheOpts); err == nil && url != "" {
+	if url, err := s.cache.GetFileURL(ctx, cacheOpts); err == nil && url != "" {
 		return url, nil
 	}
 
 	url, err := s.objStg.GetFileUrl(ctx, objStg.GetFileURLOptions{
-		UserID:  opts.UserID,
-		FileID:  opts.FileID,
-		FileExt: opts.FileExt,
+		RequestID: opts.RequestID,
+		UserID:    opts.UserID,
+		FileID:    opts.FileID,
+		FileExt:   opts.FileExt,
 	})
 	if err != nil {
 		log.Error("Error getting file URL", "error", err)
+		return "", NewServerError()
+	}
+
+	addFileUrlOpts := cc.AddFileURLOptions{
+		RequestID: opts.RequestID,
+		UserID:    opts.UserID,
+		FileID:    opts.FileID,
+		URL:       url,
+	}
+	if err := s.cache.AddFileURL(ctx, addFileUrlOpts); err != nil {
+		log.Error("Error caching file URL", "error", err)
 		return "", NewServerError()
 	}
 

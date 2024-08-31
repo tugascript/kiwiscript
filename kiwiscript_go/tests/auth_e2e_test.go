@@ -19,6 +19,7 @@ package tests
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"github.com/kiwiscript/kiwiscript_go/dtos"
 	"math"
 	"net/http"
@@ -71,7 +72,10 @@ func generateEmailToken(t *testing.T, tokenType string, user *db.User) string {
 
 func confirmTestUser(t *testing.T, userID int32) *db.User {
 	serv := GetTestServices(t)
-	user, err := serv.ConfirmUser(context.Background(), userID)
+	user, err := serv.ConfirmUser(context.Background(), services.ConfirmUserOptions{
+		RequestID: uuid.NewString(),
+		ID:        userID,
+	})
 
 	if err != nil {
 		t.Fatal(err)
@@ -377,7 +381,10 @@ func TestLoginConfirm(t *testing.T) {
 
 	generateTestTwoFactorCode := func(t *testing.T, user *db.User) string {
 		cacheProv := GetTestCache(t)
-		code, err := cacheProv.AddTwoFactorCode(user.ID)
+		code, err := cacheProv.AddTwoFactorCode(context.Background(), cc.AddTwoFactorCodeOptions{
+			RequestID: uuid.NewString(),
+			UserID:    user.ID,
+		})
 
 		if err != nil {
 			t.Fatal("Failed to generate two factor code", err)
@@ -589,11 +596,12 @@ func TestRefresh(t *testing.T) {
 			t.Fatal("Failed to verify refresh token", err)
 		}
 
-		opts := cc.AddBlackListOptions{
-			ID:  id,
-			Exp: exp,
+		opts := cc.AddBlacklistOptions{
+			RequestID: uuid.NewString(),
+			ID:        id,
+			Exp:       exp,
 		}
-		if err := cacheProv.AddBlackList(opts); err != nil {
+		if err := cacheProv.AddBlacklist(context.Background(), opts); err != nil {
 			t.Fatal("Failed to add token to black list", err)
 		}
 	}

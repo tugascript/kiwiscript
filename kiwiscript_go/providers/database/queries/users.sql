@@ -61,12 +61,13 @@ UPDATE "users" SET
 WHERE "id" = $2
 RETURNING *;
 
--- name: UpdateUser :exec
+-- name: UpdateUser :one
 UPDATE "users" SET
   "first_name" = $1,
   "last_name" = $2,
   "location" = $3
-WHERE "id" = $4;
+WHERE "id" = $4
+RETURNING *;
 
 -- name: FindUserByEmail :one
 SELECT * FROM "users"

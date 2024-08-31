@@ -225,12 +225,13 @@ func (q *Queries) FindUserById(ctx context.Context, id int32) (User, error) {
 	return i, err
 }
 
-const updateUser = `-- name: UpdateUser :exec
+const updateUser = `-- name: UpdateUser :one
 UPDATE "users" SET
   "first_name" = $1,
   "last_name" = $2,
   "location" = $3
 WHERE "id" = $4
+RETURNING id, first_name, last_name, location, email, version, is_admin, is_staff, is_confirmed, password, created_at, updated_at
 `
 
 type UpdateUserParams struct {
@@ -240,14 +241,29 @@ type UpdateUserParams struct {
 	ID        int32
 }
 
-func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
-	_, err := q.db.Exec(ctx, updateUser,
+func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUser,
 		arg.FirstName,
 		arg.LastName,
 		arg.Location,
 		arg.ID,
 	)
-	return err
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.FirstName,
+		&i.LastName,
+		&i.Location,
+		&i.Email,
+		&i.Version,
+		&i.IsAdmin,
+		&i.IsStaff,
+		&i.IsConfirmed,
+		&i.Password,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const updateUserEmail = `-- name: UpdateUserEmail :one

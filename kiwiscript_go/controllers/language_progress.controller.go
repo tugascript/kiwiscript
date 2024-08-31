@@ -23,11 +23,16 @@ import (
 	"github.com/kiwiscript/kiwiscript_go/services"
 )
 
+const languageProgressLocation string = "languageProgress"
+
 func (c *Controllers) CreateOrUpdateLanguageProgress(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.language_progress.CreateOrUpdateLanguageProgress")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	slug := ctx.Params("languageSlug")
-	log.InfoContext(userCtx, "Creating or updating language progress", "slug", slug)
+	log := c.buildLogger(ctx, requestID, languageProgressLocation, "CreateOrUpdateLanguageProgress").With(
+		"slug", slug,
+	)
+	log.InfoContext(userCtx, "Creating or updating language progress...")
 
 	user, err := c.GetUserClaims(ctx)
 	if err != nil {
@@ -43,6 +48,7 @@ func (c *Controllers) CreateOrUpdateLanguageProgress(ctx *fiber.Ctx) error {
 	language, languageProgress, serviceErr := c.services.CreateOrUpdateLanguageProgress(
 		userCtx,
 		services.CreateOrUpdateLanguageProgressOptions{
+			RequestID:    requestID,
 			UserID:       user.ID,
 			LanguageSlug: slug,
 		},
@@ -55,10 +61,13 @@ func (c *Controllers) CreateOrUpdateLanguageProgress(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) ResetLanguageProgress(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.language_progress.ResetLanguageProgress")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	slug := ctx.Params("languageSlug")
-	log.InfoContext(userCtx, "Resetting language progress", "slug", slug)
+	log := c.buildLogger(ctx, requestID, languageProgressLocation, "ResetLanguageProgress").With(
+		"slug", slug,
+	)
+	log.InfoContext(userCtx, "Resetting language progress...")
 
 	user, err := c.GetUserClaims(ctx)
 	if err != nil {
@@ -72,6 +81,7 @@ func (c *Controllers) ResetLanguageProgress(ctx *fiber.Ctx) error {
 	}
 
 	opts := services.DeleteLanguageProgressOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 	}

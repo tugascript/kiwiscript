@@ -355,6 +355,32 @@ func TestGetLesson(t *testing.T) {
 				baseLanguagesPath, sectionID, lessonID,
 			),
 		},
+		{
+			Name: "Should return 200 OK if the series is published and no user is logged in",
+			ReqFn: func(t *testing.T) (string, string) {
+				testDb := GetTestDatabase(t)
+				ctx := context.Background()
+				isPubPrms := db.UpdateLessonIsPublishedParams{
+					IsPublished: true,
+					ID:          lessonID,
+				}
+				if _, err := testDb.UpdateLessonIsPublished(ctx, isPubPrms); err != nil {
+					t.Fatal("Failed to update lesson is published", "error", err)
+				}
+
+				return "", ""
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.LessonResponse{})
+				AssertNotEmpty(t, resBody.Title)
+				AssertEqual(t, resBody.IsCompleted, false)
+			},
+			Path: fmt.Sprintf(
+				"%s/rust/series/existing-series/sections/%d/lessons/%d",
+				baseLanguagesPath, sectionID, lessonID,
+			),
+		},
 	}
 
 	for _, tc := range testCases {

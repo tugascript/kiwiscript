@@ -24,18 +24,20 @@ import (
 	"strconv"
 )
 
+const sectionProgressLocation string = "section_progress"
+
 func (c *Controllers) CreateOrUpdateSectionProgress(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.CreateOrUpdateSectionProgress")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
-	log.InfoContext(
-		userCtx, "Created or updated section progress...",
+	log := c.buildLogger(ctx, requestID, sectionProgressLocation, "CreateOrUpdateSectionProgress").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
 		"sectionID", sectionID,
 	)
+	log.InfoContext(userCtx, "Created or updated section progress...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil {
@@ -67,6 +69,7 @@ func (c *Controllers) CreateOrUpdateSectionProgress(ctx *fiber.Ctx) error {
 	section, progress, serviceErr := c.services.CreateOrUpdateSectionProgress(
 		userCtx,
 		services.CreateOrUpdateSectionProgressOptions{
+			RequestID:    requestID,
 			UserID:       user.ID,
 			LanguageSlug: params.LanguageSlug,
 			SeriesSlug:   params.SeriesSlug,
@@ -81,17 +84,17 @@ func (c *Controllers) CreateOrUpdateSectionProgress(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) ResetSectionProgress(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.ResetSectionProgress")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
-	log.InfoContext(
-		userCtx, "Resetting section progress...",
+	log := c.buildLogger(ctx, requestID, sectionProgressLocation, "ResetSectionProgress").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
 		"sectionID", sectionID,
 	)
+	log.InfoContext(userCtx, "Resetting section progress...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil {
@@ -121,6 +124,7 @@ func (c *Controllers) ResetSectionProgress(ctx *fiber.Ctx) error {
 
 	parsedSectionIDi32 := int32(parsedSectionID)
 	opts := services.DeleteSectionProgressOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,

@@ -29,7 +29,10 @@ import (
 	"strings"
 )
 
+const authLocation string = "auth"
+
 type SignUpOptions struct {
+	RequestID string
 	Email     string
 	FirstName string
 	LastName  string
@@ -37,7 +40,12 @@ type SignUpOptions struct {
 	Password  string
 }
 
-func (s *Services) sendConfirmationEmail(ctx context.Context, log *slog.Logger, user *db.User) *ServiceError {
+func (s *Services) sendConfirmationEmail(
+	ctx context.Context,
+	log *slog.Logger,
+	requestID string,
+	user *db.User,
+) *ServiceError {
 	log.InfoContext(ctx, "Sending confirmation email")
 	confirmationToken, err := s.jwt.CreateEmailToken(tokens.EmailTokenConfirmation, user)
 	if err != nil {
@@ -47,12 +55,13 @@ func (s *Services) sendConfirmationEmail(ctx context.Context, log *slog.Logger, 
 
 	go func() {
 		opts := email.ConfirmationEmailOptions{
+			RequestID:         requestID,
 			Email:             user.Email,
 			FirstName:         user.FirstName,
 			LastName:          user.LastName,
 			ConfirmationToken: confirmationToken,
 		}
-		if err := s.mail.SendConfirmationEmail(opts); err != nil {
+		if err := s.mail.SendConfirmationEmail(ctx, opts); err != nil {
 			log.WarnContext(ctx, "Failed to send confirmation email", "error", err)
 		}
 	}()
@@ -60,31 +69,34 @@ func (s *Services) sendConfirmationEmail(ctx context.Context, log *slog.Logger, 
 	return nil
 }
 
-func (s *Services) SignUp(ctx context.Context, options SignUpOptions) *ServiceError {
-	log := s.log.WithGroup("services.auth.SignUp").With("email", options.Email)
-	log.InfoContext(ctx, "Sign up")
+func (s *Services) SignUp(ctx context.Context, opts SignUpOptions) *ServiceError {
+	log := s.buildLogger(opts.RequestID, authLocation, "SignUp").With(
+		"firstName", opts.FirstName,
+		"lastName", opts.LastName,
+	)
+	log.InfoContext(ctx, "Signing up...")
 
-	password, err := utils.HashPassword(options.Password)
+	password, err := utils.HashPassword(opts.Password)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to hash password", "error", err)
 		return NewServerError()
 	}
 
 	prms := db.FindAuthProviderByEmailAndProviderParams{
-		Email:    options.Email,
+		Email:    opts.Email,
 		Provider: utils.ProviderEmail,
 	}
 	if _, err := s.database.FindAuthProviderByEmailAndProvider(ctx, prms); err == nil {
-		errMsg := "Email already exists"
-		log.WarnContext(ctx, errMsg)
-		return NewConflictError(errMsg)
+		log.WarnContext(ctx, "Email already in use")
+		return NewConflictError("Email already exists")
 	}
 
 	user, serviceErr := s.CreateUser(ctx, CreateUserOptions{
-		Email:     options.Email,
-		FirstName: options.FirstName,
-		LastName:  options.LastName,
-		Location:  options.Location,
+		RequestID: opts.RequestID,
+		Email:     opts.Email,
+		FirstName: opts.FirstName,
+		LastName:  opts.LastName,
+		Location:  opts.Location,
 		Password:  password,
 		Provider:  utils.ProviderEmail,
 	})
@@ -93,11 +105,17 @@ func (s *Services) SignUp(ctx context.Context, options SignUpOptions) *ServiceEr
 		return serviceErr
 	}
 
-	if err := s.sendConfirmationEmail(ctx, log, user); err != nil {
+	if err := s.sendConfirmationEmail(ctx, log, opts.RequestID, user); err != nil {
 		return err
 	}
 	log.InfoContext(ctx, "Sign up successfully")
 	return nil
+}
+
+type AuthResponse struct {
+	AccessToken  string
+	RefreshToken string
+	ExpiresIn    int64
 }
 
 func (s *Services) generateAuthResponse(
@@ -127,17 +145,16 @@ func (s *Services) generateAuthResponse(
 	return &response, nil
 }
 
-type AuthResponse struct {
-	AccessToken  string
-	RefreshToken string
-	ExpiresIn    int64
+type ConfirmEmailOptions struct {
+	RequestID string
+	Token     string
 }
 
-func (s *Services) ConfirmEmail(ctx context.Context, token string) (*AuthResponse, *ServiceError) {
-	log := s.log.WithGroup("services.auth.CofirmEmail").With("token", token)
-	log.InfoContext(ctx, "Confirm email")
+func (s *Services) ConfirmEmail(ctx context.Context, opts ConfirmEmailOptions) (*AuthResponse, *ServiceError) {
+	log := s.buildLogger(opts.RequestID, authLocation, "ConfirmEmail")
+	log.InfoContext(ctx, "Confirming email...")
 
-	tokenType, claims, err := s.jwt.VerifyEmailToken(token)
+	tokenType, claims, err := s.jwt.VerifyEmailToken(opts.Token)
 	if err != nil {
 		log.WarnContext(ctx, "Invalid token", "error", err)
 		return nil, NewUnauthorizedError()
@@ -148,7 +165,10 @@ func (s *Services) ConfirmEmail(ctx context.Context, token string) (*AuthRespons
 		return nil, NewUnauthorizedError()
 	}
 
-	user, serviceErr := s.FindUserByID(ctx, claims.ID)
+	user, serviceErr := s.FindUserByID(ctx, FindUserByIDOptions{
+		RequestID: opts.RequestID,
+		ID:        claims.ID,
+	})
 	if serviceErr != nil {
 		log.WarnContext(ctx, "User not found", "error", serviceErr)
 		return nil, NewUnauthorizedError()
@@ -162,7 +182,10 @@ func (s *Services) ConfirmEmail(ctx context.Context, token string) (*AuthRespons
 		return nil, NewUnauthorizedError()
 	}
 
-	user, serviceErr = s.ConfirmUser(ctx, user.ID)
+	user, serviceErr = s.ConfirmUser(ctx, ConfirmUserOptions{
+		RequestID: opts.RequestID,
+		ID:        user.ID,
+	})
 	if serviceErr != nil {
 		log.ErrorContext(ctx, "Failed to confirm user", "error", serviceErr)
 		return nil, serviceErr
@@ -172,16 +195,17 @@ func (s *Services) ConfirmEmail(ctx context.Context, token string) (*AuthRespons
 }
 
 type SignInOptions struct {
-	Email    string
-	Password string
+	RequestID string
+	Email     string
+	Password  string
 }
 
-func (s *Services) SignIn(ctx context.Context, options SignInOptions) *ServiceError {
-	log := s.log.WithGroup("services.auth.SignIn").With("email", options.Email)
-	log.InfoContext(ctx, "Sign in")
+func (s *Services) SignIn(ctx context.Context, opts SignInOptions) *ServiceError {
+	log := s.buildLogger(opts.RequestID, authLocation, "SignIn")
+	log.InfoContext(ctx, "Signing in...")
 
 	prms := db.FindAuthProviderByEmailAndProviderParams{
-		Email:    options.Email,
+		Email:    opts.Email,
 		Provider: utils.ProviderEmail,
 	}
 	if _, err := s.database.FindAuthProviderByEmailAndProvider(ctx, prms); err != nil {
@@ -189,28 +213,33 @@ func (s *Services) SignIn(ctx context.Context, options SignInOptions) *ServiceEr
 		return NewUnauthorizedError()
 	}
 
-	user, serviceErr := s.FindUserByEmail(ctx, options.Email)
+	user, serviceErr := s.FindUserByEmail(ctx, FindUserByEmailOptions{
+		RequestID: opts.RequestID,
+		Email:     opts.Email,
+	})
 	if serviceErr != nil {
 		log.WarnContext(ctx, "Failed to find user", "error", serviceErr)
 		return NewUnauthorizedError()
 	}
 
-	if !utils.VerifyPassword(options.Password, user.Password.String) {
+	if !utils.VerifyPassword(opts.Password, user.Password.String) {
 		log.WarnContext(ctx, "Invalid password")
 		return NewUnauthorizedError()
 	}
 	if !user.IsConfirmed {
-		errMsg := "User not confirmed"
-		log.WarnContext(ctx, errMsg)
+		log.WarnContext(ctx, "User still not confirmed, sending confirmation email")
 
-		if err := s.sendConfirmationEmail(ctx, log, user); err != nil {
+		if err := s.sendConfirmationEmail(ctx, log, opts.RequestID, user); err != nil {
 			return err
 		}
 
-		return NewValidationError(errMsg)
+		return NewValidationError("User not confirmed")
 	}
 
-	code, err := s.cache.AddTwoFactorCode(user.ID)
+	code, err := s.cache.AddTwoFactorCode(ctx, cc.AddTwoFactorCodeOptions{
+		RequestID: opts.RequestID,
+		UserID:    user.ID,
+	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to generate two factor code", "error", serviceErr)
 		return NewServerError()
@@ -218,10 +247,13 @@ func (s *Services) SignIn(ctx context.Context, options SignInOptions) *ServiceEr
 
 	go func() {
 		opts := email.CodeEmailOptions{
-			Email: user.Email,
-			Code:  code,
+			RequestID: opts.RequestID,
+			FirstName: user.FirstName,
+			LastName:  user.LastName,
+			Email:     user.Email,
+			Code:      code,
 		}
-		if err := s.mail.SendCodeEmail(opts); err != nil {
+		if err := s.mail.SendCodeEmail(ctx, opts); err != nil {
 			log.ErrorContext(ctx, "Failed to send two factor email", "error", err)
 		}
 	}()
@@ -231,21 +263,29 @@ func (s *Services) SignIn(ctx context.Context, options SignInOptions) *ServiceEr
 }
 
 type TwoFactorOptions struct {
-	Email string
-	Code  string
+	RequestID string
+	Email     string
+	Code      string
 }
 
-func (s *Services) TwoFactor(ctx context.Context, options TwoFactorOptions) (*AuthResponse, *ServiceError) {
-	log := s.log.WithGroup("services.auth.TwoFactor").With("email", options.Email)
-	log.InfoContext(ctx, "Two factor confirmation")
+func (s *Services) TwoFactor(ctx context.Context, opts TwoFactorOptions) (*AuthResponse, *ServiceError) {
+	log := s.buildLogger(opts.RequestID, authLocation, "TwoFactor")
+	log.InfoContext(ctx, "Confirming two factor code...")
 
-	user, serviceErr := s.FindUserByEmail(ctx, options.Email)
+	user, serviceErr := s.FindUserByEmail(ctx, FindUserByEmailOptions{
+		RequestID: opts.RequestID,
+		Email:     opts.Email,
+	})
 	if serviceErr != nil {
 		log.WarnContext(ctx, "Failed to find user", "error", serviceErr)
 		return nil, NewUnauthorizedError()
 	}
 
-	verified, err := s.cache.VerifyTwoFactorCode(user.ID, options.Code)
+	verified, err := s.cache.VerifyTwoFactorCode(ctx, cc.VerifyTwoFactorCodeOptions{
+		RequestID: opts.RequestID,
+		UserID:    user.ID,
+		Code:      opts.Code,
+	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to verify two factor code", "error", err)
 		return nil, NewServerError()
@@ -263,17 +303,25 @@ func (s *Services) TwoFactor(ctx context.Context, options TwoFactorOptions) (*Au
 	return s.generateAuthResponse(ctx, log, "Confirmed two factor successfully", user)
 }
 
-func (s *Services) Refresh(ctx context.Context, token string) (*AuthResponse, *ServiceError) {
-	log := s.log.WithGroup("services.auth.RefreshToken").With("token", token)
-	log.InfoContext(ctx, "Refresh token")
+type RefreshOptions struct {
+	RequestID string
+	Token     string
+}
 
-	claims, id, _, err := s.jwt.VerifyRefreshToken(token)
+func (s *Services) Refresh(ctx context.Context, opts RefreshOptions) (*AuthResponse, *ServiceError) {
+	log := s.buildLogger(opts.RequestID, authLocation, "Refresh")
+	log.InfoContext(ctx, "Refreshing access token...")
+
+	claims, id, _, err := s.jwt.VerifyRefreshToken(opts.Token)
 	if err != nil {
 		log.WarnContext(ctx, "Invalid token", "error", err)
 		return nil, NewUnauthorizedError()
 	}
 
-	isBl, err := s.cache.IsBlackListed(id)
+	isBl, err := s.cache.IsBlacklisted(ctx, cc.IsBlacklistedOptions{
+		RequestID: "",
+		ID:        id,
+	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to check black list", "error", err)
 		return nil, NewServerError()
@@ -283,7 +331,10 @@ func (s *Services) Refresh(ctx context.Context, token string) (*AuthResponse, *S
 		return nil, NewUnauthorizedError()
 	}
 
-	user, serviceErr := s.FindUserByID(ctx, claims.ID)
+	user, serviceErr := s.FindUserByID(ctx, FindUserByIDOptions{
+		RequestID: opts.RequestID,
+		ID:        claims.ID,
+	})
 	if serviceErr != nil {
 		log.WarnContext(ctx, "Failed to find user", "error", err)
 		return nil, NewUnauthorizedError()
@@ -296,17 +347,22 @@ func (s *Services) Refresh(ctx context.Context, token string) (*AuthResponse, *S
 	return s.generateAuthResponse(ctx, log, "Refreshed token successfully", user)
 }
 
-func (s *Services) SignOut(ctx context.Context, token string) *ServiceError {
-	log := s.log.WithGroup("services.auth.SignOut")
-	log.InfoContext(ctx, "Sign out")
+type SignOutOptions struct {
+	RequestID string
+	Token     string
+}
 
-	_, id, exp, err := s.jwt.VerifyRefreshToken(token)
+func (s *Services) SignOut(ctx context.Context, opts SignOutOptions) *ServiceError {
+	log := s.buildLogger(opts.RequestID, authLocation, "SignOut")
+	log.InfoContext(ctx, "Signing out...")
+
+	_, id, exp, err := s.jwt.VerifyRefreshToken(opts.Token)
 	if err != nil {
 		log.WarnContext(ctx, "Invalid token", "error", err)
 		return NewUnauthorizedError()
 	}
 
-	err = s.cache.AddBlackList(cc.AddBlackListOptions{
+	err = s.cache.AddBlacklist(ctx, cc.AddBlacklistOptions{
 		ID:  id,
 		Exp: exp,
 	})
@@ -320,22 +376,29 @@ func (s *Services) SignOut(ctx context.Context, token string) *ServiceError {
 }
 
 type UpdatePasswordOptions struct {
+	RequestID   string
 	UserID      int32
 	UserVersion int16
 	OldPassword string
 	NewPassword string
 }
 
-func (s *Services) UpdatePassword(ctx context.Context, options UpdatePasswordOptions) (*AuthResponse, *ServiceError) {
-	log := s.log.WithGroup("services.auth.UpdatePassword").With("userID", options.UserID)
-	log.InfoContext(ctx, "Update password")
+func (s *Services) UpdatePassword(ctx context.Context, opts UpdatePasswordOptions) (*AuthResponse, *ServiceError) {
+	log := s.buildLogger(opts.RequestID, authLocation, "UpdatePassword").With(
+		"userId", opts.UserID,
+		"userVersion", opts.UserVersion,
+	)
+	log.InfoContext(ctx, "Updating password...")
 
-	user, serviceErr := s.FindUserByID(ctx, options.UserID)
+	user, serviceErr := s.FindUserByID(ctx, FindUserByIDOptions{
+		RequestID: opts.RequestID,
+		ID:        opts.UserID,
+	})
 	if serviceErr != nil {
 		log.WarnContext(ctx, "Failed to find user", "error", serviceErr)
 		return nil, NewUnauthorizedError()
 	}
-	if user.Version != options.UserVersion {
+	if user.Version != opts.UserVersion {
 		log.WarnContext(ctx, "Invalid user version")
 		return nil, NewUnauthorizedError()
 	}
@@ -366,7 +429,7 @@ func (s *Services) UpdatePassword(ctx context.Context, options UpdatePasswordOpt
 			return nil, FromDBError(err)
 		}
 
-		passwordHash, err := utils.HashPassword(options.NewPassword)
+		passwordHash, err := utils.HashPassword(opts.NewPassword)
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to hash new password", "error", err)
 			return nil, NewServerError()
@@ -379,7 +442,7 @@ func (s *Services) UpdatePassword(ctx context.Context, options UpdatePasswordOpt
 		}
 
 		*user, err = qrs.UpdateUserPassword(ctx, db.UpdateUserPasswordParams{
-			ID:       options.UserID,
+			ID:       opts.UserID,
 			Password: password,
 		})
 		if err != nil {
@@ -390,21 +453,22 @@ func (s *Services) UpdatePassword(ctx context.Context, options UpdatePasswordOpt
 		return s.generateAuthResponse(ctx, log, "Updated password successfully", user)
 	}
 
-	if !utils.VerifyPassword(options.OldPassword, user.Password.String) {
+	if !utils.VerifyPassword(opts.OldPassword, user.Password.String) {
 		errMsg := "Old password is incorrect"
 		log.WarnContext(ctx, errMsg)
 		return nil, NewValidationError(errMsg)
 	}
 
-	password, err := utils.HashPassword(options.NewPassword)
+	password, err := utils.HashPassword(opts.NewPassword)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to hash new password", "error", err)
 		return nil, NewServerError()
 	}
 
 	user, serviceErr = s.UpdateUserPassword(ctx, UpdateUserPasswordOptions{
-		ID:       options.UserID,
-		Password: password,
+		RequestID: opts.RequestID,
+		ID:        opts.UserID,
+		Password:  password,
 	})
 	if serviceErr != nil {
 		log.ErrorContext(ctx, "Failed to update password", "error", serviceErr)
@@ -414,14 +478,22 @@ func (s *Services) UpdatePassword(ctx context.Context, options UpdatePasswordOpt
 	return s.generateAuthResponse(ctx, log, "Updated password successfully", user)
 }
 
-func (s *Services) ForgotPassword(ctx context.Context, userEmail string) *ServiceError {
-	log := s.log.WithGroup("services.auth.ResetPassword").With("email", userEmail)
+type ForgotPasswordOptions struct {
+	RequestID string
+	Email     string
+}
+
+func (s *Services) ForgotPassword(ctx context.Context, opts ForgotPasswordOptions) *ServiceError {
+	log := s.buildLogger(opts.RequestID, authLocation, "ForgotPassword")
 	log.InfoContext(ctx, "Reset password")
 
-	user, serviceErr := s.FindUserByEmail(ctx, userEmail)
+	user, serviceErr := s.FindUserByEmail(ctx, FindUserByEmailOptions{
+		RequestID: opts.RequestID,
+		Email:     opts.Email,
+	})
 	if serviceErr != nil {
 		if serviceErr.Code == CodeNotFound {
-			log.InfoContext(ctx, "User not found, skip reset password", "email", userEmail)
+			log.InfoContext(ctx, "User not found, skip reset password")
 			return nil
 		}
 
@@ -437,12 +509,13 @@ func (s *Services) ForgotPassword(ctx context.Context, userEmail string) *Servic
 
 	go func() {
 		opts := email.ResetEmailOptions{
+			RequestID:  opts.RequestID,
 			Email:      user.Email,
 			FirstName:  user.FirstName,
 			LastName:   user.LastName,
 			ResetToken: emailToken,
 		}
-		if err := s.mail.SendResetEmail(opts); err != nil {
+		if err := s.mail.SendResetEmail(ctx, opts); err != nil {
 			log.ErrorContext(ctx, "Failed to send two factor email", "error", err)
 		}
 	}()
@@ -452,15 +525,16 @@ func (s *Services) ForgotPassword(ctx context.Context, userEmail string) *Servic
 }
 
 type ResetPasswordOptions struct {
+	RequestID   string
 	ResetToken  string
 	NewPassword string
 }
 
-func (s *Services) ResetPassword(ctx context.Context, options ResetPasswordOptions) *ServiceError {
-	log := s.log.WithGroup("services.auth.ResetPassword")
-	log.InfoContext(ctx, "Reset password")
+func (s *Services) ResetPassword(ctx context.Context, opts ResetPasswordOptions) *ServiceError {
+	log := s.buildLogger(opts.RequestID, authLocation, "ResetPassword")
+	log.InfoContext(ctx, "Resetting password...")
 
-	tokenType, claims, err := s.jwt.VerifyEmailToken(options.ResetToken)
+	tokenType, claims, err := s.jwt.VerifyEmailToken(opts.ResetToken)
 	if err != nil {
 		log.WarnContext(ctx, "Invalid token", "error", err)
 		return NewUnauthorizedError()
@@ -471,7 +545,10 @@ func (s *Services) ResetPassword(ctx context.Context, options ResetPasswordOptio
 		return NewUnauthorizedError()
 	}
 
-	user, serviceErr := s.FindUserByID(ctx, claims.ID)
+	user, serviceErr := s.FindUserByID(ctx, FindUserByIDOptions{
+		RequestID: opts.RequestID,
+		ID:        claims.ID,
+	})
 	if serviceErr != nil {
 		log.WarnContext(ctx, "Failed to find user", "error", serviceErr)
 		return NewUnauthorizedError()
@@ -481,7 +558,7 @@ func (s *Services) ResetPassword(ctx context.Context, options ResetPasswordOptio
 		return NewUnauthorizedError()
 	}
 
-	passwordHash, err := utils.HashPassword(options.NewPassword)
+	passwordHash, err := utils.HashPassword(opts.NewPassword)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to hash new password", "error", err)
 		return NewServerError()
@@ -515,7 +592,7 @@ func (s *Services) ResetPassword(ctx context.Context, options ResetPasswordOptio
 		}
 
 		var password pgtype.Text
-		if err := password.Scan(options.NewPassword); err != nil || options.NewPassword == "" {
+		if err := password.Scan(opts.NewPassword); err != nil || opts.NewPassword == "" {
 			log.WarnContext(ctx, "Password is invalid")
 			return NewValidationError("'password' is invalid")
 		}
@@ -534,8 +611,9 @@ func (s *Services) ResetPassword(ctx context.Context, options ResetPasswordOptio
 	}
 
 	updatePassOpts := UpdateUserPasswordOptions{
-		ID:       user.ID,
-		Password: passwordHash,
+		RequestID: opts.RequestID,
+		ID:        user.ID,
+		Password:  passwordHash,
 	}
 	if _, serviceErr = s.UpdateUserPassword(ctx, updatePassOpts); serviceErr != nil {
 		log.ErrorContext(ctx, "Failed to update password", "error", serviceErr)
@@ -547,22 +625,29 @@ func (s *Services) ResetPassword(ctx context.Context, options ResetPasswordOptio
 }
 
 type UpdateEmailOptions struct {
+	RequestID   string
 	UserID      int32
 	UserVersion int16
 	NewEmail    string
 	Password    string
 }
 
-func (s *Services) UpdateEmail(ctx context.Context, options UpdateEmailOptions) (*AuthResponse, *ServiceError) {
-	log := s.log.WithGroup("services.auth.UpdateEmail")
-	log.InfoContext(ctx, "Update email", "userID", options.UserID)
+func (s *Services) UpdateEmail(ctx context.Context, opts UpdateEmailOptions) (*AuthResponse, *ServiceError) {
+	log := s.buildLogger(opts.RequestID, authLocation, "UpdateEmail").With(
+		"userId", opts.UserID,
+		"userVersion", opts.UserVersion,
+	)
+	log.InfoContext(ctx, "Updating email...")
 
-	user, serviceErr := s.FindUserByID(ctx, options.UserID)
+	user, serviceErr := s.FindUserByID(ctx, FindUserByIDOptions{
+		RequestID: opts.RequestID,
+		ID:        opts.UserID,
+	})
 	if serviceErr != nil {
 		log.WarnContext(ctx, "Failed to find user", "error", serviceErr)
 		return nil, NewUnauthorizedError()
 	}
-	if user.Version != options.UserVersion {
+	if user.Version != opts.UserVersion {
 		log.WarnContext(ctx, "Invalid user version")
 		return nil, NewUnauthorizedError()
 	}
@@ -582,14 +667,14 @@ func (s *Services) UpdateEmail(ctx context.Context, options UpdateEmailOptions) 
 		log.ErrorContext(ctx, "Failed to find auth provider", "error", err)
 		return nil, serviceErr
 	}
-	if !utils.VerifyPassword(options.Password, user.Password.String) {
+	if !utils.VerifyPassword(opts.Password, user.Password.String) {
 		errMsg := "Invalid password"
 		log.WarnContext(ctx, errMsg)
 		return nil, NewValidationError(errMsg)
 	}
 
 	newAuthProvParams := db.FindAuthProviderByEmailAndProviderParams{
-		Email:    options.NewEmail,
+		Email:    opts.NewEmail,
 		Provider: utils.ProviderEmail,
 	}
 	if _, err := s.database.FindAuthProviderByEmailAndProvider(ctx, newAuthProvParams); err == nil {
@@ -606,7 +691,7 @@ func (s *Services) UpdateEmail(ctx context.Context, options UpdateEmailOptions) 
 
 	*user, err = qrs.UpdateUserEmail(ctx, db.UpdateUserEmailParams{
 		ID:    user.ID,
-		Email: options.NewEmail,
+		Email: opts.NewEmail,
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to update email", "error", err)

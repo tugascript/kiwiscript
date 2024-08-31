@@ -29,11 +29,18 @@ import (
 	"github.com/kiwiscript/kiwiscript_go/services"
 )
 
+const seriesLocation string = "series"
+
+// TODO: add discovery endpoint
+
 func (c *Controllers) CreateSeries(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.CreateSeries")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
-	log.InfoContext(userCtx, "Creating series...", "languageSlug", languageSlug)
+	log := c.buildLogger(ctx, requestID, sectionsLocation, "CreateSeries").With(
+		"languageSlug", languageSlug,
+	)
+	log.InfoContext(userCtx, "Creating series...")
 
 	user, err := c.GetUserClaims(ctx)
 	if err != nil || !user.IsStaff {
@@ -55,6 +62,7 @@ func (c *Controllers) CreateSeries(ctx *fiber.Ctx) error {
 	}
 
 	series, serviceErr := c.services.CreateSeries(userCtx, services.CreateSeriesOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		Title:        request.Title,
@@ -74,11 +82,15 @@ func (c *Controllers) CreateSeries(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) GetSingleSeries(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.GetSingleSeries")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
-	log.InfoContext(userCtx, "Getting series...", "languageSlug", languageSlug, "seriesSlug", seriesSlug)
+	log := c.buildLogger(ctx, requestID, seriesLocation, "GetSingleSeries").With(
+		"languageSlug", languageSlug,
+		"seriesSlug", seriesSlug,
+	)
+	log.InfoContext(userCtx, "Getting single series...")
 
 	params := dtos.SeriesPathParams{
 		LanguageSlug: languageSlug,
@@ -91,6 +103,7 @@ func (c *Controllers) GetSingleSeries(ctx *fiber.Ctx) error {
 	if user, err := c.GetUserClaims(ctx); err == nil {
 		if user.IsStaff {
 			series, serviceErr := c.services.FindSeriesBySlugs(userCtx, services.FindSeriesBySlugsOptions{
+				RequestID:    requestID,
 				SeriesSlug:   params.SeriesSlug,
 				LanguageSlug: params.LanguageSlug,
 			})
@@ -98,12 +111,21 @@ func (c *Controllers) GetSingleSeries(ctx *fiber.Ctx) error {
 				return c.serviceErrorResponse(serviceErr, ctx)
 			}
 
-			user, serviceErr := c.services.FindUserByID(userCtx, series.AuthorID)
+			user, serviceErr := c.services.FindUserByID(userCtx, services.FindUserByIDOptions{
+				RequestID: requestID,
+				ID:        series.AuthorID,
+			})
 			if serviceErr != nil {
 				return c.serviceErrorResponse(serviceErr, ctx)
 			}
 
-			picture, serviceErr := c.services.FindSeriesPictureBySeriesID(userCtx, series.ID)
+			picture, serviceErr := c.services.FindSeriesPictureBySeriesID(
+				userCtx,
+				services.FindSeriesPictureBySeriesIDOptions{
+					RequestID: requestID,
+					SeriesID:  series.ID,
+				},
+			)
 			if serviceErr != nil {
 				if serviceErr.Code != services.CodeNotFound {
 					return c.serviceErrorResponse(serviceErr, ctx)
@@ -119,9 +141,10 @@ func (c *Controllers) GetSingleSeries(ctx *fiber.Ctx) error {
 			}
 
 			fileUrl, serviceErr := c.services.FindFileURL(userCtx, services.FindFileURLOptions{
-				UserID:  picture.AuthorID,
-				FileID:  picture.ID,
-				FileExt: picture.Ext,
+				RequestID: requestID,
+				UserID:    picture.AuthorID,
+				FileID:    picture.ID,
+				FileExt:   picture.Ext,
 			})
 			if serviceErr != nil {
 				return c.serviceErrorResponse(serviceErr, ctx)
@@ -145,6 +168,7 @@ func (c *Controllers) GetSingleSeries(ctx *fiber.Ctx) error {
 		series, serviceErr := c.services.FindPublishedSeriesBySlugsWithProgress(
 			userCtx,
 			services.FindSeriesBySlugsWithProgressOptions{
+				RequestID:    requestID,
 				UserID:       user.ID,
 				LanguageSlug: params.LanguageSlug,
 				SeriesSlug:   params.SeriesSlug,
@@ -156,9 +180,10 @@ func (c *Controllers) GetSingleSeries(ctx *fiber.Ctx) error {
 
 		if series.PictureID.Valid && series.PictureExt.Valid {
 			fileUrl, serviceErr := c.services.FindFileURL(userCtx, services.FindFileURLOptions{
-				UserID:  series.AuthorID,
-				FileID:  series.PictureID.Bytes,
-				FileExt: series.PictureExt.String,
+				RequestID: requestID,
+				UserID:    series.AuthorID,
+				FileID:    series.PictureID.Bytes,
+				FileExt:   series.PictureExt.String,
 			})
 			if serviceErr != nil {
 				return c.serviceErrorResponse(serviceErr, ctx)
@@ -171,6 +196,7 @@ func (c *Controllers) GetSingleSeries(ctx *fiber.Ctx) error {
 	}
 
 	series, serviceErr := c.services.FindPublishedSeriesBySlugsWithAuthor(userCtx, services.FindSeriesBySlugsOptions{
+		RequestID:    requestID,
 		SeriesSlug:   params.SeriesSlug,
 		LanguageSlug: params.LanguageSlug,
 	})
@@ -180,9 +206,10 @@ func (c *Controllers) GetSingleSeries(ctx *fiber.Ctx) error {
 
 	if series.PictureID.Valid && series.PictureExt.Valid {
 		fileUrl, serviceErr := c.services.FindFileURL(userCtx, services.FindFileURLOptions{
-			UserID:  series.AuthorID,
-			FileID:  series.PictureID.Bytes,
-			FileExt: series.PictureExt.String,
+			RequestID: requestID,
+			UserID:    series.AuthorID,
+			FileID:    series.PictureID.Bytes,
+			FileExt:   series.PictureExt.String,
 		})
 		if serviceErr != nil {
 			return c.serviceErrorResponse(serviceErr, ctx)
@@ -221,11 +248,28 @@ func (c *Controllers) findSeriesPictureURLs(
 	return fileURLs, nil
 }
 
+func mapSeriesResponse(
+	backendDomain string,
+	model *db.SeriesModel,
+	fileURLs *services.FileURLsContainer,
+) *dtos.SeriesResponse {
+	if model.Picture != nil {
+		if url, ok := fileURLs.Get(model.Picture.ID); ok {
+			return dtos.NewSeriesResponse(backendDomain, model, url)
+		}
+	}
+
+	return dtos.NewSeriesResponse(backendDomain, model, "")
+}
+
 func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.GetAdminPaginatedSeries")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
-	log.InfoContext(userCtx, "Getting series...", "languageSlug", languageSlug)
+	log := c.buildLogger(ctx, requestID, seriesLocation, "GetPaginatedSeries").With(
+		"languageSlug", languageSlug,
+	)
+	log.InfoContext(userCtx, "Getting paginated series...")
 
 	params := dtos.LanguagePathParams{LanguageSlug: languageSlug}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
@@ -255,6 +299,7 @@ func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
 				seriesModels, count, serviceErr = c.services.FindFilteredSeries(
 					userCtx,
 					services.FindFilteredSeriesOptions{
+						RequestID:    requestID,
 						Search:       queryParams.Search,
 						LanguageSlug: params.LanguageSlug,
 						Offset:       queryParams.Offset,
@@ -266,6 +311,7 @@ func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
 				seriesModels, count, serviceErr = c.services.FindPaginatedSeries(
 					userCtx,
 					services.FindPaginatedSeriesOptions{
+						RequestID:    requestID,
 						LanguageSlug: params.LanguageSlug,
 						Offset:       queryParams.Offset,
 						Limit:        queryParams.Limit,
@@ -305,13 +351,7 @@ func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
 					count,
 					seriesModels,
 					func(model *db.SeriesModel) *dtos.SeriesResponse {
-						if model.Picture != nil {
-							if url, ok := fileURLs.Get(model.Picture.ID); ok {
-								return dtos.NewSeriesResponse(c.backendDomain, model, url)
-							}
-						}
-
-						return dtos.NewSeriesResponse(c.backendDomain, model, "")
+						return mapSeriesResponse(c.backendDomain, model, fileURLs)
 					},
 				),
 			)
@@ -320,7 +360,9 @@ func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
 		if queryParams.Search != "" {
 			seriesModels, count, serviceErr = c.services.FindFilteredPublishedSeriesWithProgress(
 				userCtx,
-				services.FindFilteredSeriesOptions{
+				services.FindFilteredPublishedSeriesWithProgressOptions{
+					RequestID:    requestID,
+					UserID:       user.ID,
 					Search:       queryParams.Search,
 					LanguageSlug: params.LanguageSlug,
 					Offset:       queryParams.Offset,
@@ -332,6 +374,7 @@ func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
 			seriesModels, count, serviceErr = c.services.FindPaginatedPublishedSeriesWithProgress(
 				userCtx,
 				services.FindPaginatedSeriesWithProgressOptions{
+					RequestID:    requestID,
 					UserID:       user.ID,
 					LanguageSlug: params.LanguageSlug,
 					Offset:       queryParams.Offset,
@@ -372,13 +415,7 @@ func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
 				count,
 				seriesModels,
 				func(model *db.SeriesModel) *dtos.SeriesResponse {
-					if model.Picture != nil {
-						if url, ok := fileURLs.Get(model.Picture.ID); ok {
-							return dtos.NewSeriesResponse(c.backendDomain, model, url)
-						}
-					}
-
-					return dtos.NewSeriesResponse(c.backendDomain, model, "")
+					return mapSeriesResponse(c.backendDomain, model, fileURLs)
 				},
 			),
 		)
@@ -388,6 +425,7 @@ func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
 		seriesModels, count, serviceErr = c.services.FindFilteredPublishedSeries(
 			userCtx,
 			services.FindFilteredSeriesOptions{
+				RequestID:    requestID,
 				Search:       queryParams.Search,
 				LanguageSlug: params.LanguageSlug,
 				Offset:       queryParams.Offset,
@@ -438,24 +476,22 @@ func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
 			count,
 			seriesModels,
 			func(model *db.SeriesModel) *dtos.SeriesResponse {
-				if model.Picture != nil {
-					if url, ok := fileURLs.Get(model.Picture.ID); ok {
-						return dtos.NewSeriesResponse(c.backendDomain, model, url)
-					}
-				}
-
-				return dtos.NewSeriesResponse(c.backendDomain, model, "")
+				return mapSeriesResponse(c.backendDomain, model, fileURLs)
 			},
 		),
 	)
 }
 
 func (c *Controllers) UpdateSeries(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.UpdateSeries")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
-	log.InfoContext(userCtx, "Updating series...", "languageSlug", languageSlug, "seriesSlug", seriesSlug)
+	log := c.buildLogger(ctx, requestID, seriesLocation, "UpdateSeries").With(
+		"languageSlug", languageSlug,
+		"seriesSlug", seriesSlug,
+	)
+	log.InfoContext(userCtx, "Updating series...")
 
 	user, err := c.GetUserClaims(ctx)
 	if err != nil || !user.IsStaff {
@@ -490,7 +526,10 @@ func (c *Controllers) UpdateSeries(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	picture, serviceErr := c.services.FindSeriesPictureBySeriesID(userCtx, series.ID)
+	picture, serviceErr := c.services.FindSeriesPictureBySeriesID(userCtx, services.FindSeriesPictureBySeriesIDOptions{
+		RequestID: requestID,
+		SeriesID:  series.ID,
+	})
 	if serviceErr != nil {
 		if serviceErr.Code != services.CodeNotFound {
 			return c.serviceErrorResponse(serviceErr, ctx)
@@ -530,11 +569,15 @@ func (c *Controllers) UpdateSeries(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) UpdateSeriesIsPublished(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.UpdateIsPublished")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
-	log.InfoContext(userCtx, "Updating series published status...", "languageSlug", languageSlug, "seriesSlug", seriesSlug)
+	log := c.buildLogger(ctx, requestID, seriesLocation, "UpdateSeriesIsPublished").With(
+		"languageSlug", languageSlug,
+		"seriesSlug", seriesSlug,
+	)
+	log.InfoContext(userCtx, "Updating series published status...")
 
 	user, err := c.GetUserClaims(ctx)
 	if err != nil || !user.IsStaff {
@@ -568,7 +611,10 @@ func (c *Controllers) UpdateSeriesIsPublished(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	picture, serviceErr := c.services.FindSeriesPictureBySeriesID(userCtx, series.ID)
+	picture, serviceErr := c.services.FindSeriesPictureBySeriesID(userCtx, services.FindSeriesPictureBySeriesIDOptions{
+		RequestID: requestID,
+		SeriesID:  series.ID,
+	})
 	if serviceErr != nil {
 		if serviceErr.Code != services.CodeNotFound {
 			return c.serviceErrorResponse(serviceErr, ctx)
@@ -608,11 +654,15 @@ func (c *Controllers) UpdateSeriesIsPublished(ctx *fiber.Ctx) error {
 }
 
 func (c *Controllers) DeleteSeries(ctx *fiber.Ctx) error {
-	log := c.log.WithGroup("controllers.series.DeleteSeries")
+	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
-	log.InfoContext(userCtx, "Deleting series...", "languageSlug", languageSlug, "seriesSlug", seriesSlug)
+	log := c.buildLogger(ctx, requestID, seriesLocation, "DeleteSeries").With(
+		"languageSlug", languageSlug,
+		"seriesSlug", seriesSlug,
+	)
+	log.InfoContext(userCtx, "Deleting series...")
 
 	user, err := c.GetUserClaims(ctx)
 	if err != nil || !user.IsStaff {
@@ -629,6 +679,7 @@ func (c *Controllers) DeleteSeries(ctx *fiber.Ctx) error {
 	}
 
 	opts := services.DeleteSeriesOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,

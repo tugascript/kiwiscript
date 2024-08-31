@@ -19,18 +19,31 @@ package cc
 
 import (
 	"github.com/gofiber/storage/redis/v3"
+	"github.com/kiwiscript/kiwiscript_go/utils"
+	"log/slog"
 )
 
 type Cache struct {
+	log     *slog.Logger
 	storage *redis.Storage
 }
 
-func NewCache(storage *redis.Storage) *Cache {
+func NewCache(log *slog.Logger, storage *redis.Storage) *Cache {
 	return &Cache{
+		log:     log,
 		storage: storage,
 	}
 }
 
 func (c *Cache) ResetCache() error {
 	return c.storage.Reset()
+}
+
+func (c *Cache) buildLogger(requestID, function string) *slog.Logger {
+	return utils.BuildLogger(c.log, utils.LoggerOptions{
+		Layer:     utils.ProvidersLogLayer,
+		Location:  "cache",
+		Function:  function,
+		RequestID: requestID,
+	})
 }

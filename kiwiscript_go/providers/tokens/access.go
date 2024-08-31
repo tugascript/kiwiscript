@@ -72,3 +72,7 @@ func (t *Tokens) VerifyAccessToken(token string) (AccessUserClaims, error) {
 	})
 	return claims.User, err
 }
+
+func (t *Tokens) GetAccessTtl() int64 {
+	return t.accessData.ttlSec
+}

@@ -71,3 +71,7 @@ func (t *Tokens) VerifyEmailToken(token string) (string, EmailUserClaims, error)
 	})
 	return claims.Type, claims.User, err
 }
+
+func (t *Tokens) GetEmailTtl() int64 {
+	return t.emailData.ttlSec
+}

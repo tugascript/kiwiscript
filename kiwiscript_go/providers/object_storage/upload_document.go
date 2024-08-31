@@ -48,12 +48,17 @@ func selectDocExt(mimeType string) string {
 	}
 }
 
-func (o *ObjectStorage) UploadDocument(ctx context.Context, userId int32, fh *multipart.FileHeader) (uuid.UUID, string, error) {
-	log := o.log.WithGroup("providers.object_storage.UploadDocument").With("userId", userId)
-	log.InfoContext(ctx, "Uploading document...")
-	fileId := uuid.UUID{}
+type UploadDocumentOptions struct {
+	RequestID string
+	UserId    int32
+	FH        *multipart.FileHeader
+}
 
-	f, err := fh.Open()
+func (o *ObjectStorage) UploadDocument(ctx context.Context, opts UploadDocumentOptions) (uuid.UUID, string, error) {
+	log := o.buildLogger(opts.RequestID, "UploadDocument").With("userId", opts.UserId)
+	log.InfoContext(ctx, "Uploading document...")
+
+	f, err := opts.FH.Open()
 	if err != nil {
 		log.ErrorContext(ctx, "Error opening file", "error", err)
 		return uuid.UUID{}, "", fmt.Errorf("error opening file")
@@ -62,14 +67,14 @@ func (o *ObjectStorage) UploadDocument(ctx context.Context, userId int32, fh *mu
 
 	mimeType, err := readMimeType(f)
 	if err != nil {
-		return fileId, "", err
+		return uuid.UUID{}, "", err
 	}
 	if !valDocMime(mimeType) {
-		return fileId, "", fmt.Errorf("mime type not supported")
+		return uuid.UUID{}, "", fmt.Errorf("mime type not supported")
 	}
 
 	docExt := selectDocExt(mimeType)
-	fileId, err = o.uploadFile(ctx, userId, docExt, f)
+	fileId, err := o.uploadFile(ctx, opts.UserId, docExt, f)
 	if err != nil {
 		return uuid.UUID{}, "", err
 	}

@@ -24,7 +24,10 @@ import (
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 )
 
+const sectionsLocation string = "sections"
+
 type CreateSectionOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -33,10 +36,12 @@ type CreateSectionOptions struct {
 }
 
 func (s *Services) CreateSection(ctx context.Context, opts CreateSectionOptions) (*db.Section, *ServiceError) {
-	log := s.
-		log.
-		WithGroup("services.series_parts.CreateSection").
-		With("series_slug", opts.SeriesSlug, "title", opts.Title)
+	log := s.buildLogger(opts.RequestID, sectionsLocation, "CreateSection").With(
+		"userId", opts.UserID,
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+		"title", opts.Title,
+	)
 	log.InfoContext(ctx, "Creating series part...")
 
 	series, serviceErr := s.AssertSeriesOwnership(ctx, AssertSeriesOwnershipOptions{
@@ -73,6 +78,7 @@ func (s *Services) CreateSection(ctx context.Context, opts CreateSectionOptions)
 }
 
 type FindSectionBySlugsAndIDOptions struct {
+	RequestID    string
 	LanguageSlug string
 	SeriesSlug   string
 	SectionID    int32
@@ -82,15 +88,12 @@ func (s *Services) FindSectionBySlugsAndID(
 	ctx context.Context,
 	opts FindSectionBySlugsAndIDOptions,
 ) (*db.Section, *ServiceError) {
-	log := s.
-		log.
-		WithGroup("services.series_parts.FindSectionBySlugsAndID").
-		With(
-			"languageSlug", opts.LanguageSlug,
-			"seriesSlug", opts.SeriesSlug,
-			"sectionId", opts.SectionID,
-		)
-	log.InfoContext(ctx, "Finding series part...")
+	log := s.buildLogger(opts.RequestID, sectionsLocation, "FindSectionBySlugsAndID").With(
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+		"sectionId", opts.SectionID,
+	)
+	log.InfoContext(ctx, "Finding section...")
 
 	section, err := s.database.FindSectionBySlugsAndID(ctx, db.FindSectionBySlugsAndIDParams{
 		LanguageSlug: opts.LanguageSlug,
@@ -109,14 +112,11 @@ func (s *Services) FindPublishedSectionBySlugsAndID(
 	ctx context.Context,
 	opts FindSectionBySlugsAndIDOptions,
 ) (*db.Section, *ServiceError) {
-	log := s.
-		log.
-		WithGroup("services.series_parts.FindPublishedSectionBySlugsAndID").
-		With(
-			"languageSlug", opts.LanguageSlug,
-			"seriesSlug", opts.SeriesSlug,
-			"sectionId", opts.SectionID,
-		)
+	log := s.buildLogger(opts.RequestID, sectionsLocation, "FindPublishedSectionBySlugsAndID").With(
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+		"sectionId", opts.SectionID,
+	)
 	log.InfoContext(ctx, "Finding published series part...")
 
 	seriesOpts := FindSeriesBySlugsOptions{
@@ -141,6 +141,7 @@ func (s *Services) FindPublishedSectionBySlugsAndID(
 }
 
 type FindPublishedSectionBySlugsAndIDWithProgressOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -151,7 +152,7 @@ func (s *Services) FindPublishedSectionBySlugsAndIDWithProgress(
 	ctx context.Context,
 	opts FindPublishedSectionBySlugsAndIDWithProgressOptions,
 ) (*db.FindPublishedSectionBySlugsAndIDWithProgressRow, *ServiceError) {
-	log := s.log.WithGroup("services.series_parts.FindPublishedSectionBySlugsAndIDWithProgress").With(
+	log := s.buildLogger(opts.RequestID, sectionsLocation, "FindPublishedSectionBySlugsAndIDWithProgress").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -186,6 +187,7 @@ func (s *Services) FindPublishedSectionBySlugsAndIDWithProgress(
 }
 
 type FindPaginatedSectionsBySlugsOptions struct {
+	RequestID    string
 	LanguageSlug string
 	SeriesSlug   string
 	Limit        int32
@@ -196,7 +198,7 @@ func (s *Services) FindPaginatedSectionsBySlugs(
 	ctx context.Context,
 	opts FindPaginatedSectionsBySlugsOptions,
 ) ([]db.Section, int64, *ServiceError) {
-	log := s.log.WithGroup("services.series.FindPaginatedSectionsBySlugs").With(
+	log := s.buildLogger(opts.RequestID, sectionsLocation, "FindPaginatedSectionsBySlugs").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
 	)
@@ -263,7 +265,7 @@ func (s *Services) FindPaginatedPublishedSectionsBySlugs(
 	ctx context.Context,
 	opts FindPaginatedSectionsBySlugsOptions,
 ) ([]db.Section, int64, *ServiceError) {
-	log := s.log.WithGroup("services.series.FindPaginatedPublishedSectionsBySlugs").With(
+	log := s.buildLogger(opts.RequestID, sectionsLocation, "FindPaginatedPublishedSectionsBySlugs").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
 	)
@@ -295,6 +297,7 @@ func (s *Services) FindPaginatedPublishedSectionsBySlugs(
 }
 
 type FindSectionBySlugsAndIDWithProgressOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -306,7 +309,11 @@ func (s *Services) FindPaginatedPublishedSectionsBySlugsWithProgress(
 	ctx context.Context,
 	opts FindSectionBySlugsAndIDWithProgressOptions,
 ) ([]db.FindPaginatedPublishedSectionsBySlugsWithProgressRow, int64, *ServiceError) {
-	log := s.log.WithGroup("services.series.FindPaginatedPublishedSectionsBySlugsWithProgress").With(
+	log := s.buildLogger(
+		opts.RequestID,
+		sectionsLocation,
+		"FindPaginatedPublishedSectionsBySlugsWithProgress",
+	).With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
 	)
@@ -338,6 +345,7 @@ func (s *Services) FindPaginatedPublishedSectionsBySlugsWithProgress(
 }
 
 type AssertSectionOwnershipOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -345,15 +353,12 @@ type AssertSectionOwnershipOptions struct {
 }
 
 func (s *Services) AssertSectionOwnership(ctx context.Context, opts AssertSectionOwnershipOptions) (*db.Section, *ServiceError) {
-	log := s.
-		log.
-		WithGroup("services.series_parts.AssertSeriesOwnership").
-		With(
-			"languageSlug", opts.LanguageSlug,
-			"seriesSlug", opts.SeriesSlug,
-			"sectionId", opts.SectionID,
-		)
-	log.InfoContext(ctx, "Asserting series part ownership...")
+	log := s.buildLogger(opts.RequestID, sectionsLocation, "AssertSectionOwnership").With(
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+		"sectionId", opts.SectionID,
+	)
+	log.InfoContext(ctx, "Asserting section ownership...")
 
 	section, serviceErr := s.FindSectionBySlugsAndID(ctx, FindSectionBySlugsAndIDOptions{
 		LanguageSlug: opts.LanguageSlug,
@@ -374,6 +379,7 @@ func (s *Services) AssertSectionOwnership(ctx context.Context, opts AssertSectio
 }
 
 type UpdateSectionOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -384,13 +390,16 @@ type UpdateSectionOptions struct {
 }
 
 func (s *Services) UpdateSection(ctx context.Context, opts UpdateSectionOptions) (*db.Section, *ServiceError) {
-	log := s.
-		log.
-		WithGroup("services.series_parts.UpdateSection").
-		With("series_slug", opts.SeriesSlug, "series_part_id", opts.SectionID)
-	log.InfoContext(ctx, "Updating series part...")
+	log := s.buildLogger(opts.RequestID, sectionsLocation, "UpdateSection").With(
+		"seriesSlug", opts.SeriesSlug,
+		"sectionId", opts.SectionID,
+		"title", opts.Title,
+		"position", opts.Position,
+	)
+	log.InfoContext(ctx, "Updating section...")
 
 	section, serviceErr := s.AssertSectionOwnership(ctx, AssertSectionOwnershipOptions{
+		RequestID:    opts.RequestID,
 		UserID:       opts.UserID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
@@ -472,6 +481,7 @@ func (s *Services) UpdateSection(ctx context.Context, opts UpdateSectionOptions)
 }
 
 type UpdateSectionIsPublishedOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -480,13 +490,16 @@ type UpdateSectionIsPublishedOptions struct {
 }
 
 func (s *Services) UpdateSectionIsPublished(ctx context.Context, opts UpdateSectionIsPublishedOptions) (*db.Section, *ServiceError) {
-	log := s.
-		log.
-		WithGroup("services.series_parts.UpdateSectionIsPublished").
-		With("series_slug", opts.SeriesSlug, "series_part_id", opts.SectionID)
+	log := s.buildLogger(opts.RequestID, sectionsLocation, "UpdateSectionIsPublished").With(
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+		"sectionId", opts.SectionID,
+		"isPublished", opts.IsPublished,
+	)
 	log.InfoContext(ctx, "Updating series part is published...")
 
 	section, serviceErr := s.AssertSectionOwnership(ctx, AssertSectionOwnershipOptions{
+		RequestID:    opts.RequestID,
 		UserID:       opts.UserID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
@@ -567,6 +580,7 @@ func (s *Services) UpdateSectionIsPublished(ctx context.Context, opts UpdateSect
 }
 
 type DeleteSectionOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -574,10 +588,11 @@ type DeleteSectionOptions struct {
 }
 
 func (s *Services) DeleteSection(ctx context.Context, opts DeleteSectionOptions) *ServiceError {
-	log := s.
-		log.
-		WithGroup("services.series_parts.DeleteSection").
-		With("series_slug", opts.SeriesSlug, "series_part_id", opts.SectionID)
+	log := s.buildLogger(opts.RequestID, sectionsLocation, "DeleteSection").With(
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+		"sectionId", opts.SectionID,
+	)
 	log.InfoContext(ctx, "Deleting series part...")
 
 	section, serviceErr := s.AssertSectionOwnership(ctx, AssertSectionOwnershipOptions(opts))

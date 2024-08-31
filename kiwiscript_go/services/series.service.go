@@ -24,17 +24,20 @@ import (
 	"log/slog"
 )
 
+const seriesLocation string = "series"
+
 type FindSeriesBySlugsOptions struct {
+	RequestID    string
 	LanguageSlug string
 	SeriesSlug   string
 }
 
 func (s *Services) FindSeriesBySlugs(ctx context.Context, opts FindSeriesBySlugsOptions) (*db.Series, *ServiceError) {
-	log := s.
-		log.
-		WithGroup("service.series.FindSeriesBySlug").
-		With("languageSlug", opts.LanguageSlug, "slug", opts.SeriesSlug)
-	log.InfoContext(ctx, "Getting series by slug")
+	log := s.buildLogger(opts.RequestID, seriesLocation, "FindSeriesBySlugs").With(
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+	)
+	log.InfoContext(ctx, "Finding series by slugs...")
 
 	series, err := s.database.FindSeriesBySlugAndLanguageSlug(ctx, db.FindSeriesBySlugAndLanguageSlugParams{
 		Slug:         opts.SeriesSlug,
@@ -75,13 +78,10 @@ func (s *Services) FindPublishedSeriesBySlugsWithAuthor(
 	ctx context.Context,
 	opts FindSeriesBySlugsOptions,
 ) (*db.FindPublishedSeriesBySlugsWithAuthorRow, *ServiceError) {
-	log := s.
-		log.
-		WithGroup("service.series.FindPublishedSeriesBySlugsWithAuthor").
-		With(
-			"laguageSlug", opts.LanguageSlug,
-			"slug", opts.SeriesSlug,
-		)
+	log := s.buildLogger(opts.RequestID, seriesLocation, "FindPublishedSeriesBySlugsWithAuthor").With(
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+	)
 	log.InfoContext(ctx, "Getting published series by slug")
 
 	series, err := s.database.FindPublishedSeriesBySlugsWithAuthor(ctx, db.FindPublishedSeriesBySlugsWithAuthorParams{
@@ -98,6 +98,7 @@ func (s *Services) FindPublishedSeriesBySlugsWithAuthor(
 }
 
 type FindSeriesBySlugsWithProgressOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -107,7 +108,7 @@ func (s *Services) FindPublishedSeriesBySlugsWithProgress(
 	ctx context.Context,
 	opts FindSeriesBySlugsWithProgressOptions,
 ) (*db.FindPublishedSeriesBySlugWithAuthorAndProgressRow, *ServiceError) {
-	log := s.log.WithGroup("services.series.FindPublishedSeriesBySlugsWithProgress").With(
+	log := s.buildLogger(opts.RequestID, seriesLocation, "FindPublishedSeriesBySlugsWithProgress").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -132,6 +133,7 @@ func (s *Services) FindPublishedSeriesBySlugsWithProgress(
 }
 
 type CreateSeriesOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	Title        string
@@ -139,8 +141,12 @@ type CreateSeriesOptions struct {
 }
 
 func (s *Services) CreateSeries(ctx context.Context, options CreateSeriesOptions) (*db.Series, *ServiceError) {
-	log := s.log.WithGroup("service.series.CreateSeries")
-	log.InfoContext(ctx, "create series", "title", options.Title)
+	log := s.buildLogger(options.RequestID, seriesLocation, "CreateSeries").With(
+		"userId", options.UserID,
+		"languageSlug", options.LanguageSlug,
+		"title", options.Title,
+	)
+	log.InfoContext(ctx, "Creating series...")
 
 	language, serviceErr := s.FindLanguageBySlug(ctx, options.LanguageSlug)
 	if serviceErr != nil {
@@ -173,6 +179,7 @@ func (s *Services) CreateSeries(ctx context.Context, options CreateSeriesOptions
 }
 
 type FindPaginatedSeriesOptions struct {
+	RequestID    string
 	LanguageSlug string
 	Offset       int32
 	Limit        int32
@@ -202,7 +209,12 @@ func (s *Services) FindPaginatedPublishedSeries(
 	ctx context.Context,
 	opts FindPaginatedSeriesOptions,
 ) ([]db.SeriesModel, int64, *ServiceError) {
-	log := s.log.WithGroup("service.series.findPaginatedPublishedSeries")
+	log := s.buildLogger(opts.RequestID, seriesLocation, "FindPaginatedPublishedSeries").With(
+		"languageSlug", opts.LanguageSlug,
+		"offset", opts.Offset,
+		"limit", opts.Limit,
+		"sortBySlug", opts.SortBySlug,
+	)
 	log.InfoContext(ctx, "Getting published series...")
 
 	count, serviceErr := s.findPublishedCount(ctx, log, opts.LanguageSlug)
@@ -257,6 +269,7 @@ func (s *Services) FindPaginatedPublishedSeries(
 }
 
 type FindPaginatedSeriesWithProgressOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	Offset       int32
@@ -268,7 +281,13 @@ func (s *Services) FindPaginatedPublishedSeriesWithProgress(
 	ctx context.Context,
 	opts FindPaginatedSeriesWithProgressOptions,
 ) ([]db.SeriesModel, int64, *ServiceError) {
-	log := s.log.WithGroup("service.series.findPaginatedPublishedSeriesWithProgress")
+	log := s.buildLogger(opts.RequestID, seriesLocation, "FindPaginatedPublishedSeriesWithProgress").With(
+		"userId", opts.UserID,
+		"languageSlug", opts.LanguageSlug,
+		"offset", opts.Offset,
+		"limit", opts.Limit,
+		"sortBySlug", opts.SortBySlug,
+	)
 	log.InfoContext(ctx, "Getting published series with progress...")
 
 	count, serviceErr := s.findPublishedCount(ctx, log, opts.LanguageSlug)
@@ -328,8 +347,13 @@ func (s *Services) FindPaginatedSeries(
 	ctx context.Context,
 	opts FindPaginatedSeriesOptions,
 ) ([]db.SeriesModel, int64, *ServiceError) {
-	log := s.log.WithGroup("service.series.GetSeries")
-	log.InfoContext(ctx, "Getting series...")
+	log := s.buildLogger(opts.RequestID, seriesLocation, "FindPaginatedSeries").With(
+		"languageSlug", opts.LanguageSlug,
+		"offset", opts.Offset,
+		"limit", opts.Limit,
+		"sortBySlug", opts.SortBySlug,
+	)
+	log.InfoContext(ctx, "Finding paginated series...")
 
 	if _, serviceErr := s.FindLanguageBySlug(ctx, opts.LanguageSlug); serviceErr != nil {
 		log.WarnContext(ctx, "Language not found", "error", serviceErr)
@@ -383,6 +407,7 @@ func (s *Services) FindPaginatedSeries(
 }
 
 type FindFilteredSeriesOptions struct {
+	RequestID    string
 	Search       string
 	LanguageSlug string
 	Offset       int32
@@ -417,7 +442,7 @@ func (s *Services) FindFilteredPublishedSeries(
 	ctx context.Context,
 	opts FindFilteredSeriesOptions,
 ) ([]db.SeriesModel, int64, *ServiceError) {
-	log := s.log.WithGroup("service.series.FindFilteredPublishedSeries").With(
+	log := s.buildLogger(opts.RequestID, seriesLocation, "FindFilteredPublishedSeries").With(
 		"search", opts.Search,
 		"languageSlug", opts.LanguageSlug,
 		"offset", opts.Offset,
@@ -480,18 +505,29 @@ func (s *Services) FindFilteredPublishedSeries(
 	return seriesDTOs, count, nil
 }
 
+type FindFilteredPublishedSeriesWithProgressOptions struct {
+	UserID       int32
+	RequestID    string
+	Search       string
+	LanguageSlug string
+	Offset       int32
+	Limit        int32
+	SortBySlug   bool
+}
+
 func (s *Services) FindFilteredPublishedSeriesWithProgress(
 	ctx context.Context,
-	opts FindFilteredSeriesOptions,
+	opts FindFilteredPublishedSeriesWithProgressOptions,
 ) ([]db.SeriesModel, int64, *ServiceError) {
-	log := s.log.WithGroup("service.series.FindFilteredPublishedSeriesWithProgress").With(
-		"search", opts.Search,
+	log := s.buildLogger(opts.RequestID, seriesLocation, "FindFilteredPublishedSeriesWithProgress").With(
+		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
+		"search", opts.Search,
 		"offset", opts.Offset,
 		"limit", opts.Limit,
 		"sortBySlug", opts.SortBySlug,
 	)
-	log.InfoContext(ctx, "Find filtered published series with progress...")
+	log.InfoContext(ctx, "Finding filtered published series...")
 
 	dbSearch := utils.DbSearch(opts.Search)
 	count, serviceErr := s.findFilteredPublishedCount(ctx, log, opts.LanguageSlug, dbSearch)
@@ -508,6 +544,7 @@ func (s *Services) FindFilteredPublishedSeriesWithProgress(
 		series, err := s.database.FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlug(
 			ctx,
 			db.FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlugParams{
+				UserID:       opts.UserID,
 				LanguageSlug: opts.LanguageSlug,
 				Title:        dbSearch,
 				Limit:        opts.Limit,
@@ -529,6 +566,7 @@ func (s *Services) FindFilteredPublishedSeriesWithProgress(
 	series, err := s.database.FindFilteredPublishedSeriesWithAuthorAndProgressSortByID(
 		ctx,
 		db.FindFilteredPublishedSeriesWithAuthorAndProgressSortByIDParams{
+			UserID:       opts.UserID,
 			LanguageSlug: opts.LanguageSlug,
 			Title:        dbSearch,
 			Limit:        opts.Limit,
@@ -551,14 +589,14 @@ func (s *Services) FindFilteredSeries(
 	ctx context.Context,
 	opts FindFilteredSeriesOptions,
 ) ([]db.SeriesModel, int64, *ServiceError) {
-	log := s.log.WithGroup("service.series.FindFilteredSeries").With(
+	log := s.buildLogger(opts.RequestID, seriesLocation, "FindFilteredSeries").With(
 		"search", opts.Search,
 		"languageSlug", opts.LanguageSlug,
 		"offset", opts.Offset,
 		"limit", opts.Limit,
 		"sortBySlug", opts.SortBySlug,
 	)
-	log.InfoContext(ctx, "Find filtered published series...")
+	log.InfoContext(ctx, "Finding filtered series...")
 
 	if _, serviceErr := s.FindLanguageBySlug(ctx, opts.LanguageSlug); serviceErr != nil {
 		log.WarnContext(ctx, "Language not found", "error", serviceErr)
@@ -624,13 +662,18 @@ func (s *Services) FindFilteredSeries(
 }
 
 type AssertSeriesOwnershipOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
 }
 
 func (s *Services) AssertSeriesOwnership(ctx context.Context, opts AssertSeriesOwnershipOptions) (*db.Series, *ServiceError) {
-	log := s.log.WithGroup("service.series.AssertSeriesOwnership").With("slug", opts.SeriesSlug)
+	log := s.buildLogger(opts.RequestID, seriesLocation, "AssertSeriesOwnership").With(
+		"userId", opts.UserID,
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+	)
 	log.InfoContext(ctx, "Asserting series ownership...")
 
 	series, serviceErr := s.FindSeriesBySlugs(ctx, FindSeriesBySlugsOptions{
@@ -651,6 +694,7 @@ func (s *Services) AssertSeriesOwnership(ctx context.Context, opts AssertSeriesO
 }
 
 type UpdateSeriesOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -659,10 +703,15 @@ type UpdateSeriesOptions struct {
 }
 
 func (s *Services) UpdateSeries(ctx context.Context, opts UpdateSeriesOptions) (*db.Series, *ServiceError) {
-	log := s.log.WithGroup("service.series.UpdateSeries").With("slug", opts.SeriesSlug)
+	log := s.buildLogger(opts.RequestID, seriesLocation, "UpdateSeries").With(
+		"userId", opts.UserID,
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+	)
 	log.InfoContext(ctx, "Updating series")
 
 	series, serviceErr := s.AssertSeriesOwnership(ctx, AssertSeriesOwnershipOptions{
+		RequestID:    opts.RequestID,
 		UserID:       opts.UserID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
@@ -688,14 +737,19 @@ func (s *Services) UpdateSeries(ctx context.Context, opts UpdateSeriesOptions) (
 }
 
 type DeleteSeriesOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
 }
 
 func (s *Services) DeleteSeries(ctx context.Context, opts DeleteSeriesOptions) *ServiceError {
-	log := s.log.WithGroup("service.series.DeleteSeries").With("slug", opts.SeriesSlug)
-	log.InfoContext(ctx, "Deleting series")
+	log := s.buildLogger(opts.RequestID, seriesLocation, "DeleteSeries").With(
+		"userId", opts.UserID,
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+	)
+	log.InfoContext(ctx, "Deleting series...")
 
 	series, serviceErr := s.AssertSeriesOwnership(ctx, AssertSeriesOwnershipOptions(opts))
 	if serviceErr != nil {
@@ -725,37 +779,47 @@ func (s *Services) DeleteSeries(ctx context.Context, opts DeleteSeriesOptions) *
 }
 
 type UpdateSeriesIsPublishedOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
 	IsPublished  bool
 }
 
-func (s *Services) UpdateSeriesIsPublished(ctx context.Context, options UpdateSeriesIsPublishedOptions) (*db.Series, *ServiceError) {
-	log := s.log.WithGroup("service.series.UpdateSeriesIsPublished").With("slug", options.SeriesSlug, "isPublished", options.IsPublished)
+func (s *Services) UpdateSeriesIsPublished(
+	ctx context.Context,
+	opts UpdateSeriesIsPublishedOptions,
+) (*db.Series, *ServiceError) {
+	log := s.buildLogger(opts.RequestID, seriesLocation, "UpdateSeriesIsPublished").With(
+		"userId", opts.UserID,
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+		"isPublished", opts.IsPublished,
+	)
 	log.InfoContext(ctx, "Updating series is published...")
 
 	series, serviceErr := s.FindSeriesBySlugs(ctx, FindSeriesBySlugsOptions{
-		LanguageSlug: options.LanguageSlug,
-		SeriesSlug:   options.SeriesSlug,
+		RequestID:    opts.RequestID,
+		LanguageSlug: opts.LanguageSlug,
+		SeriesSlug:   opts.SeriesSlug,
 	})
 	if serviceErr != nil {
 		return nil, serviceErr
 	}
-	if series.AuthorID != options.UserID {
+	if series.AuthorID != opts.UserID {
 		log.Warn("User is not the author of the series")
 		return nil, NewForbiddenError()
 	}
 
-	if series.IsPublished == options.IsPublished {
+	if series.IsPublished == opts.IsPublished {
 		log.InfoContext(ctx, "Series already published")
 		return series, nil
 	}
-	if series.SectionsCount == 0 && options.IsPublished {
+	if series.SectionsCount == 0 && opts.IsPublished {
 		log.WarnContext(ctx, "Series has no sections")
 		return nil, NewValidationError("Series must have sections to be published")
 	}
-	if series.IsPublished && !options.IsPublished {
+	if series.IsPublished && !opts.IsPublished {
 		progressCount, err := s.database.CountSeriesProgressBySeriesSlug(ctx, series.Slug)
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to count series progress", "error", err)
@@ -777,20 +841,20 @@ func (s *Services) UpdateSeriesIsPublished(ctx context.Context, options UpdateSe
 
 	*series, err = qrs.UpdateSeriesIsPublished(ctx, db.UpdateSeriesIsPublishedParams{
 		ID:          series.ID,
-		IsPublished: options.IsPublished,
+		IsPublished: opts.IsPublished,
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Error publishing series", "error", err)
 		return nil, FromDBError(err)
 	}
 
-	if options.IsPublished {
-		if err := qrs.IncrementLanguageSeriesCount(ctx, options.LanguageSlug); err != nil {
+	if opts.IsPublished {
+		if err := qrs.IncrementLanguageSeriesCount(ctx, opts.LanguageSlug); err != nil {
 			log.ErrorContext(ctx, "Error incrementing language series count", "error", err)
 			return nil, FromDBError(err)
 		}
 	} else {
-		if err := qrs.DecrementLanguageSeriesCount(ctx, options.LanguageSlug); err != nil {
+		if err := qrs.DecrementLanguageSeriesCount(ctx, opts.LanguageSlug); err != nil {
 			log.ErrorContext(ctx, "Error decrementing language series count", "error", err)
 			return nil, FromDBError(err)
 		}

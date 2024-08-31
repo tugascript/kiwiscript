@@ -18,9 +18,10 @@
 package cc
 
 import (
+	"context"
 	"crypto/rand"
+	"fmt"
 	"math/big"
-	"strconv"
 	"time"
 
 	"github.com/kiwiscript/kiwiscript_go/utils"
@@ -47,43 +48,66 @@ func generateCode() (string, error) {
 	return string(code), nil
 }
 
-func (c *Cache) AddTwoFactorCode(userID int32) (string, error) {
+type AddTwoFactorCodeOptions struct {
+	RequestID string
+	UserID    int32
+}
+
+func (c *Cache) AddTwoFactorCode(ctx context.Context, opts AddTwoFactorCodeOptions) (string, error) {
+	log := c.buildLogger(opts.RequestID, "AddTwoFactorCode").With("userID", opts.UserID)
+	log.DebugContext(ctx, "Adding two factor code...")
+
 	code, err := generateCode()
 	if err != nil {
-		return code, err
+		log.ErrorContext(ctx, "Error generating two factor code", "error", err)
+		return "", err
 	}
 
 	hashedCode, err := utils.HashPassword(code)
 	if err != nil {
+		log.ErrorContext(ctx, "Error hashing two factor code", "error", err)
 		return "", err
 	}
 
-	key := twoFactorPrefix + ":" + strconv.Itoa(int(userID))
+	key := fmt.Sprintf("%s:%d", twoFactorPrefix, opts.UserID)
 	val := []byte(hashedCode)
 	exp := time.Duration(twoFactorSeconds) * time.Second
 	if err := c.storage.Set(key, val, exp); err != nil {
+		log.ErrorContext(ctx, "Error setting two factor code", "error", err)
 		return "", err
 	}
 
 	return code, nil
 }
 
-func (c *Cache) VerifyTwoFactorCode(userID int32, code string) (bool, error) {
-	key := twoFactorPrefix + ":" + strconv.Itoa(int(userID))
-	valByte, err := c.storage.Get(key)
+type VerifyTwoFactorCodeOptions struct {
+	RequestID string
+	UserID    int32
+	Code      string
+}
 
+func (c *Cache) VerifyTwoFactorCode(ctx context.Context, opts VerifyTwoFactorCodeOptions) (bool, error) {
+	log := c.buildLogger(opts.RequestID, "VerifyTwoFactorCode").With("userID", opts.UserID)
+	log.DebugContext(ctx, "Verifying two factor code...")
+	key := fmt.Sprintf("%s:%d", twoFactorPrefix, opts.UserID)
+
+	valByte, err := c.storage.Get(key)
 	if err != nil {
+		log.ErrorContext(ctx, "Error verifying two factor code", "error", err)
 		return false, err
 	}
 	if valByte == nil {
+		log.DebugContext(ctx, "Two factor code not found")
 		return false, nil
 	}
 
 	val := string(valByte)
-	if !utils.VerifyPassword(code, val) {
+	if !utils.VerifyPassword(opts.Code, val) {
+		log.DebugContext(ctx, "Two factor code is invalid")
 		return false, nil
 	}
 	if err := c.storage.Delete(key); err != nil {
+		log.ErrorContext(ctx, "Error deleting two factor code", "error", err)
 		return true, err
 	}
 

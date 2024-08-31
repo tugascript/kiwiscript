@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/kiwiscript/kiwiscript_go/paths"
+	"github.com/kiwiscript/kiwiscript_go/utils"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 	"golang.org/x/oauth2/google"
@@ -137,4 +138,13 @@ type UserData struct {
 
 type ToUserData interface {
 	ToUserData() *UserData
+}
+
+func (op *Providers) buildLogger(requestID, function string) *slog.Logger {
+	return utils.BuildLogger(op.log, utils.LoggerOptions{
+		Layer:     utils.ProvidersLogLayer,
+		Location:  "oauth",
+		Function:  function,
+		RequestID: requestID,
+	})
 }

@@ -21,9 +21,13 @@ import (
 	"context"
 	"github.com/google/uuid"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
+	"log/slog"
 )
 
+const lessonProgressLocation string = "lesson_progress"
+
 type FindLessonProgressOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -35,7 +39,7 @@ func (s *Services) FindLessonProgressBySlugsAndIDs(
 	ctx context.Context,
 	opts FindLessonProgressOptions,
 ) (*db.LessonProgress, *ServiceError) {
-	log := s.log.WithGroup("services.lesson_progress.FindLessonProgressBySlugsAndIDs").With(
+	log := s.buildLogger(opts.RequestID, lessonProgressLocation, "FindLessonProgressBySlugsAndIDs").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -75,18 +79,9 @@ type createLessonProgressOptions struct {
 
 func (s *Services) createLessonProgress(
 	ctx context.Context,
+	log *slog.Logger,
 	opts createLessonProgressOptions,
 ) (*db.LessonProgress, *ServiceError) {
-	log := s.log.WithGroup("services.lesson_progress.createLessonProgress").With(
-		"userID", opts.UserID,
-		"languageProgressID", opts.LanguageProgressID,
-		"seriesProgressID", opts.SeriesProgressID,
-		"seriesPartProgressID", opts.SectionProgressID,
-		"languageSlug", opts.LanguageSlug,
-		"seriesSlug", opts.SeriesSlug,
-		"seriesPartID", opts.SectionID,
-		"lessonID", opts.LessonID,
-	)
 	log.InfoContext(ctx, "Creating lesson progress...")
 
 	qrs, txn, err := s.database.BeginTx(ctx)
@@ -114,6 +109,7 @@ func (s *Services) createLessonProgress(
 }
 
 type CreateOrUpdateLessonProgressOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -125,12 +121,12 @@ func (s *Services) CreateOrUpdateLessonProgress(
 	ctx context.Context,
 	opts CreateOrUpdateLessonProgressOptions,
 ) (*db.Lesson, *db.LessonProgress, *ServiceError) {
-	log := s.log.WithGroup("services.lesson_progress.CreateOrUpdateLessonProgress").With(
-		"userID", opts.UserID,
+	log := s.buildLogger(opts.RequestID, lessonProgressLocation, "CreateOrUpdateLessonProgress").With(
+		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
-		"seriesPartID", opts.SectionID,
-		"lessonID", opts.LessonID,
+		"seriesPartId", opts.SectionID,
+		"lessonId", opts.LessonID,
 	)
 	log.InfoContext(ctx, "Creating or updating lesson progress...")
 
@@ -148,6 +144,7 @@ func (s *Services) CreateOrUpdateLessonProgress(
 	}
 
 	lessonProgress, serviceErr := s.FindLessonProgressBySlugsAndIDs(ctx, FindLessonProgressOptions{
+		RequestID:    opts.RequestID,
 		UserID:       opts.UserID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
@@ -155,7 +152,7 @@ func (s *Services) CreateOrUpdateLessonProgress(
 		LessonID:     opts.LessonID,
 	})
 	if serviceErr != nil {
-		lessonProgress, serviceErr := s.createLessonProgress(ctx, createLessonProgressOptions{
+		lessonProgress, serviceErr := s.createLessonProgress(ctx, log, createLessonProgressOptions{
 			UserID:       opts.UserID,
 			LanguageSlug: opts.LanguageSlug,
 			SeriesSlug:   opts.SeriesSlug,
@@ -178,6 +175,7 @@ func (s *Services) CreateOrUpdateLessonProgress(
 }
 
 type CompleteLessonProgressOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -189,7 +187,7 @@ func (s *Services) CompleteLessonProgress(
 	ctx context.Context,
 	opts CompleteLessonProgressOptions,
 ) (*db.Lesson, *db.LessonProgress, *db.Certificate, *ServiceError) {
-	log := s.log.WithGroup("services.lesson_progress.CompleteLessonProgress").With(
+	log := s.buildLogger(opts.RequestID, lessonProgressLocation, "CompleteLessonProgress").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -291,6 +289,7 @@ func (s *Services) CompleteLessonProgress(
 }
 
 type DeleteLessonProgressOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -302,7 +301,7 @@ func (s *Services) DeleteLessonProgress(
 	ctx context.Context,
 	opts DeleteLessonProgressOptions,
 ) *ServiceError {
-	log := s.log.WithGroup("services.series_part_progress.DeleteLessonProgress").With(
+	log := s.buildLogger(opts.RequestID, lessonProgressLocation, "DeleteLessonProgress").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -312,6 +311,7 @@ func (s *Services) DeleteLessonProgress(
 	log.InfoContext(ctx, "Deleting lesson progress")
 
 	lessonProgress, serviceErr := s.FindLessonProgressBySlugsAndIDs(ctx, FindLessonProgressOptions{
+		RequestID:    opts.RequestID,
 		UserID:       opts.UserID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,

@@ -20,14 +20,27 @@ package services
 import (
 	"context"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
+	objStg "github.com/kiwiscript/kiwiscript_go/providers/object_storage"
 	"mime/multipart"
 )
 
-func (s *Services) FindSeriesPictureBySeriesID(ctx context.Context, id int32) (*db.SeriesPicture, *ServiceError) {
-	log := s.log.WithGroup("services.series_pictures.FindSeriesPictureBySeriesID").With("id", id)
+const seriesPicturesLocation string = "series_pictures"
+
+type FindSeriesPictureBySeriesIDOptions struct {
+	RequestID string
+	SeriesID  int32
+}
+
+func (s *Services) FindSeriesPictureBySeriesID(
+	ctx context.Context,
+	opts FindSeriesPictureBySeriesIDOptions,
+) (*db.SeriesPicture, *ServiceError) {
+	log := s.buildLogger(opts.RequestID, seriesPicturesLocation, "FindSeriesPictureBySeriesID").With(
+		"seriesId", opts.SeriesID,
+	)
 	log.InfoContext(ctx, "Finding series picture...")
 
-	seriesPicture, err := s.database.FindSeriesPictureBySeriesID(ctx, id)
+	seriesPicture, err := s.database.FindSeriesPictureBySeriesID(ctx, opts.SeriesID)
 	if err != nil {
 		log.WarnContext(ctx, "Series picture not found", "error", err)
 		return nil, FromDBError(err)
@@ -37,6 +50,7 @@ func (s *Services) FindSeriesPictureBySeriesID(ctx context.Context, id int32) (*
 }
 
 type UploadSeriesPictureOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -47,7 +61,7 @@ func (s *Services) UploadSeriesPicture(
 	ctx context.Context,
 	opts UploadSeriesPictureOptions,
 ) (*db.SeriesPicture, *ServiceError) {
-	log := s.log.WithGroup("services.series_pictures.UploadSeriesPicture").With(
+	log := s.buildLogger(opts.RequestID, seriesPicturesLocation, "UploadSeriesPicture").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -55,6 +69,7 @@ func (s *Services) UploadSeriesPicture(
 	log.InfoContext(ctx, "Upload series picture...")
 
 	series, serviceErr := s.AssertSeriesOwnership(ctx, AssertSeriesOwnershipOptions{
+		RequestID:    opts.RequestID,
 		UserID:       opts.UserID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
@@ -63,12 +78,19 @@ func (s *Services) UploadSeriesPicture(
 		return nil, serviceErr
 	}
 
-	seriesPicture, serviceErr := s.FindSeriesPictureBySeriesID(ctx, series.ID)
+	seriesPicture, serviceErr := s.FindSeriesPictureBySeriesID(ctx, FindSeriesPictureBySeriesIDOptions{
+		RequestID: "",
+		SeriesID:  series.ID,
+	})
 	if serviceErr != nil {
 		return nil, serviceErr
 	}
 
-	fileId, ext, err := s.objStg.UploadImage(ctx, opts.UserID, opts.FileHeader)
+	fileId, ext, err := s.objStg.UploadImage(ctx, objStg.UploadImageOptions{
+		RequestID: opts.RequestID,
+		UserID:    opts.UserID,
+		FH:        opts.FileHeader,
+	})
 	if err != nil {
 		log.ErrorContext(ctx, "Error uploading picture", "error", err)
 		return nil, FromDBError(err)
@@ -89,6 +111,7 @@ func (s *Services) UploadSeriesPicture(
 }
 
 type DeletePictureOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -98,7 +121,7 @@ func (s *Services) DeleteSeriesPicture(
 	ctx context.Context,
 	opts DeletePictureOptions,
 ) *ServiceError {
-	log := s.log.WithGroup("services.series_pictures.DeleteSeriesPicture").With(
+	log := s.buildLogger(opts.RequestID, seriesPicturesLocation, "DeleteSeriesPicture").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -106,6 +129,7 @@ func (s *Services) DeleteSeriesPicture(
 	log.InfoContext(ctx, "Deleting series picture...")
 
 	series, serviceErr := s.AssertSeriesOwnership(ctx, AssertSeriesOwnershipOptions{
+		RequestID:    opts.RequestID,
 		UserID:       opts.UserID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
@@ -114,7 +138,10 @@ func (s *Services) DeleteSeriesPicture(
 		return serviceErr
 	}
 
-	seriesPicture, serviceErr := s.FindSeriesPictureBySeriesID(ctx, series.ID)
+	seriesPicture, serviceErr := s.FindSeriesPictureBySeriesID(ctx, FindSeriesPictureBySeriesIDOptions{
+		RequestID: opts.RequestID,
+		SeriesID:  series.ID,
+	})
 	if serviceErr != nil {
 		return serviceErr
 	}

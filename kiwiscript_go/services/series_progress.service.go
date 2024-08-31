@@ -23,14 +23,20 @@ import (
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 )
 
+const seriesProgressLocation string = "series_progress"
+
 type FindSeriesProgressOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
 }
 
-func (s *Services) FindSeriesProgress(ctx context.Context, opts FindSeriesProgressOptions) (*db.SeriesProgress, *ServiceError) {
-	log := s.log.WithGroup("service.series.FindSeriesProgress").With(
+func (s *Services) FindSeriesProgress(
+	ctx context.Context,
+	opts FindSeriesProgressOptions,
+) (*db.SeriesProgress, *ServiceError) {
+	log := s.buildLogger(opts.RequestID, seriesProgressLocation, "FindSeriesProgress").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -52,6 +58,7 @@ func (s *Services) FindSeriesProgress(ctx context.Context, opts FindSeriesProgre
 }
 
 type createSeriesProgressOptions struct {
+	RequestID          string
 	UserID             int32
 	LanguageProgressID int32
 	LanguageSlug       string
@@ -62,7 +69,7 @@ func (s *Services) createSeriesProgress(
 	ctx context.Context,
 	opts createSeriesProgressOptions,
 ) (*db.SeriesProgress, *ServiceError) {
-	log := s.log.WithGroup("service.series.createSeriesProgress").With(
+	log := s.buildLogger(opts.RequestID, seriesProgressLocation, "createSeriesProgress").With(
 		"userId", opts.UserID,
 		"languageProgressId", opts.LanguageProgressID,
 		"languageSlug", opts.LanguageSlug,
@@ -85,6 +92,7 @@ func (s *Services) createSeriesProgress(
 }
 
 type CreateOrUpdateSeriesProgressOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
@@ -94,7 +102,7 @@ func (s *Services) CreateOrUpdateSeriesProgress(
 	ctx context.Context,
 	opts CreateOrUpdateSeriesProgressOptions,
 ) (*db.FindPublishedSeriesBySlugsWithAuthorRow, *db.SeriesProgress, *ServiceError) {
-	log := s.log.WithGroup("service.series.CreateOrUpdateSeriesProgress").With(
+	log := s.buildLogger(opts.RequestID, seriesProgressLocation, "CreateOrUpdateSeriesProgress").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -102,37 +110,38 @@ func (s *Services) CreateOrUpdateSeriesProgress(
 	log.InfoContext(ctx, "Creating series progress")
 
 	series, serviceErr := s.FindPublishedSeriesBySlugsWithAuthor(ctx, FindSeriesBySlugsOptions{
+		RequestID:    opts.RequestID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
 	})
 	if serviceErr != nil {
-		log.WarnContext(ctx, "Series not found", "slug", opts.SeriesSlug)
 		return nil, nil, serviceErr
 	}
 
 	languageProgress, serviceErr := s.FindLanguageProgressBySlug(ctx, FindLanguageProgressOptions{
+		RequestID:    opts.RequestID,
 		UserID:       opts.UserID,
 		LanguageSlug: opts.LanguageSlug,
 	})
 	if serviceErr != nil {
-		log.WarnContext(ctx, "Language progress not found", "slug", opts.LanguageSlug)
 		return nil, nil, serviceErr
 	}
 
 	seriesProgress, serviceErr := s.FindSeriesProgress(ctx, FindSeriesProgressOptions{
+		RequestID:    opts.RequestID,
 		UserID:       opts.UserID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
 	})
 	if serviceErr != nil {
 		seriesProgress, serviceErr = s.createSeriesProgress(ctx, createSeriesProgressOptions{
+			RequestID:          opts.RequestID,
 			UserID:             opts.UserID,
 			LanguageProgressID: languageProgress.ID,
 			LanguageSlug:       opts.LanguageSlug,
 			SeriesSlug:         opts.SeriesSlug,
 		})
 		if serviceErr != nil {
-			log.ErrorContext(ctx, "Error creating series progress", "error", serviceErr)
 			return nil, nil, serviceErr
 		}
 
@@ -148,20 +157,15 @@ func (s *Services) CreateOrUpdateSeriesProgress(
 	return series, seriesProgress, nil
 }
 
-type SetSeriesProgressIsCurrentOptions struct {
-	UserID       int32
-	LanguageSlug string
-	SeriesSlug   string
-}
-
 type DeleteSeriesProgressOptions struct {
+	RequestID    string
 	UserID       int32
 	LanguageSlug string
 	SeriesSlug   string
 }
 
 func (s *Services) DeleteSeriesProgress(ctx context.Context, opts DeleteSeriesProgressOptions) *ServiceError {
-	log := s.log.WithGroup("service.series.DeleteSeriesProgress").With(
+	log := s.buildLogger(opts.RequestID, seriesProgressLocation, "DeleteSeriesProgress").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -169,12 +173,12 @@ func (s *Services) DeleteSeriesProgress(ctx context.Context, opts DeleteSeriesPr
 	log.InfoContext(ctx, "Deleting series progress")
 
 	seriesProgress, serviceError := s.FindSeriesProgress(ctx, FindSeriesProgressOptions{
+		RequestID:    opts.RequestID,
 		UserID:       opts.UserID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
 	})
 	if serviceError != nil {
-		log.InfoContext(ctx, "Series progress not found")
 		return serviceError
 	}
 
