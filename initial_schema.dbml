@@ -224,9 +224,10 @@ Table lesson_files as LEF {
   updated_at timestamp [not null, default: `now()`]
 
   indexes {
-    lesson_id [unique, name: 'lesson_files_lesson_id_unique_idx']
+    lesson_id [name: 'lesson_files_lesson_id_idx']
     author_id [name: 'lesson_files_author_id_idx']
     created_at [name: 'lesson_files_created_at_idx']
+    (lesson_id, name) [unique, name: 'lesson_files_lesson_id_name_unique_idx']
   }
 }
 Ref: LEF.lesson_id > LES.id [delete: cascade, update: cascade]
