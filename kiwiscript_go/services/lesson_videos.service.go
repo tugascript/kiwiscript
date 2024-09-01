@@ -55,7 +55,7 @@ type CreateLessonVideoOptions struct {
 	SeriesSlug   string
 	SectionID    int32
 	LessonID     int32
-	Url          string
+	URL          string
 	WatchTime    int32
 }
 
@@ -103,7 +103,8 @@ func (s *Services) CreateLessonVideo(
 
 	lessonVideo, err := qrs.CreateLessonVideo(ctx, db.CreateLessonVideoParams{
 		LessonID:         lesson.ID,
-		Url:              opts.Url,
+		AuthorID:         opts.UserID,
+		Url:              opts.URL,
 		WatchTimeSeconds: opts.WatchTime,
 	})
 	if err != nil {
@@ -112,11 +113,11 @@ func (s *Services) CreateLessonVideo(
 		return nil, serviceErr
 	}
 
-	lecParams := db.UpdateLessonWatchTimeSecondsParams{
+	lessonPrms := db.UpdateLessonWatchTimeSecondsParams{
 		ID:               lesson.ID,
 		WatchTimeSeconds: opts.WatchTime,
 	}
-	if err := qrs.UpdateLessonWatchTimeSeconds(ctx, lecParams); err != nil {
+	if err := qrs.UpdateLessonWatchTimeSeconds(ctx, lessonPrms); err != nil {
 		log.ErrorContext(ctx, "Failed to update lesson watch time", "error", err)
 		serviceErr = exceptions.FromDBError(err)
 		return nil, serviceErr

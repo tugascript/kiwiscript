@@ -18,12 +18,14 @@
 -- name: CreateLessonVideo :one
 INSERT INTO "lesson_videos" (
   "lesson_id",
+  "author_id",
   "url",
   "watch_time_seconds"
 ) VALUES (
   $1,
-  $2,
-  $3
+          $2,
+  $3,
+  $4
 ) RETURNING *;
 
 -- name: UpdateLessonVideo :one

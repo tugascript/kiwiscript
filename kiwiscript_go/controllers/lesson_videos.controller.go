@@ -97,7 +97,7 @@ func (c *Controllers) CreateLessonVideo(ctx *fiber.Ctx) error {
 		SeriesSlug:   params.SeriesSlug,
 		SectionID:    sectionIDi32,
 		LessonID:     lectureIDi32,
-		Url:          request.URL,
+		URL:          request.URL,
 		WatchTime:    request.WatchTime,
 	})
 	if serviceErr != nil {

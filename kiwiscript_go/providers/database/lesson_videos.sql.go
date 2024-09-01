@@ -13,17 +13,20 @@ const createLessonVideo = `-- name: CreateLessonVideo :one
 
 INSERT INTO "lesson_videos" (
   "lesson_id",
+  "author_id",
   "url",
   "watch_time_seconds"
 ) VALUES (
   $1,
-  $2,
-  $3
+          $2,
+  $3,
+  $4
 ) RETURNING id, lesson_id, author_id, url, watch_time_seconds, created_at, updated_at
 `
 
 type CreateLessonVideoParams struct {
 	LessonID         int32
+	AuthorID         int32
 	Url              string
 	WatchTimeSeconds int32
 }
@@ -45,7 +48,12 @@ type CreateLessonVideoParams struct {
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 func (q *Queries) CreateLessonVideo(ctx context.Context, arg CreateLessonVideoParams) (LessonVideo, error) {
-	row := q.db.QueryRow(ctx, createLessonVideo, arg.LessonID, arg.Url, arg.WatchTimeSeconds)
+	row := q.db.QueryRow(ctx, createLessonVideo,
+		arg.LessonID,
+		arg.AuthorID,
+		arg.Url,
+		arg.WatchTimeSeconds,
+	)
 	var i LessonVideo
 	err := row.Scan(
 		&i.ID,

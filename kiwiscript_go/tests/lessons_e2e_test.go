@@ -1466,6 +1466,7 @@ func TestPublishLesson(t *testing.T) {
 	languagesCleanUp(t)()
 	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 
+	// TODO: create series, section and lesson on beforeEach
 	var sectionID, lessonID int32
 	func() {
 		testDb := GetTestDatabase(t)
@@ -1559,8 +1560,7 @@ func TestPublishLesson(t *testing.T) {
 					LessonID:     lessonID,
 					Content:      strings.Repeat("Lorem ipsum dolor sit amet, ", 100),
 				}
-				_, serviceErr := testService.CreateLessonArticle(ctx, artOpts)
-				if serviceErr != nil {
+				if _, serviceErr := testService.CreateLessonArticle(ctx, artOpts); serviceErr != nil {
 					t.Fatal("Failed to create lesson article", "serviceError", serviceErr)
 				}
 
@@ -1572,9 +1572,123 @@ func TestPublishLesson(t *testing.T) {
 			AssertFn: func(t *testing.T, _ dtos.UpdateIsPublishedBody, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, dtos.LessonResponse{})
 				AssertEqual(t, resBody.IsPublished, true)
-				AssertEqual(t, resBody.ReadTime, services.CalculateReadingTime(
-					strings.Repeat("Lorem ipsum dolor sit amet, ", 100),
-				))
+				AssertEqual(t, resBody.ReadTime, 150)
+				AssertEqual(t, resBody.WatchTime, 0)
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf(
+					"%s/rust/series/existing-series/sections/%d/lessons/%d/publish",
+					baseLanguagesPath, sectionID, lessonID,
+				)
+			},
+		},
+		{
+			Name: "Should return 200 OK if the lesson is published with video",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testService := GetTestServices(t)
+				ctx := context.Background()
+				vidOpts := services.CreateLessonVideoOptions{
+					RequestID:    uuid.NewString(),
+					UserID:       testUser.ID,
+					LanguageSlug: "rust",
+					SeriesSlug:   "existing-series",
+					SectionID:    sectionID,
+					LessonID:     lessonID,
+					URL:          "https://www.youtube.com/watch?v=123456789",
+					WatchTime:    1000,
+				}
+				if _, serviceErr := testService.CreateLessonVideo(ctx, vidOpts); serviceErr != nil {
+					t.Fatal("Failed to create lesson video", "serviceError", serviceErr)
+				}
+
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, _ dtos.UpdateIsPublishedBody, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.LessonResponse{})
+				AssertEqual(t, resBody.IsPublished, true)
+				AssertEqual(t, resBody.ReadTime, 0)
+				AssertEqual(t, resBody.WatchTime, 1000)
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf(
+					"%s/rust/series/existing-series/sections/%d/lessons/%d/publish",
+					baseLanguagesPath, sectionID, lessonID,
+				)
+			},
+		},
+		{
+			Name: "Should return 200 OK if the lesson is published with article and video",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testService := GetTestServices(t)
+				ctx := context.Background()
+
+				artOpts := services.CreateLessonArticleOptions{
+					RequestID:    uuid.NewString(),
+					UserID:       testUser.ID,
+					LanguageSlug: "rust",
+					SeriesSlug:   "existing-series",
+					SectionID:    sectionID,
+					LessonID:     lessonID,
+					Content:      strings.Repeat("Lorem ipsum dolor sit amet, ", 100),
+				}
+				if _, serviceErr := testService.CreateLessonArticle(ctx, artOpts); serviceErr != nil {
+					t.Fatal("Failed to create lesson article", "serviceError", serviceErr)
+				}
+
+				vidOpts := services.CreateLessonVideoOptions{
+					RequestID:    uuid.NewString(),
+					UserID:       testUser.ID,
+					LanguageSlug: "rust",
+					SeriesSlug:   "existing-series",
+					SectionID:    sectionID,
+					LessonID:     lessonID,
+					URL:          "https://www.youtube.com/watch?v=123456789",
+					WatchTime:    1000,
+				}
+				if _, serviceErr := testService.CreateLessonVideo(ctx, vidOpts); serviceErr != nil {
+					t.Fatal("Failed to create lesson video", "serviceError", serviceErr)
+				}
+
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, _ dtos.UpdateIsPublishedBody, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.LessonResponse{})
+				AssertEqual(t, resBody.IsPublished, true)
+				AssertEqual(t, resBody.ReadTime, 150)
+				AssertEqual(t, resBody.WatchTime, 1000)
+
+				// TODO: check if the section time has been updated
+
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf(
+					"%s/rust/series/existing-series/sections/%d/lessons/%d/publish",
+					baseLanguagesPath, sectionID, lessonID,
+				)
+			},
+		},
+		{
+			Name: "Should return 400 BAD REQUEST if the lesson does not have content",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken
+			},
+			ExpStatus: fiber.StatusBadRequest,
+			AssertFn: func(t *testing.T, _ dtos.UpdateIsPublishedBody, resp *http.Response) {
+				AssertValidationErrorWithoutFieldsResponse(t, resp, "Cannot publish lesson without content")
 				afterEach(t)
 			},
 			PathFn: func() string {
