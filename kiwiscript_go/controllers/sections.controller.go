@@ -20,6 +20,7 @@ package controllers
 import (
 	"fmt"
 	"github.com/kiwiscript/kiwiscript_go/dtos"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	"github.com/kiwiscript/kiwiscript_go/paths"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"strconv"
@@ -44,7 +45,7 @@ func (c *Controllers) CreateSection(ctx *fiber.Ctx) error {
 	user, err := c.GetUserClaims(ctx)
 	if err != nil || !user.IsStaff {
 		log.ErrorContext(userCtx, "User is not staff, should not have reached here")
-		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	params := dtos.SeriesPathParams{
@@ -106,9 +107,9 @@ func (c *Controllers) GetSection(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+			JSON(exceptions.NewRequestValidationError(exceptions.RequestValidationLocationParams, []exceptions.FieldError{{
 				Param:   "sectionId",
-				Message: StrFieldErrMessageNumber,
+				Message: exceptions.StrFieldErrMessageNumber,
 				Value:   params.SectionID,
 			}}))
 	}
@@ -310,7 +311,7 @@ func (c *Controllers) UpdateSection(ctx *fiber.Ctx) error {
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
 		log.ErrorContext(userCtx, "User is not staff, should not have reached here")
-		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	params := dtos.SectionPathParams{
@@ -326,9 +327,9 @@ func (c *Controllers) UpdateSection(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+			JSON(exceptions.NewRequestValidationError(exceptions.RequestValidationLocationParams, []exceptions.FieldError{{
 				Param:   "sectionId",
-				Message: StrFieldErrMessageNumber,
+				Message: exceptions.StrFieldErrMessageNumber,
 				Value:   params.SectionID,
 			}}))
 	}
@@ -374,7 +375,7 @@ func (c *Controllers) UpdateSectionIsPublished(ctx *fiber.Ctx) error {
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
 		log.ErrorContext(userCtx, "User is not staff, should not have reached here")
-		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	params := dtos.SectionPathParams{
@@ -390,9 +391,9 @@ func (c *Controllers) UpdateSectionIsPublished(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+			JSON(exceptions.NewRequestValidationError(exceptions.RequestValidationLocationParams, []exceptions.FieldError{{
 				Param:   "sectionId",
-				Message: StrFieldErrMessageNumber,
+				Message: exceptions.StrFieldErrMessageNumber,
 				Value:   params.SectionID,
 			}}))
 	}
@@ -436,7 +437,7 @@ func (c *Controllers) DeleteSection(ctx *fiber.Ctx) error {
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
 		log.ErrorContext(userCtx, "User is not staff, should not have reached here")
-		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	params := dtos.SectionPathParams{
@@ -452,9 +453,9 @@ func (c *Controllers) DeleteSection(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+			JSON(exceptions.NewRequestValidationError(exceptions.RequestValidationLocationParams, []exceptions.FieldError{{
 				Param:   "sectionId",
-				Message: StrFieldErrMessageNumber,
+				Message: exceptions.StrFieldErrMessageNumber,
 				Value:   params.SectionID,
 			}}))
 	}

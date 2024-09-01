@@ -15,14 +15,13 @@
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
-package controllers
+package exceptions
 
 import (
 	"strings"
 	"unicode"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/kiwiscript/kiwiscript_go/services"
 )
 
 const (
@@ -40,39 +39,39 @@ type RequestError struct {
 	Message string `json:"message"`
 }
 
-func NewRequestError(err *services.ServiceError) RequestError {
+func NewRequestError(err *ServiceError) RequestError {
 	switch err.Code {
-	case services.CodeConflict:
+	case CodeConflict:
 		return RequestError{
 			Code:    StatusConflict,
 			Message: err.Message,
 		}
-	case services.CodeInvalidEnum:
+	case CodeInvalidEnum:
 		return RequestError{
 			Code:    StatusInvalidEnum,
 			Message: err.Message,
 		}
-	case services.CodeNotFound:
+	case CodeNotFound:
 		return RequestError{
 			Code:    StatusNotFound,
 			Message: err.Message,
 		}
-	case services.CodeValidation:
+	case CodeValidation:
 		return RequestError{
 			Code:    StatusValidation,
 			Message: err.Message,
 		}
-	case services.CodeUnknown:
+	case CodeUnknown:
 		return RequestError{
 			Code:    StatusUnknown,
 			Message: StatusUnknown,
 		}
-	case services.CodeUnauthorized:
+	case CodeUnauthorized:
 		return RequestError{
 			Code:    StatusUnauthorized,
 			Message: StatusUnauthorized,
 		}
-	case services.CodeForbidden:
+	case CodeForbidden:
 		return RequestError{
 			Code:    StatusForbidden,
 			Message: StatusForbidden,
@@ -206,7 +205,7 @@ func buildFieldErrorMessage(tag string, val interface{}) string {
 	switch val.(type) {
 	case string:
 		return selectStrErrMessage(tag)
-	case int, int32, int64:
+	case int, int16, int32, int64:
 		return selectIntErrMessage(tag)
 	default:
 		return FieldErrMessageInvalid
@@ -258,17 +257,17 @@ func NewEmptyRequestValidationError(location string) EmptyRequestValidationError
 
 func NewRequestErrorStatus(code string) int {
 	switch code {
-	case services.CodeConflict:
+	case CodeConflict:
 		return 409
-	case services.CodeInvalidEnum, services.CodeValidation:
+	case CodeInvalidEnum, CodeValidation:
 		return 400
-	case services.CodeNotFound:
+	case CodeNotFound:
 		return 404
-	case services.CodeForbidden:
+	case CodeForbidden:
 		return 403
-	case services.CodeUnauthorized:
+	case CodeUnauthorized:
 		return 401
-	case services.CodeUnknown:
+	case CodeUnknown:
 		return 500
 	default:
 		return 500

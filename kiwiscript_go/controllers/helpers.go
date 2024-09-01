@@ -23,10 +23,10 @@ import (
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	"log/slog"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/kiwiscript/kiwiscript_go/services"
 	"github.com/kiwiscript/kiwiscript_go/utils"
 )
 
@@ -47,7 +47,7 @@ func (c *Controllers) parseRequestErrorResponse(log *slog.Logger, userCtx contex
 	log.WarnContext(userCtx, "Failed to parse request", "error", err)
 	return ctx.
 		Status(fiber.StatusBadRequest).
-		JSON(NewEmptyRequestValidationError(RequestValidationLocationBody))
+		JSON(exceptions.NewEmptyRequestValidationError(exceptions.RequestValidationLocationBody))
 }
 
 func (c *Controllers) validateErrorResponse(
@@ -64,28 +64,28 @@ func (c *Controllers) validateErrorResponse(
 	if !ok {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewEmptyRequestValidationError(location))
+			JSON(exceptions.NewEmptyRequestValidationError(location))
 	}
 
 	return ctx.
 		Status(fiber.StatusBadRequest).
-		JSON(RequestValidationErrorFromErr(&errs, location))
+		JSON(exceptions.RequestValidationErrorFromErr(&errs, location))
 }
 
 func (c *Controllers) validateRequestErrorResponse(log *slog.Logger, userCtx context.Context, err error, ctx *fiber.Ctx) error {
-	return c.validateErrorResponse(log, userCtx, err, ctx, RequestValidationLocationBody)
+	return c.validateErrorResponse(log, userCtx, err, ctx, exceptions.RequestValidationLocationBody)
 }
 
 func (c *Controllers) validateParamsErrorResponse(log *slog.Logger, userCtx context.Context, err error, ctx *fiber.Ctx) error {
-	return c.validateErrorResponse(log, userCtx, err, ctx, RequestValidationLocationParams)
+	return c.validateErrorResponse(log, userCtx, err, ctx, exceptions.RequestValidationLocationParams)
 }
 
 func (c *Controllers) validateQueryErrorResponse(log *slog.Logger, userCtx context.Context, err error, ctx *fiber.Ctx) error {
-	return c.validateErrorResponse(log, userCtx, err, ctx, RequestValidationLocationQuery)
+	return c.validateErrorResponse(log, userCtx, err, ctx, exceptions.RequestValidationLocationQuery)
 }
 
-func (c *Controllers) serviceErrorResponse(serviceErr *services.ServiceError, ctx *fiber.Ctx) error {
+func (c *Controllers) serviceErrorResponse(serviceErr *exceptions.ServiceError, ctx *fiber.Ctx) error {
 	return ctx.
-		Status(NewRequestErrorStatus(serviceErr.Code)).
-		JSON(NewRequestError(serviceErr))
+		Status(exceptions.NewRequestErrorStatus(serviceErr.Code)).
+		JSON(exceptions.NewRequestError(serviceErr))
 }

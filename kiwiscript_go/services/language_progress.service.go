@@ -19,6 +19,7 @@ package services
 
 import (
 	"context"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 )
 
@@ -30,7 +31,7 @@ type FindLanguageProgressOptions struct {
 	LanguageSlug string
 }
 
-func (s *Services) FindLanguageProgressBySlug(ctx context.Context, opts FindLanguageProgressOptions) (*db.LanguageProgress, *ServiceError) {
+func (s *Services) FindLanguageProgressBySlug(ctx context.Context, opts FindLanguageProgressOptions) (*db.LanguageProgress, *exceptions.ServiceError) {
 	log := s.log.WithGroup("service.language.FindLanguageProgressByUserIDAndLanguageSlug").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -43,7 +44,7 @@ func (s *Services) FindLanguageProgressBySlug(ctx context.Context, opts FindLang
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Error finding language progress", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Language progress found")
@@ -56,7 +57,7 @@ type CreateOrUpdateLanguageProgressOptions struct {
 	LanguageSlug string
 }
 
-func (s *Services) createLanguageProgress(ctx context.Context, opts CreateOrUpdateLanguageProgressOptions) (*db.LanguageProgress, *ServiceError) {
+func (s *Services) createLanguageProgress(ctx context.Context, opts CreateOrUpdateLanguageProgressOptions) (*db.LanguageProgress, *exceptions.ServiceError) {
 	log := s.log.WithGroup("service.language.CreateLanguageProgress").With("userID", opts.UserID, "languageSlug", opts.LanguageSlug)
 	log.InfoContext(ctx, "Creating language progress")
 
@@ -66,7 +67,7 @@ func (s *Services) createLanguageProgress(ctx context.Context, opts CreateOrUpda
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Error creating language progress", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Language progress created")
@@ -76,7 +77,7 @@ func (s *Services) createLanguageProgress(ctx context.Context, opts CreateOrUpda
 func (s *Services) CreateOrUpdateLanguageProgress(
 	ctx context.Context,
 	opts CreateOrUpdateLanguageProgressOptions,
-) (*db.Language, *db.LanguageProgress, *ServiceError) {
+) (*db.Language, *db.LanguageProgress, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, languageProgressLocation, "CreateOrUpdateLanguageProgress").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -104,7 +105,7 @@ func (s *Services) CreateOrUpdateLanguageProgress(
 
 	if err := s.database.UpdateLanguageProgressViewedAt(ctx, languageProgress.ID); err != nil {
 		log.ErrorContext(ctx, "Error updating language progress", "error", err)
-		return nil, nil, FromDBError(err)
+		return nil, nil, exceptions.FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Language progress updated")
@@ -117,7 +118,7 @@ type DeleteLanguageProgressOptions struct {
 	LanguageSlug string
 }
 
-func (s *Services) DeleteLanguageProgress(ctx context.Context, opts DeleteLanguageProgressOptions) *ServiceError {
+func (s *Services) DeleteLanguageProgress(ctx context.Context, opts DeleteLanguageProgressOptions) *exceptions.ServiceError {
 	log := s.buildLogger(opts.RequestID, languageProgressLocation, "DeleteLanguageProgress").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -135,7 +136,7 @@ func (s *Services) DeleteLanguageProgress(ctx context.Context, opts DeleteLangua
 
 	if err := s.database.DeleteLanguageProgressByID(ctx, languageProgress.ID); err != nil {
 		log.ErrorContext(ctx, "Error deleting language progress", "error", err)
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Language progress deleted")

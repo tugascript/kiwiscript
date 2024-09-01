@@ -21,13 +21,13 @@ import (
 	"context"
 	"fmt"
 	"github.com/kiwiscript/kiwiscript_go/dtos"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	"net/http"
 	"strings"
 	"testing"
 
 	"github.com/go-faker/faker/v4"
 	"github.com/gofiber/fiber/v2"
-	"github.com/kiwiscript/kiwiscript_go/controllers"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/utils"
 )
@@ -145,9 +145,9 @@ func TestCreateLanguage(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusForbidden,
 			AssertFn: func(t *testing.T, req dtos.LanguageBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, controllers.StatusForbidden, resBody.Message)
-				AssertEqual(t, controllers.StatusForbidden, resBody.Code)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, exceptions.StatusForbidden, resBody.Message)
+				AssertEqual(t, exceptions.StatusForbidden, resBody.Code)
 			},
 			DelayMs: 0,
 		},
@@ -177,12 +177,12 @@ func TestCreateLanguage(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, req dtos.LanguageBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestValidationError{})
 				AssertEqual(t, 2, len(resBody.Fields))
 				AssertEqual(t, "name", resBody.Fields[0].Param)
-				AssertEqual(t, controllers.StrFieldErrMessageExtAlphaNum, resBody.Fields[0].Message)
+				AssertEqual(t, exceptions.StrFieldErrMessageExtAlphaNum, resBody.Fields[0].Message)
 				AssertEqual(t, "icon", resBody.Fields[1].Param)
-				AssertEqual(t, controllers.StrFieldErrMessageSvg, resBody.Fields[1].Message)
+				AssertEqual(t, exceptions.StrFieldErrMessageSvg, resBody.Fields[1].Message)
 			},
 			DelayMs: 0,
 		},
@@ -224,15 +224,15 @@ func TestGetLanguages(t *testing.T) {
 			ReqFn:     reqFn,
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, req string, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestValidationError{})
 				AssertEqual(t, 3, len(resBody.Fields))
-				AssertEqual(t, controllers.RequestValidationLocationQuery, resBody.Location)
+				AssertEqual(t, exceptions.RequestValidationLocationQuery, resBody.Location)
 				AssertEqual(t, "limit", resBody.Fields[0].Param)
-				AssertEqual(t, controllers.IntFieldErrMessageLte, resBody.Fields[0].Message)
+				AssertEqual(t, exceptions.IntFieldErrMessageLte, resBody.Fields[0].Message)
 				AssertEqual(t, "offset", resBody.Fields[1].Param)
-				AssertEqual(t, controllers.IntFieldErrMessageGte, resBody.Fields[1].Message)
+				AssertEqual(t, exceptions.IntFieldErrMessageGte, resBody.Fields[1].Message)
 				AssertEqual(t, "search", resBody.Fields[2].Param)
-				AssertEqual(t, controllers.StrFieldErrMessageExtAlphaNum, resBody.Fields[2].Message)
+				AssertEqual(t, exceptions.StrFieldErrMessageExtAlphaNum, resBody.Fields[2].Message)
 			},
 			DelayMs: 0,
 			Path:    baseLanguagesPath + "?limit=1000&offset=-1&search=%21%21%21%21",
@@ -368,8 +368,8 @@ func TestGetLanguage(t *testing.T) {
 			ReqFn:     reqFn,
 			ExpStatus: fiber.StatusNotFound,
 			AssertFn: func(t *testing.T, req string, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, controllers.StatusNotFound, resBody.Code)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, exceptions.StatusNotFound, resBody.Code)
 				AssertEqual(t, "Resource not found", resBody.Message)
 			},
 			Path: baseLanguagesPath + "/python",
@@ -379,11 +379,11 @@ func TestGetLanguage(t *testing.T) {
 			ReqFn:     reqFn,
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, req string, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
-				AssertEqual(t, controllers.RequestValidationLocationParams, resBody.Location)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestValidationError{})
+				AssertEqual(t, exceptions.RequestValidationLocationParams, resBody.Location)
 				AssertEqual(t, 1, len(resBody.Fields))
 				AssertEqual(t, "languageSlug", resBody.Fields[0].Param)
-				AssertEqual(t, controllers.StrFieldErrMessageSlug, resBody.Fields[0].Message)
+				AssertEqual(t, exceptions.StrFieldErrMessageSlug, resBody.Fields[0].Message)
 			},
 			Path: baseLanguagesPath + "/some-name-",
 		},
@@ -428,8 +428,8 @@ func TestGetLanguage(t *testing.T) {
 			ReqFn:     reqFn,
 			ExpStatus: fiber.StatusNotFound,
 			AssertFn: func(t *testing.T, req string, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, controllers.StatusNotFound, resBody.Code)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, exceptions.StatusNotFound, resBody.Code)
 				AssertEqual(t, "Resource not found", resBody.Message)
 			},
 			Path: baseLanguagesPath + "/python",
@@ -500,8 +500,8 @@ func TestUpdateLanguage(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusNotFound,
 			AssertFn: func(t *testing.T, req dtos.LanguageBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, controllers.StatusNotFound, resBody.Code)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, exceptions.StatusNotFound, resBody.Code)
 				AssertEqual(t, "Resource not found", resBody.Message)
 			},
 			Path: baseLanguagesPath + "/python",
@@ -520,12 +520,12 @@ func TestUpdateLanguage(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, req dtos.LanguageBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestValidationError{})
 				AssertEqual(t, 2, len(resBody.Fields))
 				AssertEqual(t, "name", resBody.Fields[0].Param)
-				AssertEqual(t, controllers.StrFieldErrMessageExtAlphaNum, resBody.Fields[0].Message)
+				AssertEqual(t, exceptions.StrFieldErrMessageExtAlphaNum, resBody.Fields[0].Message)
 				AssertEqual(t, "icon", resBody.Fields[1].Param)
-				AssertEqual(t, controllers.StrFieldErrMessageSvg, resBody.Fields[1].Message)
+				AssertEqual(t, exceptions.StrFieldErrMessageSvg, resBody.Fields[1].Message)
 			},
 			Path: baseLanguagesPath + "/rustasdasd",
 		},
@@ -557,9 +557,9 @@ func TestUpdateLanguage(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusForbidden,
 			AssertFn: func(t *testing.T, req dtos.LanguageBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, controllers.StatusForbidden, resBody.Message)
-				AssertEqual(t, controllers.StatusForbidden, resBody.Code)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, exceptions.StatusForbidden, resBody.Message)
+				AssertEqual(t, exceptions.StatusForbidden, resBody.Code)
 			},
 			Path: baseLanguagesPath + "/rustasdasd",
 		},
@@ -615,8 +615,8 @@ func TestDeleteLanguage(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusNotFound,
 			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, controllers.StatusNotFound, resBody.Code)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, exceptions.StatusNotFound, resBody.Code)
 				AssertEqual(t, "Resource not found", resBody.Message)
 			},
 			Path: baseLanguagesPath + "/python",
@@ -639,9 +639,9 @@ func TestDeleteLanguage(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusForbidden,
 			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, controllers.StatusForbidden, resBody.Message)
-				AssertEqual(t, controllers.StatusForbidden, resBody.Code)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, exceptions.StatusForbidden, resBody.Message)
+				AssertEqual(t, exceptions.StatusForbidden, resBody.Code)
 			},
 			Path: baseLanguagesPath + "/rustasdasd",
 		},
@@ -675,8 +675,8 @@ func TestDeleteLanguage(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusConflict,
 			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, controllers.StatusConflict, resBody.Code)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, exceptions.StatusConflict, resBody.Code)
 				AssertEqual(t, "Language has students", resBody.Message)
 			},
 			Path: baseLanguagesPath + "/python",

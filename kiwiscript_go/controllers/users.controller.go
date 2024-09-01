@@ -20,6 +20,7 @@ package controllers
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/kiwiscript/kiwiscript_go/dtos"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	"github.com/kiwiscript/kiwiscript_go/services"
 	"github.com/kiwiscript/kiwiscript_go/utils"
 	"strconv"
@@ -45,9 +46,9 @@ func (c *Controllers) GetUser(ctx *fiber.Ctx) error {
 	if err != nil || parsedUserID <= 0 {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+			JSON(exceptions.NewRequestValidationError(exceptions.RequestValidationLocationParams, []exceptions.FieldError{{
 				Param:   "sectionId",
-				Message: StrFieldErrMessageNumber,
+				Message: exceptions.StrFieldErrMessageNumber,
 				Value:   params.UserID,
 			}}))
 	}
@@ -63,14 +64,14 @@ func (c *Controllers) GetUser(ctx *fiber.Ctx) error {
 	currentUser, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil {
 		if !user.IsStaff {
-			return c.serviceErrorResponse(services.NewNotFoundError(), ctx)
+			return c.serviceErrorResponse(exceptions.NewNotFoundError(), ctx)
 		}
 
 		return ctx.JSON(dtos.NewUserResponse(c.backendDomain, user.ToUserModel()))
 	}
 
 	if user.ID != currentUser.ID || !user.IsStaff {
-		return c.serviceErrorResponse(services.NewNotFoundError(), ctx)
+		return c.serviceErrorResponse(exceptions.NewNotFoundError(), ctx)
 	}
 	return ctx.JSON(dtos.NewUserResponse(c.backendDomain, user.ToUserModel()))
 }
@@ -83,7 +84,7 @@ func (c *Controllers) GetMe(ctx *fiber.Ctx) error {
 
 	currentUser, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil {
-		return c.serviceErrorResponse(services.NewUnauthorizedError(), ctx)
+		return c.serviceErrorResponse(exceptions.NewUnauthorizedError(), ctx)
 	}
 
 	user, serviceErr := c.services.FindUserByID(userCtx, services.FindUserByIDOptions{
@@ -105,7 +106,7 @@ func (c *Controllers) UpdateCurrentAccount(ctx *fiber.Ctx) error {
 
 	currentUser, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil {
-		return c.serviceErrorResponse(services.NewUnauthorizedError(), ctx)
+		return c.serviceErrorResponse(exceptions.NewUnauthorizedError(), ctx)
 	}
 
 	var body dtos.UpdateUserBody
@@ -138,12 +139,12 @@ func (c *Controllers) DeleteCurrentAccount(ctx *fiber.Ctx) error {
 
 	currentUser, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil {
-		return c.serviceErrorResponse(services.NewUnauthorizedError(), ctx)
+		return c.serviceErrorResponse(exceptions.NewUnauthorizedError(), ctx)
 	}
 
 	if currentUser.IsAdmin || currentUser.IsStaff {
 		log.WarnContext(userCtx, "Staff and admin users cannot delete their accounts")
-		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	var body dtos.DeleteUserBody

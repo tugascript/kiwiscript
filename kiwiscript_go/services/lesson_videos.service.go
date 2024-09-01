@@ -19,6 +19,7 @@ package services
 
 import (
 	"context"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 )
@@ -33,7 +34,7 @@ type FindLessonVideoByLessonIDOptions struct {
 func (s *Services) FindLessonVideoByLessonID(
 	ctx context.Context,
 	opts FindLessonVideoByLessonIDOptions,
-) (*db.LessonVideo, *ServiceError) {
+) (*db.LessonVideo, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, lessonVideosLocation, "FindLessonVideoByLessonID").With(
 		"lessonId", opts.LessonID,
 	)
@@ -41,7 +42,7 @@ func (s *Services) FindLessonVideoByLessonID(
 
 	lessonVideo, err := s.database.GetLessonVideoByLessonID(ctx, opts.LessonID)
 	if err != nil {
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	return &lessonVideo, nil
@@ -61,7 +62,7 @@ type CreateLessonVideoOptions struct {
 func (s *Services) CreateLessonVideo(
 	ctx context.Context,
 	opts CreateLessonVideoOptions,
-) (*db.LessonVideo, *ServiceError) {
+) (*db.LessonVideo, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, lessonVideosLocation, "CreateLessonVideo").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -87,13 +88,13 @@ func (s *Services) CreateLessonVideo(
 		LessonID:  opts.LessonID,
 	}
 	if _, serviceErr := s.FindLessonVideoByLessonID(ctx, findOpts); serviceErr == nil {
-		return nil, NewConflictError("Lesson video already exists")
+		return nil, exceptions.NewConflictError("Lesson video already exists")
 	}
 
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
@@ -104,7 +105,7 @@ func (s *Services) CreateLessonVideo(
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to create lesson video", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	lecParams := db.UpdateLessonWatchTimeSecondsParams{
@@ -113,7 +114,7 @@ func (s *Services) CreateLessonVideo(
 	}
 	if err := qrs.UpdateLessonWatchTimeSeconds(ctx, lecParams); err != nil {
 		log.ErrorContext(ctx, "Failed to update lesson watch time", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	return &lessonVideo, nil
@@ -133,7 +134,7 @@ type UpdateLessonVideoOptions struct {
 func (s *Services) UpdateLessonVideo(
 	ctx context.Context,
 	opts UpdateLessonVideoOptions,
-) (*db.LessonVideo, *ServiceError) {
+) (*db.LessonVideo, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, lessonVideosLocation, "UpdateLessonVideo").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -169,7 +170,7 @@ func (s *Services) UpdateLessonVideo(
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
@@ -180,7 +181,7 @@ func (s *Services) UpdateLessonVideo(
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to update lesson video", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	lecParams := db.UpdateLessonWatchTimeSecondsParams{
@@ -189,7 +190,7 @@ func (s *Services) UpdateLessonVideo(
 	}
 	if err := qrs.UpdateLessonWatchTimeSeconds(ctx, lecParams); err != nil {
 		log.ErrorContext(ctx, "Failed to update lesson watch time", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	if lesson.IsPublished {
@@ -200,7 +201,7 @@ func (s *Services) UpdateLessonVideo(
 		}
 		if err := qrs.AddSeriesWatchTime(ctx, seriesParams); err != nil {
 			log.ErrorContext(ctx, "Failed to update series watch time", "error", err)
-			return nil, FromDBError(err)
+			return nil, exceptions.FromDBError(err)
 		}
 
 		sectionParams := db.AddSectionWatchTimeParams{
@@ -209,7 +210,7 @@ func (s *Services) UpdateLessonVideo(
 		}
 		if err := qrs.AddSectionWatchTime(ctx, sectionParams); err != nil {
 			log.ErrorContext(ctx, "Failed to update series part watch time", "error", err)
-			return nil, FromDBError(err)
+			return nil, exceptions.FromDBError(err)
 		}
 	}
 
@@ -228,7 +229,7 @@ type DeleteLessonVideoOptions struct {
 func (s *Services) DeleteLessonVideo(
 	ctx context.Context,
 	opts DeleteLessonVideoOptions,
-) *ServiceError {
+) *exceptions.ServiceError {
 	log := s.buildLogger(opts.RequestID, lessonVideosLocation, "DeleteLessonVideo").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -259,19 +260,19 @@ func (s *Services) DeleteLessonVideo(
 
 	if lesson.IsPublished {
 		log.WarnContext(ctx, "Cannot delete article from published lesson")
-		return NewValidationError("Cannot delete video from published lesson")
+		return exceptions.NewValidationError("Cannot delete video from published lesson")
 	}
 
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	if err := qrs.DeleteLessonVideo(ctx, lessonVideo.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to delete lesson video", "error", err)
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 
 	lecParams := db.UpdateLessonWatchTimeSecondsParams{
@@ -280,7 +281,7 @@ func (s *Services) DeleteLessonVideo(
 	}
 	if err := qrs.UpdateLessonWatchTimeSeconds(ctx, lecParams); err != nil {
 		log.ErrorContext(ctx, "Failed to update lesson watch time", "error", err)
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 
 	return nil
@@ -298,7 +299,7 @@ type FindLessonVideoOptions struct {
 func (s *Services) FindLessonVideo(
 	ctx context.Context,
 	opts FindLessonVideoOptions,
-) (*db.LessonVideo, *ServiceError) {
+) (*db.LessonVideo, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, lessonVideosLocation, "FindLessonVideo").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -326,7 +327,7 @@ func (s *Services) FindLessonVideo(
 	}
 	if opts.IsPublished && !lesson.IsPublished {
 		log.WarnContext(ctx, "Cannot get unpublished video from published lesson")
-		return nil, NewNotFoundError()
+		return nil, exceptions.NewNotFoundError()
 	}
 
 	return lessonVideo, nil

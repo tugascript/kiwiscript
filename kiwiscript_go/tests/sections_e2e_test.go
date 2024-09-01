@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"github.com/go-faker/faker/v4"
 	"github.com/gofiber/fiber/v2"
-	"github.com/kiwiscript/kiwiscript_go/controllers"
 	"github.com/kiwiscript/kiwiscript_go/dtos"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/services"
 	"net/http"
@@ -111,8 +111,8 @@ func TestCreateSection(t *testing.T) {
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, _ dtos.CreateSectionBody, resp *http.Response) {
 				AssertValidationErrorResponse(t, resp, []ValidationErrorAssertion{
-					{Param: "title", Message: controllers.StrFieldErrMessageMax},
-					{Param: "description", Message: controllers.FieldErrMessageRequired},
+					{Param: "title", Message: exceptions.StrFieldErrMessageMax},
+					{Param: "description", Message: exceptions.FieldErrMessageRequired},
 				})
 			},
 			Path: baseLanguagesPath + "/rust/series/existing-series/sections",
@@ -889,8 +889,8 @@ func TestUpdateSection(t *testing.T) {
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, _ dtos.UpdateSectionBody, resp *http.Response) {
 				AssertValidationErrorResponse(t, resp, []ValidationErrorAssertion{
-					{Param: "title", Message: controllers.StrFieldErrMessageMax},
-					{Param: "description", Message: controllers.FieldErrMessageRequired},
+					{Param: "title", Message: exceptions.StrFieldErrMessageMax},
+					{Param: "description", Message: exceptions.FieldErrMessageRequired},
 				})
 			},
 			Path: fmt.Sprintf("%s/rust/series/existing-series/sections/%d", baseLanguagesPath, sectionID),

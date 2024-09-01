@@ -19,6 +19,7 @@ package services
 
 import (
 	"context"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	"log/slog"
 
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
@@ -35,7 +36,7 @@ type CreateSectionOptions struct {
 	Description  string
 }
 
-func (s *Services) CreateSection(ctx context.Context, opts CreateSectionOptions) (*db.Section, *ServiceError) {
+func (s *Services) CreateSection(ctx context.Context, opts CreateSectionOptions) (*db.Section, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, sectionsLocation, "CreateSection").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -54,23 +55,15 @@ func (s *Services) CreateSection(ctx context.Context, opts CreateSectionOptions)
 		return nil, serviceErr
 	}
 
-	count, err := s.database.CountSectionsBySeriesSlug(ctx, opts.SeriesSlug)
-	if err != nil {
-		log.ErrorContext(ctx, "Failed to count series by slug", "error", err)
-		return nil, FromDBError(err)
-	}
-
 	section, err := s.database.CreateSection(ctx, db.CreateSectionParams{
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   series.Slug,
 		Title:        opts.Title,
-		Description:  opts.Description,
-		Position:     int16(count) + 1,
 		AuthorID:     opts.UserID,
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to create series part", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Series part created", "id", section.ID)
@@ -87,7 +80,7 @@ type FindSectionBySlugsAndIDOptions struct {
 func (s *Services) FindSectionBySlugsAndID(
 	ctx context.Context,
 	opts FindSectionBySlugsAndIDOptions,
-) (*db.Section, *ServiceError) {
+) (*db.Section, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, sectionsLocation, "FindSectionBySlugsAndID").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -102,7 +95,7 @@ func (s *Services) FindSectionBySlugsAndID(
 	})
 	if err != nil {
 		log.WarnContext(ctx, "Failed to find series part", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	return &section, nil
@@ -111,7 +104,7 @@ func (s *Services) FindSectionBySlugsAndID(
 func (s *Services) FindPublishedSectionBySlugsAndID(
 	ctx context.Context,
 	opts FindSectionBySlugsAndIDOptions,
-) (*db.Section, *ServiceError) {
+) (*db.Section, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, sectionsLocation, "FindPublishedSectionBySlugsAndID").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -134,7 +127,7 @@ func (s *Services) FindPublishedSectionBySlugsAndID(
 
 	if !section.IsPublished {
 		log.WarnContext(ctx, "Section is not published")
-		return nil, NewNotFoundError()
+		return nil, exceptions.NewNotFoundError()
 	}
 
 	return section, nil
@@ -151,7 +144,7 @@ type FindPublishedSectionBySlugsAndIDWithProgressOptions struct {
 func (s *Services) FindPublishedSectionBySlugsAndIDWithProgress(
 	ctx context.Context,
 	opts FindPublishedSectionBySlugsAndIDWithProgressOptions,
-) (*db.FindPublishedSectionBySlugsAndIDWithProgressRow, *ServiceError) {
+) (*db.FindPublishedSectionBySlugsAndIDWithProgressRow, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, sectionsLocation, "FindPublishedSectionBySlugsAndIDWithProgress").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -180,7 +173,7 @@ func (s *Services) FindPublishedSectionBySlugsAndIDWithProgress(
 	)
 	if err != nil {
 		log.WarnContext(ctx, "Published series part not found")
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	return &section, nil
@@ -197,7 +190,7 @@ type FindPaginatedSectionsBySlugsOptions struct {
 func (s *Services) FindPaginatedSectionsBySlugs(
 	ctx context.Context,
 	opts FindPaginatedSectionsBySlugsOptions,
-) ([]db.Section, int64, *ServiceError) {
+) ([]db.Section, int64, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, sectionsLocation, "FindPaginatedSectionsBySlugs").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -216,7 +209,7 @@ func (s *Services) FindPaginatedSectionsBySlugs(
 	count, err := s.database.CountSectionsBySeriesSlug(ctx, opts.SeriesSlug)
 	if err != nil {
 		log.ErrorContext(ctx, "Error counting series parts", "error", err)
-		return nil, 0, FromDBError(err)
+		return nil, 0, exceptions.FromDBError(err)
 	}
 	if count == 0 {
 		return make([]db.Section, 0), 0, nil
@@ -230,7 +223,7 @@ func (s *Services) FindPaginatedSectionsBySlugs(
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Error finding series parts", "error", err)
-		return nil, 0, FromDBError(err)
+		return nil, 0, exceptions.FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Series parts found")
@@ -242,7 +235,7 @@ func (s *Services) findPublishedSectionsCount(
 	log *slog.Logger,
 	languageSlug,
 	seriesSlug string,
-) (int64, *ServiceError) {
+) (int64, *exceptions.ServiceError) {
 	seriesOpts := FindSeriesBySlugsOptions{
 		LanguageSlug: languageSlug,
 		SeriesSlug:   seriesSlug,
@@ -255,7 +248,7 @@ func (s *Services) findPublishedSectionsCount(
 	count, err := s.database.CountPublishedSectionsBySeriesSlug(ctx, seriesSlug)
 	if err != nil {
 		log.ErrorContext(ctx, "Error counting published sections", "error", err)
-		return 0, FromDBError(err)
+		return 0, exceptions.FromDBError(err)
 	}
 
 	return count, nil
@@ -264,7 +257,7 @@ func (s *Services) findPublishedSectionsCount(
 func (s *Services) FindPaginatedPublishedSectionsBySlugs(
 	ctx context.Context,
 	opts FindPaginatedSectionsBySlugsOptions,
-) ([]db.Section, int64, *ServiceError) {
+) ([]db.Section, int64, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, sectionsLocation, "FindPaginatedPublishedSectionsBySlugs").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -290,7 +283,7 @@ func (s *Services) FindPaginatedPublishedSectionsBySlugs(
 	)
 	if err != nil {
 		log.ErrorContext(ctx, "Error finding series parts", "error", err)
-		return nil, 0, FromDBError(err)
+		return nil, 0, exceptions.FromDBError(err)
 	}
 
 	return sections, count, nil
@@ -308,7 +301,7 @@ type FindSectionBySlugsAndIDWithProgressOptions struct {
 func (s *Services) FindPaginatedPublishedSectionsBySlugsWithProgress(
 	ctx context.Context,
 	opts FindSectionBySlugsAndIDWithProgressOptions,
-) ([]db.FindPaginatedPublishedSectionsBySlugsWithProgressRow, int64, *ServiceError) {
+) ([]db.FindPaginatedPublishedSectionsBySlugsWithProgressRow, int64, *exceptions.ServiceError) {
 	log := s.buildLogger(
 		opts.RequestID,
 		sectionsLocation,
@@ -338,7 +331,7 @@ func (s *Services) FindPaginatedPublishedSectionsBySlugsWithProgress(
 	)
 	if err != nil {
 		log.ErrorContext(ctx, "Error finding series parts with progress", "error", serviceErr)
-		return nil, 0, FromDBError(err)
+		return nil, 0, exceptions.FromDBError(err)
 	}
 
 	return sections, count, nil
@@ -352,7 +345,7 @@ type AssertSectionOwnershipOptions struct {
 	SectionID    int32
 }
 
-func (s *Services) AssertSectionOwnership(ctx context.Context, opts AssertSectionOwnershipOptions) (*db.Section, *ServiceError) {
+func (s *Services) AssertSectionOwnership(ctx context.Context, opts AssertSectionOwnershipOptions) (*db.Section, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, sectionsLocation, "AssertSectionOwnership").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -371,7 +364,7 @@ func (s *Services) AssertSectionOwnership(ctx context.Context, opts AssertSectio
 
 	if section.AuthorID != opts.UserID {
 		log.WarnContext(ctx, "User is not the author of the series", "user_id", opts.UserID)
-		return nil, NewForbiddenError()
+		return nil, exceptions.NewForbiddenError()
 	}
 
 	log.InfoContext(ctx, "Series part ownership asserted")
@@ -389,7 +382,7 @@ type UpdateSectionOptions struct {
 	Position     int16
 }
 
-func (s *Services) UpdateSection(ctx context.Context, opts UpdateSectionOptions) (*db.Section, *ServiceError) {
+func (s *Services) UpdateSection(ctx context.Context, opts UpdateSectionOptions) (*db.Section, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, sectionsLocation, "UpdateSection").With(
 		"seriesSlug", opts.SeriesSlug,
 		"sectionId", opts.SectionID,
@@ -418,7 +411,7 @@ func (s *Services) UpdateSection(ctx context.Context, opts UpdateSectionOptions)
 
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to update series part", "error", err)
-			return nil, FromDBError(err)
+			return nil, exceptions.FromDBError(err)
 		}
 
 		log.InfoContext(ctx, "Series part updated", "id", section.ID)
@@ -428,17 +421,17 @@ func (s *Services) UpdateSection(ctx context.Context, opts UpdateSectionOptions)
 	count, err := s.database.CountSectionsBySeriesSlug(ctx, opts.SeriesSlug)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to count series parts", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 	if int64(opts.Position) > count {
 		log.WarnContext(ctx, "Position is out of range", "position", opts.Position, "count", count)
-		return nil, NewValidationError("Position is out of range")
+		return nil, exceptions.NewValidationError("Position is out of range")
 	}
 
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
@@ -451,7 +444,7 @@ func (s *Services) UpdateSection(ctx context.Context, opts UpdateSectionOptions)
 		}
 		if err := qrs.DecrementSectionPosition(ctx, params); err != nil {
 			log.ErrorContext(ctx, "Failed to decrement series part position", "error", err)
-			return nil, FromDBError(err)
+			return nil, exceptions.FromDBError(err)
 		}
 	} else {
 		params := db.IncrementSectionPositionParams{
@@ -461,7 +454,7 @@ func (s *Services) UpdateSection(ctx context.Context, opts UpdateSectionOptions)
 		}
 		if err := qrs.IncrementSectionPosition(ctx, params); err != nil {
 			log.ErrorContext(ctx, "Failed to increment series part position", "error", err)
-			return nil, FromDBError(err)
+			return nil, exceptions.FromDBError(err)
 		}
 	}
 
@@ -473,7 +466,7 @@ func (s *Services) UpdateSection(ctx context.Context, opts UpdateSectionOptions)
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to update series part", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Series part updated", "id", section.ID)
@@ -489,7 +482,7 @@ type UpdateSectionIsPublishedOptions struct {
 	IsPublished  bool
 }
 
-func (s *Services) UpdateSectionIsPublished(ctx context.Context, opts UpdateSectionIsPublishedOptions) (*db.Section, *ServiceError) {
+func (s *Services) UpdateSectionIsPublished(ctx context.Context, opts UpdateSectionIsPublishedOptions) (*db.Section, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, sectionsLocation, "UpdateSectionIsPublished").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -519,19 +512,19 @@ func (s *Services) UpdateSectionIsPublished(ctx context.Context, opts UpdateSect
 			"Cannot publish series part without lessons",
 			"lessonsCount", section.LessonsCount,
 		)
-		return nil, NewValidationError("Cannot publish series part without lessons")
+		return nil, exceptions.NewValidationError("Cannot publish series part without lessons")
 	}
 	if !opts.IsPublished && section.IsPublished {
 		if section.IsPublished {
 			progressCount, err := s.database.CountSectionProgress(ctx, section.ID)
 			if err != nil {
 				log.ErrorContext(ctx, "Failed to count sections progress", "error", err)
-				return nil, FromDBError(err)
+				return nil, exceptions.FromDBError(err)
 			}
 
 			if progressCount > 0 {
 				log.WarnContext(ctx, "Section is published and has progress")
-				return nil, NewConflictError("Section has students")
+				return nil, exceptions.NewConflictError("Section has students")
 			}
 		}
 	}
@@ -539,7 +532,7 @@ func (s *Services) UpdateSectionIsPublished(ctx context.Context, opts UpdateSect
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
@@ -549,7 +542,7 @@ func (s *Services) UpdateSectionIsPublished(ctx context.Context, opts UpdateSect
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to update series part is published", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 	if opts.IsPublished {
 		params := db.AddSeriesSectionsCountParams{
@@ -560,7 +553,7 @@ func (s *Services) UpdateSectionIsPublished(ctx context.Context, opts UpdateSect
 		}
 		if err := qrs.AddSeriesSectionsCount(ctx, params); err != nil {
 			log.ErrorContext(ctx, "Failed to add series parts count", "error", err)
-			return nil, FromDBError(err)
+			return nil, exceptions.FromDBError(err)
 		}
 	} else {
 		params := db.DecrementSeriesSectionsCountParams{
@@ -571,7 +564,7 @@ func (s *Services) UpdateSectionIsPublished(ctx context.Context, opts UpdateSect
 		}
 		if err := qrs.DecrementSeriesSectionsCount(ctx, params); err != nil {
 			log.ErrorContext(ctx, "Failed to decrement series parts count", "error", err)
-			return nil, FromDBError(err)
+			return nil, exceptions.FromDBError(err)
 		}
 	}
 
@@ -587,7 +580,7 @@ type DeleteSectionOptions struct {
 	SectionID    int32
 }
 
-func (s *Services) DeleteSection(ctx context.Context, opts DeleteSectionOptions) *ServiceError {
+func (s *Services) DeleteSection(ctx context.Context, opts DeleteSectionOptions) *exceptions.ServiceError {
 	log := s.buildLogger(opts.RequestID, sectionsLocation, "DeleteSection").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -604,25 +597,25 @@ func (s *Services) DeleteSection(ctx context.Context, opts DeleteSectionOptions)
 		progressCount, err := s.database.CountSectionProgress(ctx, section.ID)
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to count sections progress", "error", err)
-			return FromDBError(err)
+			return exceptions.FromDBError(err)
 		}
 
 		if progressCount > 0 {
 			log.WarnContext(ctx, "Section is published and has progress")
-			return NewConflictError("Section has students")
+			return exceptions.NewConflictError("Section has students")
 		}
 	}
 
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	if err := qrs.DeleteSectionById(ctx, opts.SectionID); err != nil {
 		log.ErrorContext(ctx, "Failed to delete series part", "error", err)
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 
 	posParams := db.DecrementSectionPositionParams{
@@ -632,7 +625,7 @@ func (s *Services) DeleteSection(ctx context.Context, opts DeleteSectionOptions)
 	}
 	if err := qrs.DecrementSectionPosition(ctx, posParams); err != nil {
 		log.ErrorContext(ctx, "Failed to decrement series part position", "error", err)
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 
 	countParams := db.DecrementSeriesSectionsCountParams{
@@ -643,7 +636,7 @@ func (s *Services) DeleteSection(ctx context.Context, opts DeleteSectionOptions)
 	}
 	if err := qrs.DecrementSeriesSectionsCount(ctx, countParams); err != nil {
 		log.ErrorContext(ctx, "Failed to decrement series parts count", "error", err)
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Series part deleted", "id", section.ID)

@@ -19,6 +19,7 @@ package controllers
 
 import (
 	"github.com/kiwiscript/kiwiscript_go/dtos"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"strings"
 
@@ -38,7 +39,7 @@ func (c *Controllers) CreateLanguage(ctx *fiber.Ctx) error {
 
 	user, err := c.GetUserClaims(ctx)
 	if err != nil || !user.IsAdmin {
-		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	var request dtos.LanguageBody
@@ -197,7 +198,7 @@ func (c *Controllers) UpdateLanguage(ctx *fiber.Ctx) error {
 
 	user, err := c.GetUserClaims(ctx)
 	if err != nil || !user.IsAdmin {
-		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	params := dtos.LanguagePathParams{LanguageSlug: slug}
@@ -235,7 +236,7 @@ func (c *Controllers) DeleteLanguage(ctx *fiber.Ctx) error {
 
 	user, err := c.GetUserClaims(ctx)
 	if err != nil || !user.IsAdmin {
-		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	params := dtos.LanguagePathParams{LanguageSlug: slug}

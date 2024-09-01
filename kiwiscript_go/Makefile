@@ -17,6 +17,7 @@
 
 BUILD_DIR=target
 DATABASE_URL=postgres://postgres:postgres@localhost:5432/kiwiscript?sslmode=disable
+DATABASE_TEST_URL=postgres://postgres:postgres@localhost:5432/kiwiscript_test?sslmode=disable
 .DEFAULT_GOAL := run
 
 build:
@@ -46,8 +47,14 @@ pm-down:
 create-db:
 	docker exec -it postgres psql -U postgres -c "CREATE DATABASE kiwiscript;"
 
+create-test-db:
+	docker exec -it postgres psql -U postgres -c "CREATE DATABASE kiwiscript_test;"
+
 create-pm-db:
 	podman exec -it postgres psql -U postgres -c "CREATE DATABASE kiwiscript;"
+
+create-pm-test-db:
+	podman exec -it postgres psql -U postgres -c "CREATE DATABASE kiwiscript_test;"
 
 drop-db:
 	docker exec -it postgres psql -U postgres -c "DROP DATABASE kiwiscript;"
@@ -55,11 +62,23 @@ drop-db:
 drop-pm-db:
 	podman exec -it postgres psql -U postgres -c "DROP DATABASE kiwiscript;"
 
+drop-test-db:
+	docker exec -it postgres psql -U postgres -c "DROP DATABASE kiwiscript_test;"
+
+drop-pm-test-db:
+	podman exec -it postgres psql -U postgres -c "DROP DATABASE kiwiscript_test;"
+
 migrate-up:
 	migrate -path ./providers/database/migrations -database "$(DATABASE_URL)" -verbose up
 
 migrate-down:
 	migrate -path ./providers/database/migrations -database "$(DATABASE_URL)" -verbose down
+
+migrate-test-up:
+	migrate -path ./providers/database/migrations -database "$(DATABASE_TEST_URL)" -verbose up
+
+migrate-test-down:
+	migrate -path ./providers/database/migrations -database "$(DATABASE_TEST_URL)" -verbose down
 
 sqlc:
 	sqlc generate

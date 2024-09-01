@@ -19,6 +19,7 @@ package services
 
 import (
 	"context"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/utils"
@@ -26,11 +27,11 @@ import (
 
 const languagesLocation string = "languages"
 
-func (s *Services) FindLanguageBySlug(ctx context.Context, slug string) (*db.Language, *ServiceError) {
+func (s *Services) FindLanguageBySlug(ctx context.Context, slug string) (*db.Language, *exceptions.ServiceError) {
 	language, err := s.database.FindLanguageBySlug(ctx, slug)
 
 	if err != nil {
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	return &language, nil
@@ -45,7 +46,7 @@ type FindLanguageWithProgressBySlugOptions struct {
 func (s *Services) FindLanguageWithProgressBySlug(
 	ctx context.Context,
 	opts FindLanguageWithProgressBySlugOptions,
-) (*db.FindLanguageBySlugWithLanguageProgressRow, *ServiceError) {
+) (*db.FindLanguageBySlugWithLanguageProgressRow, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, languagesLocation, "FindLanguageWithProgressBySlug").With(
 		"userId", opts.UserID,
 		"slug", opts.LanguageSlug,
@@ -61,17 +62,17 @@ func (s *Services) FindLanguageWithProgressBySlug(
 	)
 	if err != nil {
 		log.WarnContext(ctx, "Language not found", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	return &language, nil
 }
 
-func (s *Services) FindLanguageByID(ctx context.Context, id int32) (db.Language, *ServiceError) {
+func (s *Services) FindLanguageByID(ctx context.Context, id int32) (db.Language, *exceptions.ServiceError) {
 	language, err := s.database.FindLanguageById(ctx, id)
 
 	if err != nil {
-		return language, FromDBError(err)
+		return language, exceptions.FromDBError(err)
 	}
 
 	return language, nil
@@ -84,7 +85,7 @@ type CreateLanguageOptions struct {
 	Icon      string
 }
 
-func (s *Services) CreateLanguage(ctx context.Context, opts CreateLanguageOptions) (*db.Language, *ServiceError) {
+func (s *Services) CreateLanguage(ctx context.Context, opts CreateLanguageOptions) (*db.Language, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, languagesLocation, "CreateLanguage").With(
 		"userId", opts.UserID,
 		"name", opts.Name,
@@ -94,7 +95,7 @@ func (s *Services) CreateLanguage(ctx context.Context, opts CreateLanguageOption
 	slug := utils.Slugify(opts.Name)
 	if _, serviceErr := s.FindLanguageBySlug(ctx, slug); serviceErr == nil {
 		log.InfoContext(ctx, "language already exists", "slug", slug)
-		return nil, NewValidationError("language already exists")
+		return nil, exceptions.NewValidationError("language already exists")
 	}
 
 	language, err := s.database.CreateLanguage(ctx, db.CreateLanguageParams{
@@ -104,7 +105,7 @@ func (s *Services) CreateLanguage(ctx context.Context, opts CreateLanguageOption
 		Slug:     slug,
 	})
 	if err != nil {
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	return &language, nil
@@ -117,7 +118,7 @@ type UpdateLanguageOptions struct {
 	Icon      string
 }
 
-func (s *Services) UpdateLanguage(ctx context.Context, opts UpdateLanguageOptions) (*db.Language, *ServiceError) {
+func (s *Services) UpdateLanguage(ctx context.Context, opts UpdateLanguageOptions) (*db.Language, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, languagesLocation, "UpdateLanguage").With(
 		"slug", opts.Slug,
 		"name", opts.Name,
@@ -133,7 +134,7 @@ func (s *Services) UpdateLanguage(ctx context.Context, opts UpdateLanguageOption
 	slug := utils.Slugify(opts.Name)
 	if _, serviceErr := s.FindLanguageBySlug(ctx, slug); serviceErr == nil {
 		log.InfoContext(ctx, "language already exists", "slug", slug)
-		return nil, NewValidationError("language already exists")
+		return nil, exceptions.NewValidationError("language already exists")
 	}
 
 	updateLanguage, err := s.database.UpdateLanguage(ctx, db.UpdateLanguageParams{
@@ -144,7 +145,7 @@ func (s *Services) UpdateLanguage(ctx context.Context, opts UpdateLanguageOption
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to update language", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	return &updateLanguage, nil
@@ -155,7 +156,7 @@ type DeleteLanguageOptions struct {
 	Slug      string
 }
 
-func (s *Services) DeleteLanguage(ctx context.Context, opts DeleteLanguageOptions) *ServiceError {
+func (s *Services) DeleteLanguage(ctx context.Context, opts DeleteLanguageOptions) *exceptions.ServiceError {
 	log := s.buildLogger(opts.RequestID, languagesLocation, "DeleteLanguage").With(
 		"slug", opts.Slug,
 	)
@@ -170,17 +171,17 @@ func (s *Services) DeleteLanguage(ctx context.Context, opts DeleteLanguageOption
 	progressCount, err := s.database.CountLanguageProgressBySlug(ctx, language.Slug)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to count language progress", "error", err)
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 
 	if progressCount > 0 {
 		log.WarnContext(ctx, "Language has students", "studentsCount", progressCount)
-		return NewConflictError("Language has students")
+		return exceptions.NewConflictError("Language has students")
 	}
 
 	if err := s.database.DeleteLanguageById(ctx, language.ID); err != nil {
 		log.ErrorContext(ctx, "failed to delete language", "error", err)
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 
 	return nil
@@ -196,7 +197,7 @@ type FindPaginatedLanguagesOptions struct {
 func (s *Services) FindPaginatedLanguages(
 	ctx context.Context,
 	opts FindPaginatedLanguagesOptions,
-) ([]db.Language, int64, *ServiceError) {
+) ([]db.Language, int64, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, languagesLocation, "GetLanguages").With(
 		"search", opts.Search,
 		"offset", opts.Offset,
@@ -208,7 +209,7 @@ func (s *Services) FindPaginatedLanguages(
 		count, err := s.database.CountLanguages(ctx)
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to count languages", "error", err)
-			return nil, 0, FromDBError(err)
+			return nil, 0, exceptions.FromDBError(err)
 		}
 
 		if count == 0 {
@@ -222,7 +223,7 @@ func (s *Services) FindPaginatedLanguages(
 		})
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to find paginated languages", "error", err)
-			return nil, 0, FromDBError(err)
+			return nil, 0, exceptions.FromDBError(err)
 		}
 
 		return languages, count, nil
@@ -232,7 +233,7 @@ func (s *Services) FindPaginatedLanguages(
 	count, err := s.database.CountFilteredLanguages(ctx, search)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to count languages", "error", err)
-		return nil, 0, FromDBError(err)
+		return nil, 0, exceptions.FromDBError(err)
 	}
 
 	if count == 0 {
@@ -247,7 +248,7 @@ func (s *Services) FindPaginatedLanguages(
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to find filtered languages", "error", err)
-		return nil, 0, FromDBError(err)
+		return nil, 0, exceptions.FromDBError(err)
 	}
 
 	return languages, count, nil
@@ -263,7 +264,7 @@ type FindPaginatedLanguagesWithProgressOptions struct {
 func (s *Services) FindPaginatedLanguagesWithProgress(
 	ctx context.Context,
 	opts FindPaginatedLanguagesWithProgressOptions,
-) ([]db.FindPaginatedLanguagesWithLanguageProgressRow, int64, *ServiceError) {
+) ([]db.FindPaginatedLanguagesWithLanguageProgressRow, int64, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, languagesLocation, "FindPaginatedLanguagesWithProgress").With(
 		"userId", opts.UserID,
 		"offset", opts.Offset,
@@ -274,7 +275,7 @@ func (s *Services) FindPaginatedLanguagesWithProgress(
 	count, err := s.database.CountLanguages(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to count languages", "error", err)
-		return nil, 0, FromDBError(err)
+		return nil, 0, exceptions.FromDBError(err)
 	}
 
 	if count == 0 {
@@ -292,7 +293,7 @@ func (s *Services) FindPaginatedLanguagesWithProgress(
 	)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to find languages", "error", err)
-		return nil, 0, FromDBError(err)
+		return nil, 0, exceptions.FromDBError(err)
 	}
 
 	return languages, count, nil
@@ -309,7 +310,7 @@ type FindFilteredPaginatedLanguagesWithProgressOptions struct {
 func (s *Services) FindFilteredPaginatedLanguagesWithProgress(
 	ctx context.Context,
 	opts FindFilteredPaginatedLanguagesWithProgressOptions,
-) ([]db.FindFilteredPaginatedLanguagesWithLanguageProgressRow, int64, *ServiceError) {
+) ([]db.FindFilteredPaginatedLanguagesWithLanguageProgressRow, int64, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, languagesLocation, "FindFilteredPaginatedLanguagesWithProgress").With(
 		"userId", opts.UserID,
 		"search", opts.Search,
@@ -322,7 +323,7 @@ func (s *Services) FindFilteredPaginatedLanguagesWithProgress(
 	count, err := s.database.CountFilteredLanguages(ctx, search)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed count languages", "error", err)
-		return nil, 0, FromDBError(err)
+		return nil, 0, exceptions.FromDBError(err)
 	}
 
 	if count == 0 {
@@ -341,7 +342,7 @@ func (s *Services) FindFilteredPaginatedLanguagesWithProgress(
 	)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to find languages", "error", err)
-		return nil, 0, FromDBError(err)
+		return nil, 0, exceptions.FromDBError(err)
 	}
 
 	return languages, count, nil

@@ -19,8 +19,8 @@ package controllers
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	"github.com/kiwiscript/kiwiscript_go/providers/tokens"
-	"github.com/kiwiscript/kiwiscript_go/services"
 )
 
 func (c *Controllers) AccessClaimsMiddleware(ctx *fiber.Ctx) error {
@@ -38,11 +38,11 @@ func (c *Controllers) AccessClaimsMiddleware(ctx *fiber.Ctx) error {
 	return ctx.Next()
 }
 
-func (c *Controllers) GetUserClaims(ctx *fiber.Ctx) (*tokens.AccessUserClaims, *services.ServiceError) {
+func (c *Controllers) GetUserClaims(ctx *fiber.Ctx) (*tokens.AccessUserClaims, *exceptions.ServiceError) {
 	user, ok := ctx.Locals("user").(tokens.AccessUserClaims)
 
 	if !ok || user.ID == 0 {
-		return nil, services.NewUnauthorizedError()
+		return nil, exceptions.NewUnauthorizedError()
 	}
 
 	return &user, nil
@@ -53,7 +53,7 @@ func (c *Controllers) UserMiddleware(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusUnauthorized).
-			JSON(NewRequestError(err))
+			JSON(exceptions.NewRequestError(err))
 	}
 
 	return ctx.Next()
@@ -64,13 +64,13 @@ func (c *Controllers) AdminUserMiddleware(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusUnauthorized).
-			JSON(NewRequestError(err))
+			JSON(exceptions.NewRequestError(err))
 	}
 
 	if !user.IsAdmin {
 		return ctx.
 			Status(fiber.StatusForbidden).
-			JSON(NewRequestError(services.NewForbiddenError()))
+			JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	return ctx.Next()
@@ -81,13 +81,13 @@ func (c *Controllers) StaffUserMiddleware(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusUnauthorized).
-			JSON(NewRequestError(err))
+			JSON(exceptions.NewRequestError(err))
 	}
 
 	if !user.IsStaff {
 		return ctx.
 			Status(fiber.StatusForbidden).
-			JSON(NewRequestError(services.NewForbiddenError()))
+			JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	return ctx.Next()

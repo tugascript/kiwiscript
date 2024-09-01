@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/kiwiscript/kiwiscript_go/controllers"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	"github.com/kiwiscript/kiwiscript_go/providers/oauth"
 	"io"
 	"math"
@@ -61,6 +61,7 @@ var _testCache *cc.Cache
 func initTestServicesAndApp(t *testing.T) {
 	log := app.DefaultLogger()
 	_testConfig = app.NewConfig(log, "../.env")
+	ctx := context.Background()
 	log = app.GetLogger(_testConfig.Logger.Env, _testConfig.Logger.Debug)
 
 	// Build storages/models
@@ -72,8 +73,11 @@ func initTestServicesAndApp(t *testing.T) {
 
 	// Build database connection
 	log.Info("Building database connection...")
-	ctx := context.Background()
-	dbConnPool, err := pgxpool.New(ctx, _testConfig.PostgresURL)
+	testPostgresURL := os.Getenv("DATABASE_TEST_URL")
+	if testPostgresURL == "" {
+		t.Fatal("DATABASE_TEST_URL is not set")
+	}
+	dbConnPool, err := pgxpool.New(ctx, testPostgresURL)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to connect to database", "error", err)
 		t.Fatal("Failed to connect to database", err)
@@ -263,7 +267,7 @@ type ordered interface {
 }
 
 func AssertGreaterThan[V ordered](t *testing.T, actual, expected V) {
-	if expected > actual {
+	if expected >= actual {
 		t.Fatalf("Actual: %v, Expected: %v", actual, expected)
 	}
 }
@@ -276,29 +280,29 @@ func AssertNotEmpty[V comparable](t *testing.T, actual V) {
 }
 
 func assertRequestErrorResponse(t *testing.T, resp *http.Response, code, message string) {
-	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+	resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
 	AssertEqual(t, resBody.Code, code)
 	AssertEqual(t, resBody.Message, message)
 }
 
 func AssertForbiddenResponse(t *testing.T, resp *http.Response) {
-	assertRequestErrorResponse(t, resp, controllers.StatusForbidden, controllers.StatusForbidden)
+	assertRequestErrorResponse(t, resp, exceptions.StatusForbidden, exceptions.StatusForbidden)
 }
 
 func AssertUnauthorizedResponse(t *testing.T, resp *http.Response) {
-	assertRequestErrorResponse(t, resp, controllers.StatusUnauthorized, controllers.StatusUnauthorized)
+	assertRequestErrorResponse(t, resp, exceptions.StatusUnauthorized, exceptions.StatusUnauthorized)
 }
 
 func AssertNotFoundResponse(t *testing.T, resp *http.Response) {
-	assertRequestErrorResponse(t, resp, controllers.StatusNotFound, services.MessageNotFound)
+	assertRequestErrorResponse(t, resp, exceptions.StatusNotFound, exceptions.MessageNotFound)
 }
 
 func AssertConflictResponse(t *testing.T, resp *http.Response, message string) {
-	assertRequestErrorResponse(t, resp, controllers.StatusConflict, message)
+	assertRequestErrorResponse(t, resp, exceptions.StatusConflict, message)
 }
 
 func AssertConflictDuplicateKeyResponse(t *testing.T, resp *http.Response) {
-	AssertConflictResponse(t, resp, services.MessageDuplicateKey)
+	AssertConflictResponse(t, resp, exceptions.MessageDuplicateKey)
 }
 
 type ValidationErrorAssertion struct {
@@ -307,9 +311,9 @@ type ValidationErrorAssertion struct {
 }
 
 func AssertValidationErrorResponse(t *testing.T, resp *http.Response, assertions []ValidationErrorAssertion) {
-	resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
-	AssertEqual(t, resBody.Code, controllers.StatusValidation)
-	AssertEqual(t, resBody.Message, controllers.RequestValidationMessage)
+	resBody := AssertTestResponseBody(t, resp, exceptions.RequestValidationError{})
+	AssertEqual(t, resBody.Code, exceptions.StatusValidation)
+	AssertEqual(t, resBody.Message, exceptions.RequestValidationMessage)
 
 	for i, a := range assertions {
 		AssertEqual(t, resBody.Fields[i].Param, a.Param)
@@ -318,7 +322,7 @@ func AssertValidationErrorResponse(t *testing.T, resp *http.Response, assertions
 }
 
 func AssertValidationErrorWithoutFieldsResponse(t *testing.T, resp *http.Response, message string) {
-	assertRequestErrorResponse(t, resp, controllers.StatusValidation, message)
+	assertRequestErrorResponse(t, resp, exceptions.StatusValidation, message)
 }
 
 type fakeUserData struct {

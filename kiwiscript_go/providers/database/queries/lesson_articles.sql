@@ -17,13 +17,15 @@
 
 -- name: CreateLessonArticle :one
 INSERT INTO "lesson_articles" (
-  "lesson_id",
-  "content",
-  "read_time_seconds"
+    "lesson_id",
+    "author_id",
+    "content",
+    "read_time_seconds"
 ) VALUES (
-  $1,
-  $2,
-  $3
+    $1,
+    $2,
+    $3,
+    $4
 ) RETURNING *;
 
 -- name: UpdateLessonArticle :one

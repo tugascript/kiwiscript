@@ -19,6 +19,7 @@ package services
 
 import (
 	"context"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	"math"
 	"strings"
 
@@ -35,7 +36,7 @@ type FindLessonArticleByLessonIDOptions struct {
 func (s *Services) FindLessonArticleByLessonID(
 	ctx context.Context,
 	opts FindLessonArticleByLessonIDOptions,
-) (*db.LessonArticle, *ServiceError) {
+) (*db.LessonArticle, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, lessonArticlesLocation, "FindLessonArticleByLessonID").With(
 		"lessonId", opts.LessonID,
 	)
@@ -44,7 +45,7 @@ func (s *Services) FindLessonArticleByLessonID(
 	lessonArticle, err := s.database.GetLessonArticleByLessonID(ctx, opts.LessonID)
 	if err != nil {
 		log.WarnContext(ctx, "Lesson article not found", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	return &lessonArticle, nil
@@ -65,7 +66,7 @@ type CreateLessonArticleOptions struct {
 	Content      string
 }
 
-func (s *Services) CreateLessonArticle(ctx context.Context, opts CreateLessonArticleOptions) (*db.LessonArticle, *ServiceError) {
+func (s *Services) CreateLessonArticle(ctx context.Context, opts CreateLessonArticleOptions) (*db.LessonArticle, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, lessonArticlesLocation, "CreateLessonArticle").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -93,34 +94,35 @@ func (s *Services) CreateLessonArticle(ctx context.Context, opts CreateLessonArt
 	}
 	if _, serviceErr := s.FindLessonArticleByLessonID(ctx, byIdOpts); serviceErr == nil {
 		log.WarnContext(ctx, "Lesson article already exists")
-		return nil, NewConflictError("Lesson article already exists")
+		return nil, exceptions.NewConflictError("Lesson article already exists")
 	}
 
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	readTime := CalculateReadingTime(opts.Content)
 	lessonArticle, err := qrs.CreateLessonArticle(ctx, db.CreateLessonArticleParams{
 		LessonID:        opts.LessonID,
+		AuthorID:        opts.UserID,
 		Content:         opts.Content,
 		ReadTimeSeconds: readTime,
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to create lesson article", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
-	lecParams := db.UpdateLessonReadTimeSecondsParams{
-		ID:              lesson.ID,
+	lessonPrms := db.UpdateLessonReadTimeSecondsParams{
+		ID:              opts.LessonID,
 		ReadTimeSeconds: readTime,
 	}
-	if err := qrs.UpdateLessonReadTimeSeconds(ctx, lecParams); err != nil {
+	if err := qrs.UpdateLessonReadTimeSeconds(ctx, lessonPrms); err != nil {
 		log.ErrorContext(ctx, "Failed to update lesson read time", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	if lesson.IsPublished {
@@ -130,7 +132,7 @@ func (s *Services) CreateLessonArticle(ctx context.Context, opts CreateLessonArt
 		}
 		if err := qrs.AddSeriesReadTime(ctx, seriesParams); err != nil {
 			log.ErrorContext(ctx, "Failed to add series read time", "error", err)
-			return nil, FromDBError(err)
+			return nil, exceptions.FromDBError(err)
 		}
 
 		seriesPartParams := db.AddSectionReadTimeParams{
@@ -139,7 +141,7 @@ func (s *Services) CreateLessonArticle(ctx context.Context, opts CreateLessonArt
 		}
 		if err := qrs.AddSectionReadTime(ctx, seriesPartParams); err != nil {
 			log.ErrorContext(ctx, "Failed to add series part read time", "error", err)
-			return nil, FromDBError(err)
+			return nil, exceptions.FromDBError(err)
 		}
 	}
 
@@ -159,7 +161,7 @@ type UpdateLessonArticleOptions struct {
 func (s *Services) UpdateLessonArticle(
 	ctx context.Context,
 	opts UpdateLessonArticleOptions,
-) (*db.LessonArticle, *ServiceError) {
+) (*db.LessonArticle, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, lessonArticlesLocation, "UpdateLessonArticle").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -195,7 +197,7 @@ func (s *Services) UpdateLessonArticle(
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
@@ -206,7 +208,7 @@ func (s *Services) UpdateLessonArticle(
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to update lesson article", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	lecParams := db.UpdateLessonReadTimeSecondsParams{
@@ -215,7 +217,7 @@ func (s *Services) UpdateLessonArticle(
 	}
 	if err := qrs.UpdateLessonReadTimeSeconds(ctx, lecParams); err != nil {
 		log.ErrorContext(ctx, "Failed to update lesson read time", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	if lesson.IsPublished {
@@ -226,7 +228,7 @@ func (s *Services) UpdateLessonArticle(
 		}
 		if err := qrs.AddSeriesReadTime(ctx, seriesParams); err != nil {
 			log.ErrorContext(ctx, "Failed to add series read time", "error", err)
-			return nil, FromDBError(err)
+			return nil, exceptions.FromDBError(err)
 		}
 
 		seriesPartParams := db.AddSectionReadTimeParams{
@@ -235,7 +237,7 @@ func (s *Services) UpdateLessonArticle(
 		}
 		if err := qrs.AddSectionReadTime(ctx, seriesPartParams); err != nil {
 			log.ErrorContext(ctx, "Failed to add series part read time", "error", err)
-			return nil, FromDBError(err)
+			return nil, exceptions.FromDBError(err)
 		}
 	}
 
@@ -251,7 +253,7 @@ type DeleteLessonArticleOptions struct {
 	LessonID     int32
 }
 
-func (s *Services) DeleteLessonArticle(ctx context.Context, opts DeleteLessonArticleOptions) *ServiceError {
+func (s *Services) DeleteLessonArticle(ctx context.Context, opts DeleteLessonArticleOptions) *exceptions.ServiceError {
 	log := s.buildLogger(opts.RequestID, lessonArticlesLocation, "DeleteLessonArticle").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -282,19 +284,19 @@ func (s *Services) DeleteLessonArticle(ctx context.Context, opts DeleteLessonArt
 
 	if lesson.IsPublished {
 		log.WarnContext(ctx, "Cannot delete article from published lesson")
-		return NewValidationError("Cannot delete article from published lesson")
+		return exceptions.NewValidationError("Cannot delete article from published lesson")
 	}
 
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	if err := qrs.DeleteLessonArticle(ctx, lessonArticle.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to delete lesson article", "error", err)
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 
 	lessonParams := db.UpdateLessonReadTimeSecondsParams{
@@ -303,7 +305,7 @@ func (s *Services) DeleteLessonArticle(ctx context.Context, opts DeleteLessonArt
 	}
 	if err := qrs.UpdateLessonReadTimeSeconds(ctx, lessonParams); err != nil {
 		log.ErrorContext(ctx, "Failed to update lesson read time", "error", err)
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 
 	return nil
@@ -321,7 +323,7 @@ type FindLessonArticleOptions struct {
 func (s *Services) FindLessonArticle(
 	ctx context.Context,
 	opts FindLessonArticleOptions,
-) (*db.LessonArticle, *ServiceError) {
+) (*db.LessonArticle, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, lessonArticlesLocation, "FindLessonArticle").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -349,7 +351,7 @@ func (s *Services) FindLessonArticle(
 	}
 	if opts.IsPublished && !lesson.IsPublished {
 		log.WarnContext(ctx, "Cannot find article from unpublished lesson")
-		return nil, NewNotFoundError()
+		return nil, exceptions.NewNotFoundError()
 	}
 
 	log.InfoContext(ctx, "Found lesson article")

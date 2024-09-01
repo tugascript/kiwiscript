@@ -12,18 +12,21 @@ import (
 const createLessonArticle = `-- name: CreateLessonArticle :one
 
 INSERT INTO "lesson_articles" (
-  "lesson_id",
-  "content",
-  "read_time_seconds"
+    "lesson_id",
+    "author_id",
+    "content",
+    "read_time_seconds"
 ) VALUES (
-  $1,
-  $2,
-  $3
+    $1,
+    $2,
+    $3,
+    $4
 ) RETURNING id, lesson_id, author_id, content, read_time_seconds, created_at, updated_at
 `
 
 type CreateLessonArticleParams struct {
 	LessonID        int32
+	AuthorID        int32
 	Content         string
 	ReadTimeSeconds int32
 }
@@ -45,7 +48,12 @@ type CreateLessonArticleParams struct {
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 func (q *Queries) CreateLessonArticle(ctx context.Context, arg CreateLessonArticleParams) (LessonArticle, error) {
-	row := q.db.QueryRow(ctx, createLessonArticle, arg.LessonID, arg.Content, arg.ReadTimeSeconds)
+	row := q.db.QueryRow(ctx, createLessonArticle,
+		arg.LessonID,
+		arg.AuthorID,
+		arg.Content,
+		arg.ReadTimeSeconds,
+	)
 	var i LessonArticle
 	err := row.Scan(
 		&i.ID,

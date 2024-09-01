@@ -19,6 +19,7 @@ package services
 
 import (
 	"context"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 )
 
@@ -35,7 +36,7 @@ type FindSectionProgressBySlugsAndIDOptions struct {
 func (s *Services) FindSectionProgressBySlugsAndID(
 	ctx context.Context,
 	opts FindSectionProgressBySlugsAndIDOptions,
-) (*db.SectionProgress, *ServiceError) {
+) (*db.SectionProgress, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, sectionProgressLocation, "FindSectionProgressBySlugsAndID").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -55,7 +56,7 @@ func (s *Services) FindSectionProgressBySlugsAndID(
 	)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to find series part progress", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	return &seriesPartProgress, nil
@@ -74,7 +75,7 @@ type createSectionProgressOptions struct {
 func (s *Services) createSectionProgress(
 	ctx context.Context,
 	opts createSectionProgressOptions,
-) (*db.SectionProgress, *ServiceError) {
+) (*db.SectionProgress, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, sectionProgressLocation, "createSectionProgress").With(
 		"userID", opts.UserID,
 		"languageProgressID", opts.LanguageProgressID,
@@ -94,7 +95,7 @@ func (s *Services) createSectionProgress(
 		SeriesSlug:         opts.SeriesSlug,
 	})
 	if err != nil {
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	return &seriesPartProgress, nil
@@ -111,7 +112,7 @@ type CreateOrUpdateSectionProgressOptions struct {
 func (s *Services) CreateOrUpdateSectionProgress(
 	ctx context.Context,
 	opts CreateOrUpdateSectionProgressOptions,
-) (*db.Section, *db.SectionProgress, *ServiceError) {
+) (*db.Section, *db.SectionProgress, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, sectionProgressLocation, "CreateOrUpdateSectionProgress").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -168,7 +169,7 @@ func (s *Services) CreateOrUpdateSectionProgress(
 
 	if err := s.database.UpdateSectionProgressViewedAt(ctx, seriesPartProgress.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to update series part progress viewed at", "error", err)
-		return nil, nil, FromDBError(err)
+		return nil, nil, exceptions.FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Series part progress updated")
@@ -186,7 +187,7 @@ type DeleteSectionProgressOptions struct {
 func (s *Services) DeleteSectionProgress(
 	ctx context.Context,
 	opts DeleteSectionProgressOptions,
-) *ServiceError {
+) *exceptions.ServiceError {
 	log := s.buildLogger(opts.RequestID, sectionProgressLocation, "DeleteSectionProgress").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -213,13 +214,13 @@ func (s *Services) DeleteSectionProgress(
 		qrs, txn, err := s.database.BeginTx(ctx)
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-			return FromDBError(err)
+			return exceptions.FromDBError(err)
 		}
 		defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 		if err := qrs.DeleteSectionProgress(ctx, seriesPartProgress.ID); err != nil {
 			log.ErrorContext(ctx, "Failed to delete series part progress", "error", err)
-			return FromDBError(err)
+			return exceptions.FromDBError(err)
 		}
 
 		if seriesPartProgress.CompletedAt.Valid {
@@ -229,7 +230,7 @@ func (s *Services) DeleteSectionProgress(
 			}
 			if err := qrs.DecrementSeriesProgressCompletedSections(ctx, params); err != nil {
 				log.ErrorContext(ctx, "Failed to decrement series progress completed sections", "error", err)
-				return FromDBError(err)
+				return exceptions.FromDBError(err)
 			}
 
 			return nil
@@ -241,7 +242,7 @@ func (s *Services) DeleteSectionProgress(
 		}
 		if err := qrs.RemoveSeriesProgressCompletedLessons(ctx, params); err != nil {
 			log.ErrorContext(ctx, "Failed to remove series progress completed lessons", "error", err)
-			return FromDBError(err)
+			return exceptions.FromDBError(err)
 		}
 
 		return nil
@@ -249,7 +250,7 @@ func (s *Services) DeleteSectionProgress(
 
 	if err := s.database.DeleteSectionProgress(ctx, seriesPartProgress.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to delete series part progress", "error", err)
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 
 	return nil

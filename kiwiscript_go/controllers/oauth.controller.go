@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/kiwiscript/kiwiscript_go/dtos"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	"github.com/kiwiscript/kiwiscript_go/services"
 	"github.com/kiwiscript/kiwiscript_go/utils"
 	"net/url"
@@ -168,7 +169,7 @@ func (c *Controllers) OAuthToken(ctx *fiber.Ctx) error {
 
 	redirectURI := fmt.Sprintf("https://%s/auth/callback", c.frontendDomain)
 	if body.RedirectURI != redirectURI {
-		return c.serviceErrorResponse(services.NewUnauthorizedError(), ctx)
+		return c.serviceErrorResponse(exceptions.NewUnauthorizedError(), ctx)
 	}
 
 	authRes, serviceErr := c.services.OAuthToken(userCtx, services.IntOAuthSignInOptions{

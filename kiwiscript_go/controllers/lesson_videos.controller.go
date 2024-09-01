@@ -20,6 +20,7 @@ package controllers
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/kiwiscript/kiwiscript_go/dtos"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	"github.com/kiwiscript/kiwiscript_go/services"
 	"strconv"
 )
@@ -44,7 +45,7 @@ func (c *Controllers) CreateLessonVideo(ctx *fiber.Ctx) error {
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
 		log.ErrorContext(userCtx, "User is not staff, should not have reached here")
-		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	params := dtos.LessonPathParams{
@@ -61,9 +62,9 @@ func (c *Controllers) CreateLessonVideo(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+			JSON(exceptions.NewRequestValidationError(exceptions.RequestValidationLocationParams, []exceptions.FieldError{{
 				Param:   "sectionId",
-				Message: StrFieldErrMessageNumber,
+				Message: exceptions.StrFieldErrMessageNumber,
 				Value:   params.SectionID,
 			}}))
 	}
@@ -72,9 +73,9 @@ func (c *Controllers) CreateLessonVideo(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+			JSON(exceptions.NewRequestValidationError(exceptions.RequestValidationLocationParams, []exceptions.FieldError{{
 				Param:   "lecturesId",
-				Message: StrFieldErrMessageNumber,
+				Message: exceptions.StrFieldErrMessageNumber,
 				Value:   params.SectionID,
 			}}))
 	}
@@ -145,9 +146,9 @@ func (c *Controllers) GetLessonVideo(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+			JSON(exceptions.NewRequestValidationError(exceptions.RequestValidationLocationParams, []exceptions.FieldError{{
 				Param:   "sectionId",
-				Message: StrFieldErrMessageNumber,
+				Message: exceptions.StrFieldErrMessageNumber,
 				Value:   params.SectionID,
 			}}))
 	}
@@ -156,9 +157,9 @@ func (c *Controllers) GetLessonVideo(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+			JSON(exceptions.NewRequestValidationError(exceptions.RequestValidationLocationParams, []exceptions.FieldError{{
 				Param:   "lecturesId",
-				Message: StrFieldErrMessageNumber,
+				Message: exceptions.StrFieldErrMessageNumber,
 				Value:   params.SectionID,
 			}}))
 	}
@@ -213,7 +214,7 @@ func (c *Controllers) UpdateLessonVideo(ctx *fiber.Ctx) error {
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
 		log.ErrorContext(userCtx, "User is not staff, should not have reached here")
-		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	params := dtos.LessonPathParams{
@@ -230,9 +231,9 @@ func (c *Controllers) UpdateLessonVideo(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+			JSON(exceptions.NewRequestValidationError(exceptions.RequestValidationLocationParams, []exceptions.FieldError{{
 				Param:   "sectionId",
-				Message: StrFieldErrMessageNumber,
+				Message: exceptions.StrFieldErrMessageNumber,
 				Value:   params.SectionID,
 			}}))
 	}
@@ -241,9 +242,9 @@ func (c *Controllers) UpdateLessonVideo(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+			JSON(exceptions.NewRequestValidationError(exceptions.RequestValidationLocationParams, []exceptions.FieldError{{
 				Param:   "lecturesId",
-				Message: StrFieldErrMessageNumber,
+				Message: exceptions.StrFieldErrMessageNumber,
 				Value:   params.SectionID,
 			}}))
 	}
@@ -301,7 +302,7 @@ func (c *Controllers) DeleteLessonVideo(ctx *fiber.Ctx) error {
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
 		log.ErrorContext(userCtx, "User is not staff, should not have reached here")
-		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	params := dtos.LessonPathParams{
@@ -318,9 +319,9 @@ func (c *Controllers) DeleteLessonVideo(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+			JSON(exceptions.NewRequestValidationError(exceptions.RequestValidationLocationParams, []exceptions.FieldError{{
 				Param:   "sectionId",
-				Message: StrFieldErrMessageNumber,
+				Message: exceptions.StrFieldErrMessageNumber,
 				Value:   params.SectionID,
 			}}))
 	}
@@ -329,9 +330,9 @@ func (c *Controllers) DeleteLessonVideo(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+			JSON(exceptions.NewRequestValidationError(exceptions.RequestValidationLocationParams, []exceptions.FieldError{{
 				Param:   "lecturesId",
-				Message: StrFieldErrMessageNumber,
+				Message: exceptions.StrFieldErrMessageNumber,
 				Value:   params.SectionID,
 			}}))
 	}

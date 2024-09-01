@@ -21,6 +21,7 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"github.com/kiwiscript/kiwiscript_go/dtos"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -29,7 +30,6 @@ import (
 	"github.com/go-faker/faker/v4"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/encryptcookie"
-	"github.com/kiwiscript/kiwiscript_go/controllers"
 	cc "github.com/kiwiscript/kiwiscript_go/providers/cache"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/providers/tokens"
@@ -93,9 +93,9 @@ func assertOAuthResponse(t *testing.T, resp *http.Response) {
 }
 
 func assertUnauthorizeError(t *testing.T, resp *http.Response) {
-	resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-	AssertEqual(t, services.MessageUnauthorized, resBody.Message)
-	AssertEqual(t, controllers.StatusUnauthorized, resBody.Code)
+	resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+	AssertEqual(t, exceptions.MessageUnauthorized, resBody.Message)
+	AssertEqual(t, exceptions.StatusUnauthorized, resBody.Code)
 }
 
 func performCookieRequest(t *testing.T, app *fiber.App, path, accessToken, refreshToken string) *http.Response {
@@ -169,10 +169,10 @@ func TestRegister(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, req dtos.SignUpBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestValidationError{})
 				AssertEqual(t, 1, len(resBody.Fields))
 				AssertEqual(t, "email", resBody.Fields[0].Param)
-				AssertEqual(t, controllers.StrFieldErrMessageEmail, resBody.Fields[0].Message)
+				AssertEqual(t, exceptions.StrFieldErrMessageEmail, resBody.Fields[0].Message)
 				AssertEqual(t, req.Email, resBody.Fields[0].Value.(string))
 			},
 		},
@@ -185,10 +185,10 @@ func TestRegister(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, req dtos.SignUpBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestValidationError{})
 				AssertEqual(t, 1, len(resBody.Fields))
 				AssertEqual(t, "password2", resBody.Fields[0].Param)
-				AssertEqual(t, controllers.FieldErrMessageEqField, resBody.Fields[0].Message)
+				AssertEqual(t, exceptions.FieldErrMessageEqField, resBody.Fields[0].Message)
 				AssertEqual(t, req.Password2, resBody.Fields[0].Value.(string))
 			},
 		},
@@ -202,9 +202,9 @@ func TestRegister(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusConflict,
 			AssertFn: func(t *testing.T, _ dtos.SignUpBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
 				AssertEqual(t, "Email already exists", resBody.Message)
-				AssertEqual(t, controllers.StatusConflict, resBody.Code)
+				AssertEqual(t, exceptions.StatusConflict, resBody.Code)
 			},
 		},
 	}
@@ -251,10 +251,10 @@ func TestConfirmEmail(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, req dtos.ConfirmBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestValidationError{})
 				AssertEqual(t, 1, len(resBody.Fields))
 				AssertEqual(t, "confirmationToken", resBody.Fields[0].Param)
-				AssertEqual(t, controllers.StrFieldErrMessageJWT, resBody.Fields[0].Message)
+				AssertEqual(t, exceptions.StrFieldErrMessageJWT, resBody.Fields[0].Message)
 				AssertEqual(t, req.ConfirmationToken, resBody.Fields[0].Value.(string))
 			},
 		},
@@ -324,13 +324,13 @@ func TestLogin(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, req dtos.SignInBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestValidationError{})
 				AssertEqual(t, 2, len(resBody.Fields))
 				AssertEqual(t, "email", resBody.Fields[0].Param)
-				AssertEqual(t, controllers.StrFieldErrMessageEmail, resBody.Fields[0].Message)
+				AssertEqual(t, exceptions.StrFieldErrMessageEmail, resBody.Fields[0].Message)
 				AssertEqual(t, req.Email, resBody.Fields[0].Value.(string))
 				AssertEqual(t, "password", resBody.Fields[1].Param)
-				AssertEqual(t, controllers.FieldErrMessageRequired, resBody.Fields[1].Message)
+				AssertEqual(t, exceptions.FieldErrMessageRequired, resBody.Fields[1].Message)
 				AssertEqual(t, req.Password, resBody.Fields[1].Value.(string))
 			},
 		},
@@ -344,9 +344,9 @@ func TestLogin(t *testing.T) {
 			ExpStatus: fiber.StatusUnauthorized,
 			AssertFn: func(t *testing.T, _ dtos.SignInBody, resp *http.Response) {
 				AssertTestStatusCode(t, resp, fiber.StatusUnauthorized)
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
-				AssertEqual(t, controllers.StatusUnauthorized, resBody.Code)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, exceptions.MessageUnauthorized, resBody.Message)
+				AssertEqual(t, exceptions.StatusUnauthorized, resBody.Code)
 			},
 		},
 		{
@@ -359,9 +359,9 @@ func TestLogin(t *testing.T) {
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, _ dtos.SignInBody, resp *http.Response) {
 				AssertTestStatusCode(t, resp, fiber.StatusBadRequest)
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
 				AssertEqual(t, "User not confirmed", resBody.Message)
-				AssertEqual(t, controllers.StatusValidation, resBody.Code)
+				AssertEqual(t, exceptions.StatusValidation, resBody.Code)
 			},
 			DelayMs: 50,
 		},
@@ -424,13 +424,13 @@ func TestLoginConfirm(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, req dtos.ConfirmSignInBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestValidationError{})
 				AssertEqual(t, 2, len(resBody.Fields))
 				AssertEqual(t, "email", resBody.Fields[0].Param)
-				AssertEqual(t, controllers.StrFieldErrMessageEmail, resBody.Fields[0].Message)
+				AssertEqual(t, exceptions.StrFieldErrMessageEmail, resBody.Fields[0].Message)
 				AssertEqual(t, req.Email, resBody.Fields[0].Value.(string))
 				AssertEqual(t, "code", resBody.Fields[1].Param)
-				AssertEqual(t, controllers.FieldErrMessageRequired, resBody.Fields[1].Message)
+				AssertEqual(t, exceptions.FieldErrMessageRequired, resBody.Fields[1].Message)
 				AssertEqual(t, req.Code, resBody.Fields[1].Value.(string))
 			},
 		},
@@ -454,7 +454,7 @@ func TestLoginConfirm(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, _ dtos.ConfirmSignInBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
 				AssertEqual(t, "User not confirmed", resBody.Message)
 			},
 		},
@@ -511,10 +511,10 @@ func TestLogout(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, req dtos.SignOutBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestValidationError{})
 				AssertEqual(t, 1, len(resBody.Fields))
 				AssertEqual(t, "refreshToken", resBody.Fields[0].Param)
-				AssertEqual(t, controllers.StrFieldErrMessageJWT, resBody.Fields[0].Message)
+				AssertEqual(t, exceptions.StrFieldErrMessageJWT, resBody.Fields[0].Message)
 				AssertEqual(t, req.RefreshToken, resBody.Fields[0].Value.(string))
 			},
 		},
@@ -558,8 +558,8 @@ func TestLogout(t *testing.T) {
 				return accessToken, ""
 			},
 			AssertFn: func(t *testing.T, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.EmptyRequestValidationError{})
-				AssertEqual(t, controllers.RequestValidationMessage, resBody.Message)
+				resBody := AssertTestResponseBody(t, resp, exceptions.EmptyRequestValidationError{})
+				AssertEqual(t, exceptions.RequestValidationMessage, resBody.Message)
 			},
 		},
 	}
@@ -629,8 +629,8 @@ func TestRefresh(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusUnauthorized,
 			AssertFn: func(t *testing.T, _ dtos.RefreshBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, exceptions.MessageUnauthorized, resBody.Message)
 			},
 		},
 		{
@@ -643,8 +643,8 @@ func TestRefresh(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusUnauthorized,
 			AssertFn: func(t *testing.T, _ dtos.RefreshBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, exceptions.MessageUnauthorized, resBody.Message)
 			},
 		},
 		{
@@ -654,10 +654,10 @@ func TestRefresh(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, req dtos.RefreshBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestValidationError{})
 				AssertEqual(t, 1, len(resBody.Fields))
 				AssertEqual(t, "refreshToken", resBody.Fields[0].Param)
-				AssertEqual(t, controllers.StrFieldErrMessageJWT, resBody.Fields[0].Message)
+				AssertEqual(t, exceptions.StrFieldErrMessageJWT, resBody.Fields[0].Message)
 				AssertEqual(t, req.RefreshToken, resBody.Fields[0].Value.(string))
 			},
 		},
@@ -705,8 +705,8 @@ func TestRefresh(t *testing.T) {
 				return "", refreshToken
 			},
 			AssertFn: func(t *testing.T, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, exceptions.MessageUnauthorized, resBody.Message)
 			},
 		},
 		{
@@ -791,10 +791,10 @@ func TestForgotPassword(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, req dtos.ForgotPasswordBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestValidationError{})
 				AssertEqual(t, 1, len(resBody.Fields))
 				AssertEqual(t, "email", resBody.Fields[0].Param)
-				AssertEqual(t, controllers.StrFieldErrMessageEmail, resBody.Fields[0].Message)
+				AssertEqual(t, exceptions.StrFieldErrMessageEmail, resBody.Fields[0].Message)
 				AssertEqual(t, req.Email, resBody.Fields[0].Value.(string))
 			},
 		},
@@ -843,16 +843,16 @@ func TestResetPassword(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, req dtos.ResetPasswordBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestValidationError{})
 				AssertEqual(t, 3, len(resBody.Fields))
 				AssertEqual(t, "resetToken", resBody.Fields[0].Param)
-				AssertEqual(t, controllers.StrFieldErrMessageJWT, resBody.Fields[0].Message)
+				AssertEqual(t, exceptions.StrFieldErrMessageJWT, resBody.Fields[0].Message)
 				AssertEqual(t, req.ResetToken, resBody.Fields[0].Value.(string))
 				AssertEqual(t, "password1", resBody.Fields[1].Param)
-				AssertEqual(t, controllers.StrFieldErrMessageMin, resBody.Fields[1].Message)
+				AssertEqual(t, exceptions.StrFieldErrMessageMin, resBody.Fields[1].Message)
 				AssertEqual(t, req.Password1, resBody.Fields[1].Value.(string))
 				AssertEqual(t, "password2", resBody.Fields[2].Param)
-				AssertEqual(t, controllers.FieldErrMessageEqField, resBody.Fields[2].Message)
+				AssertEqual(t, exceptions.FieldErrMessageEqField, resBody.Fields[2].Message)
 				AssertEqual(t, req.Password2, resBody.Fields[2].Value.(string))
 			},
 		},
@@ -866,8 +866,8 @@ func TestResetPassword(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusUnauthorized,
 			AssertFn: func(t *testing.T, _ dtos.ResetPasswordBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, exceptions.MessageUnauthorized, resBody.Message)
 			},
 		},
 		{
@@ -879,8 +879,8 @@ func TestResetPassword(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusUnauthorized,
 			AssertFn: func(t *testing.T, _ dtos.ResetPasswordBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, exceptions.MessageUnauthorized, resBody.Message)
 			},
 		},
 	}
@@ -930,16 +930,16 @@ func TestUpdatePassword(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, req dtos.UpdatePasswordBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestValidationError{})
 				AssertEqual(t, 3, len(resBody.Fields))
 				AssertEqual(t, "oldPassword", resBody.Fields[0].Param)
-				AssertEqual(t, controllers.FieldErrMessageRequired, resBody.Fields[0].Message)
+				AssertEqual(t, exceptions.FieldErrMessageRequired, resBody.Fields[0].Message)
 				AssertEqual(t, req.OldPassword, resBody.Fields[0].Value.(string))
 				AssertEqual(t, "password1", resBody.Fields[1].Param)
-				AssertEqual(t, controllers.StrFieldErrMessageMin, resBody.Fields[1].Message)
+				AssertEqual(t, exceptions.StrFieldErrMessageMin, resBody.Fields[1].Message)
 				AssertEqual(t, req.Password1, resBody.Fields[1].Value.(string))
 				AssertEqual(t, "password2", resBody.Fields[2].Param)
-				AssertEqual(t, controllers.FieldErrMessageEqField, resBody.Fields[2].Message)
+				AssertEqual(t, exceptions.FieldErrMessageEqField, resBody.Fields[2].Message)
 			},
 		},
 		{
@@ -953,7 +953,7 @@ func TestUpdatePassword(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, _ dtos.UpdatePasswordBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
 				AssertEqual(t, "Old password is incorrect", resBody.Message)
 			},
 		},
@@ -969,8 +969,8 @@ func TestUpdatePassword(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusUnauthorized,
 			AssertFn: func(t *testing.T, _ dtos.UpdatePasswordBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, exceptions.MessageUnauthorized, resBody.Message)
 			},
 		},
 		{
@@ -984,8 +984,8 @@ func TestUpdatePassword(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusUnauthorized,
 			AssertFn: func(t *testing.T, _ dtos.UpdatePasswordBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, exceptions.MessageUnauthorized, resBody.Message)
 			},
 		},
 		{
@@ -996,8 +996,8 @@ func TestUpdatePassword(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusUnauthorized,
 			AssertFn: func(t *testing.T, _ dtos.UpdatePasswordBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, exceptions.MessageUnauthorized, resBody.Message)
 			},
 		},
 	}
@@ -1047,10 +1047,10 @@ func TestUpdateEmail(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, req dtos.UpdateEmailBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestValidationError{})
 				AssertEqual(t, 1, len(resBody.Fields))
 				AssertEqual(t, "email", resBody.Fields[0].Param)
-				AssertEqual(t, controllers.FieldErrMessageRequired, resBody.Fields[0].Message)
+				AssertEqual(t, exceptions.FieldErrMessageRequired, resBody.Fields[0].Message)
 				AssertEqual(t, req.Email, resBody.Fields[0].Value.(string))
 			},
 		},
@@ -1065,7 +1065,7 @@ func TestUpdateEmail(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, _ dtos.UpdateEmailBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
 				AssertEqual(t, "Invalid password", resBody.Message)
 			},
 		},
@@ -1081,8 +1081,8 @@ func TestUpdateEmail(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusUnauthorized,
 			AssertFn: func(t *testing.T, _ dtos.UpdateEmailBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, exceptions.MessageUnauthorized, resBody.Message)
 			},
 		},
 		{
@@ -1096,8 +1096,8 @@ func TestUpdateEmail(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusUnauthorized,
 			AssertFn: func(t *testing.T, _ dtos.UpdateEmailBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, services.MessageUnauthorized, resBody.Message)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, exceptions.MessageUnauthorized, resBody.Message)
 			},
 		},
 	}

@@ -20,6 +20,7 @@ package services
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	objStg "github.com/kiwiscript/kiwiscript_go/providers/object_storage"
 	"mime/multipart"
@@ -41,7 +42,7 @@ type UploadLessonFileOptions struct {
 func (s *Services) UploadLessonFile(
 	ctx context.Context,
 	opts UploadLessonFileOptions,
-) (*db.LessonFile, *ServiceError) {
+) (*db.LessonFile, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, lessonFilesLocation, "UploadLessonFile").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -71,7 +72,7 @@ func (s *Services) UploadLessonFile(
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Error uploading document", "error", err)
-		return nil, NewServerError()
+		return nil, exceptions.NewServerError()
 	}
 
 	lessonFile, err := s.database.CreateLessonFile(ctx, db.CreateLessonFileParams{
@@ -83,7 +84,7 @@ func (s *Services) UploadLessonFile(
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Error creating lesson file", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	return &lessonFile, nil
@@ -102,7 +103,7 @@ type DeleteLessonFileOptions struct {
 func (s *Services) DeleteLessonFile(
 	ctx context.Context,
 	opts DeleteLessonFileOptions,
-) *ServiceError {
+) *exceptions.ServiceError {
 	log := s.buildLogger(opts.RequestID, lessonFilesLocation, "DeleteLessonFile").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -129,23 +130,23 @@ func (s *Services) DeleteLessonFile(
 	})
 	if err != nil {
 		log.WarnContext(ctx, "Error finding lesson file", "error", err)
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 	defer s.database.FinalizeTx(ctx, txn, err, nil)
 
 	if err := qrs.DeleteLessonFile(ctx, lessonFile.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to delete lesson file", "error", err)
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 	if err := s.objStg.DeleteFile(ctx, opts.UserID, opts.File, lessonFile.Ext); err != nil {
 		log.ErrorContext(ctx, "Failed to delete file from object storage", "error", err)
-		return NewServerError()
+		return exceptions.NewServerError()
 	}
 
 	return nil
@@ -164,7 +165,7 @@ type FindLessonFileOptions struct {
 func (s *Services) FindLessonFile(
 	ctx context.Context,
 	opts FindLessonFileOptions,
-) (*db.LessonFile, *ServiceError) {
+) (*db.LessonFile, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, lessonFilesLocation, "FindLessonFile").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -186,7 +187,7 @@ func (s *Services) FindLessonFile(
 
 	if opts.IsPublished && !lesson.IsPublished {
 		log.WarnContext(ctx, "Cannot find file from unpublished lesson")
-		return nil, NewValidationError("Cannot get file from published lesson")
+		return nil, exceptions.NewValidationError("Cannot get file from published lesson")
 	}
 
 	lessonFile, err := s.database.FindLessonFileByIDAndLessonID(ctx, db.FindLessonFileByIDAndLessonIDParams{
@@ -195,7 +196,7 @@ func (s *Services) FindLessonFile(
 	})
 	if err != nil {
 		log.WarnContext(ctx, "Error finding lesson file", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	return &lessonFile, nil
@@ -213,7 +214,7 @@ type FindLessonFilesOptions struct {
 func (s *Services) FindLessonFiles(
 	ctx context.Context,
 	opts FindLessonFilesOptions,
-) ([]db.LessonFile, *ServiceError) {
+) ([]db.LessonFile, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, lessonFilesLocation, "FindLessonFiles").With(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
@@ -236,27 +237,27 @@ func (s *Services) FindLessonFiles(
 
 	if opts.IsPublished && !lesson.IsPublished {
 		log.WarnContext(ctx, "Cannot find files from unpublished lesson")
-		return nil, NewValidationError("Cannot get file from published lesson")
+		return nil, exceptions.NewValidationError("Cannot get file from published lesson")
 	}
 
 	lessonFiles, err := s.database.FindLessonFilesByLessonID(ctx, opts.LessonID)
 	if err != nil {
 		log.ErrorContext(ctx, "Error finding lesson files", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Lesson files found")
 	return lessonFiles, nil
 }
 
-func (s *Services) FindLessonFilesWithNoCheck(ctx context.Context, lessonID int32) ([]db.LessonFile, *ServiceError) {
+func (s *Services) FindLessonFilesWithNoCheck(ctx context.Context, lessonID int32) ([]db.LessonFile, *exceptions.ServiceError) {
 	log := s.log.WithGroup("services_lessonFiles_FindLessonFilesWithNoCheck").With("lessonId", lessonID)
 	log.InfoContext(ctx, "Finding lesson files...")
 
 	lessonFiles, err := s.database.FindLessonFilesByLessonID(ctx, lessonID)
 	if err != nil {
 		log.ErrorContext(ctx, "Error finding lesson files", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Lesson files found")
@@ -277,7 +278,7 @@ type UpdateLessonFileOptions struct {
 func (s *Services) UpdateLessonFile(
 	ctx context.Context,
 	opts UpdateLessonFileOptions,
-) (*db.LessonFile, *ServiceError) {
+) (*db.LessonFile, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, lessonFilesLocation, "UpdateLessonFile").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -305,7 +306,7 @@ func (s *Services) UpdateLessonFile(
 	})
 	if err != nil {
 		log.WarnContext(ctx, "Error finding lesson file", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	lessonFile, err = s.database.UpdateLessonFile(ctx, db.UpdateLessonFileParams{
@@ -314,7 +315,7 @@ func (s *Services) UpdateLessonFile(
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Error updating lesson file", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	return &lessonFile, nil

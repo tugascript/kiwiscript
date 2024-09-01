@@ -19,6 +19,7 @@ package services
 
 import (
 	"context"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	cc "github.com/kiwiscript/kiwiscript_go/providers/cache"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/providers/oauth"
@@ -35,7 +36,7 @@ type GetAuthorizationURLOptions struct {
 	Provider  string
 }
 
-func (s *Services) GetAuthorizationURL(ctx context.Context, opts GetAuthorizationURLOptions) (string, *ServiceError) {
+func (s *Services) GetAuthorizationURL(ctx context.Context, opts GetAuthorizationURLOptions) (string, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, oauthLocation, "GetAuthorizationURL")
 	log.InfoContext(ctx, "Getting authorization url")
 
@@ -48,11 +49,11 @@ func (s *Services) GetAuthorizationURL(ctx context.Context, opts GetAuthorizatio
 		url, state, err = s.oauthProviders.GetGoogleAuthorizationURL(ctx, opts.RequestID)
 	default:
 		log.ErrorContext(ctx, "Authorization url must be for 'github' or 'google'")
-		return "", NewServerError()
+		return "", exceptions.NewServerError()
 	}
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to generate state", "error", err)
-		return "", NewServerError()
+		return "", exceptions.NewServerError()
 	}
 
 	stateOpts := cc.AddOAuthStateOptions{
@@ -62,7 +63,7 @@ func (s *Services) GetAuthorizationURL(ctx context.Context, opts GetAuthorizatio
 	}
 	if err := s.cache.AddOAuthState(ctx, stateOpts); err != nil {
 		log.ErrorContext(ctx, "Failed to cache state", "error", err)
-		return "", NewServerError()
+		return "", exceptions.NewServerError()
 	}
 
 	return url, nil
@@ -75,7 +76,7 @@ type GetOAuthTokenOptions struct {
 	State     string
 }
 
-func (s *Services) GetOAuthToken(ctx context.Context, opts GetOAuthTokenOptions) (string, *ServiceError) {
+func (s *Services) GetOAuthToken(ctx context.Context, opts GetOAuthTokenOptions) (string, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, oauthLocation, "GetOAuthToken")
 	log.InfoContext(ctx, "Getting oauth token")
 
@@ -86,11 +87,11 @@ func (s *Services) GetOAuthToken(ctx context.Context, opts GetOAuthTokenOptions)
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to verify oauth state", "error", err)
-		return "", NewServerError()
+		return "", exceptions.NewServerError()
 	}
 	if !ok {
 		log.WarnContext(ctx, "OAuth state is invalid")
-		return "", NewUnauthorizedError()
+		return "", exceptions.NewUnauthorizedError()
 	}
 
 	var token string
@@ -107,12 +108,12 @@ func (s *Services) GetOAuthToken(ctx context.Context, opts GetOAuthTokenOptions)
 		})
 	default:
 		log.ErrorContext(ctx, "Provider must be 'github' or 'google'")
-		return "", NewServerError()
+		return "", exceptions.NewServerError()
 	}
 
 	if err != nil {
 		log.WarnContext(ctx, "Failed to get oauth access token", "error", err)
-		return "", NewUnauthorizedError()
+		return "", exceptions.NewUnauthorizedError()
 	}
 
 	return token, nil
@@ -123,7 +124,7 @@ func (s *Services) generateEmailCode(
 	log *slog.Logger,
 	requestId,
 	email string,
-) (string, *ServiceError) {
+) (string, *exceptions.ServiceError) {
 	log.InfoContext(ctx, "Generating email code...")
 
 	code := utils.Base62UUID()
@@ -135,7 +136,7 @@ func (s *Services) generateEmailCode(
 	}
 	if err := s.cache.AddOAuthEmail(ctx, oauthEmailOpts); err != nil {
 		log.ErrorContext(ctx, "Failed to cache code", "error", err)
-		return "", NewServerError()
+		return "", exceptions.NewServerError()
 	}
 
 	return code, nil
@@ -146,7 +147,7 @@ func (s *Services) generateOAuthResponse(
 	log *slog.Logger,
 	user *db.User,
 	requestID string,
-) (*OAuthResponse, *ServiceError) {
+) (*OAuthResponse, *exceptions.ServiceError) {
 	code, serviceErr := s.generateEmailCode(ctx, log, requestID, user.Email)
 	if serviceErr != nil {
 		return nil, serviceErr
@@ -156,7 +157,7 @@ func (s *Services) generateOAuthResponse(
 	accessToken, err := s.jwt.CreateOAuthToken(user)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to create OAuth access token", "error", err)
-		return nil, NewServerError()
+		return nil, exceptions.NewServerError()
 	}
 
 	response := OAuthResponse{
@@ -179,7 +180,7 @@ type ExtOAuthSignInOptions struct {
 	Token     string
 }
 
-func (s *Services) ExtOAuthSignIn(ctx context.Context, opts ExtOAuthSignInOptions) (*OAuthResponse, *ServiceError) {
+func (s *Services) ExtOAuthSignIn(ctx context.Context, opts ExtOAuthSignInOptions) (*OAuthResponse, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, oauthLocation, "ExtOAuthSignIn")
 	log.InfoContext(ctx, "Generating internal code and state...")
 
@@ -199,17 +200,17 @@ func (s *Services) ExtOAuthSignIn(ctx context.Context, opts ExtOAuthSignInOption
 		})
 	default:
 		log.ErrorContext(ctx, "Provider must be 'github' or 'google'")
-		return nil, NewServerError()
+		return nil, exceptions.NewServerError()
 	}
 
 	if err != nil {
 		if status > 0 && status < 500 {
 			log.WarnContext(ctx, "User data got non 200 status code", "error", err, "status", status)
-			return nil, NewUnauthorizedError()
+			return nil, exceptions.NewUnauthorizedError()
 		}
 
 		log.ErrorContext(ctx, "Failed to fetch userData data", "error", err)
-		return nil, NewServerError()
+		return nil, exceptions.NewServerError()
 	}
 
 	userData := toUserData.ToUserData()
@@ -218,9 +219,9 @@ func (s *Services) ExtOAuthSignIn(ctx context.Context, opts ExtOAuthSignInOption
 		Email:     userData.Email,
 	})
 	if serviceErr != nil {
-		if serviceErr.Code != CodeNotFound {
+		if serviceErr.Code != exceptions.CodeNotFound {
 			log.ErrorContext(ctx, "Failed to find user by email", "error", serviceErr)
-			return nil, NewServerError()
+			return nil, exceptions.NewServerError()
 		}
 
 		user, serviceErr := s.CreateUser(ctx, CreateUserOptions{
@@ -233,7 +234,7 @@ func (s *Services) ExtOAuthSignIn(ctx context.Context, opts ExtOAuthSignInOption
 		})
 		if serviceErr != nil {
 			log.ErrorContext(ctx, "Failed to create user", "error", serviceErr)
-			return nil, NewServerError()
+			return nil, exceptions.NewServerError()
 		}
 
 		return s.generateOAuthResponse(ctx, log, user, opts.RequestID)
@@ -244,8 +245,8 @@ func (s *Services) ExtOAuthSignIn(ctx context.Context, opts ExtOAuthSignInOption
 		Provider: opts.Provider,
 	}
 	if _, err := s.database.FindAuthProviderByEmailAndProvider(ctx, findProvPrms); err != nil {
-		serviceErr := FromDBError(err)
-		if serviceErr.Code != CodeNotFound {
+		serviceErr := exceptions.FromDBError(err)
+		if serviceErr.Code != exceptions.CodeNotFound {
 			log.ErrorContext(ctx, "Failed to find auth provider", "error", err)
 			return nil, serviceErr
 		}
@@ -256,38 +257,38 @@ func (s *Services) ExtOAuthSignIn(ctx context.Context, opts ExtOAuthSignInOption
 		}
 		if err := s.database.CreateAuthProvider(ctx, createProvPrms); err != nil {
 			log.ErrorContext(ctx, "Failed to create auth provider", "error", err)
-			return nil, FromDBError(err)
+			return nil, exceptions.FromDBError(err)
 		}
 	}
 
 	return s.generateOAuthResponse(ctx, log, user, opts.RequestID)
 }
 
-func (s *Services) ProcessOAuthHeader(ctx context.Context, authHeader string) (*tokens.OAuthUserClaims, *ServiceError) {
+func (s *Services) ProcessOAuthHeader(ctx context.Context, authHeader string) (*tokens.OAuthUserClaims, *exceptions.ServiceError) {
 	log := s.log.WithGroup("services.oauth.ProcessOAuthHeader")
 	log.InfoContext(ctx, "Processing OAuth authentication header...")
 
 	if authHeader == "" {
 		log.WarnContext(ctx, "OAuth authentication header is empty")
-		return nil, NewUnauthorizedError()
+		return nil, exceptions.NewUnauthorizedError()
 	}
 
 	authHeaderSlice := strings.Split(authHeader, " ")
 	if len(authHeaderSlice) != 2 {
 		log.WarnContext(ctx, "OAuth authentication header is invalid", "authHeader", authHeader)
-		return nil, NewUnauthorizedError()
+		return nil, exceptions.NewUnauthorizedError()
 	}
 
 	tokenType, accessToken := authHeaderSlice[0], authHeaderSlice[1]
 	if strings.ToLower(tokenType) != "bearer" {
 		log.WarnContext(ctx, "OAuth token type is not Bearer", "tokenType", tokenType)
-		return nil, NewUnauthorizedError()
+		return nil, exceptions.NewUnauthorizedError()
 	}
 
 	userClaims, err := s.jwt.VerifyOAuthToken(accessToken)
 	if err != nil {
 		log.WarnContext(ctx, "Failed to verify OAuth access token", "error", err)
-		return nil, NewUnauthorizedError()
+		return nil, exceptions.NewUnauthorizedError()
 	}
 
 	return &userClaims, nil
@@ -300,7 +301,7 @@ type IntOAuthSignInOptions struct {
 	Code        string
 }
 
-func (s *Services) OAuthToken(ctx context.Context, opts IntOAuthSignInOptions) (*AuthResponse, *ServiceError) {
+func (s *Services) OAuthToken(ctx context.Context, opts IntOAuthSignInOptions) (*AuthResponse, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, oauthLocation, "OAuthToken").With(
 		"tokenUserId", opts.UserID,
 		"tokenUserVersion", opts.UserVersion,
@@ -313,12 +314,12 @@ func (s *Services) OAuthToken(ctx context.Context, opts IntOAuthSignInOptions) (
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to fetch email by code")
-		return nil, NewServerError()
+		return nil, exceptions.NewServerError()
 	}
 
 	if email == "" {
 		log.WarnContext(ctx, "Email does not exist in cache")
-		return nil, NewUnauthorizedError()
+		return nil, exceptions.NewUnauthorizedError()
 	}
 
 	user, serviceErr := s.FindUserByEmail(ctx, FindUserByEmailOptions{
@@ -326,8 +327,8 @@ func (s *Services) OAuthToken(ctx context.Context, opts IntOAuthSignInOptions) (
 		Email:     email,
 	})
 	if serviceErr != nil {
-		if serviceErr.Code == CodeNotFound {
-			return nil, NewUnauthorizedError()
+		if serviceErr.Code == exceptions.CodeNotFound {
+			return nil, exceptions.NewUnauthorizedError()
 		}
 
 		return nil, serviceErr
@@ -340,7 +341,7 @@ func (s *Services) OAuthToken(ctx context.Context, opts IntOAuthSignInOptions) (
 			"userId", user.ID,
 			"userVersion", user.Version,
 		)
-		return nil, NewUnauthorizedError()
+		return nil, exceptions.NewUnauthorizedError()
 	}
 
 	return s.generateAuthResponse(ctx, log, "User OAuth signed in successfully", user)

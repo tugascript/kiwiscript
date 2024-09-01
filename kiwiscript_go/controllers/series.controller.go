@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/kiwiscript/kiwiscript_go/dtos"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/utils"
 
@@ -45,7 +46,7 @@ func (c *Controllers) CreateSeries(ctx *fiber.Ctx) error {
 	user, err := c.GetUserClaims(ctx)
 	if err != nil || !user.IsStaff {
 		log.ErrorContext(userCtx, "User is not staff, should not have reached here")
-		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	params := dtos.LanguagePathParams{LanguageSlug: languageSlug}
@@ -127,7 +128,7 @@ func (c *Controllers) GetSingleSeries(ctx *fiber.Ctx) error {
 				},
 			)
 			if serviceErr != nil {
-				if serviceErr.Code != services.CodeNotFound {
+				if serviceErr.Code != exceptions.CodeNotFound {
 					return c.serviceErrorResponse(serviceErr, ctx)
 				}
 
@@ -224,7 +225,7 @@ func (c *Controllers) GetSingleSeries(ctx *fiber.Ctx) error {
 func (c *Controllers) findSeriesPictureURLs(
 	userCtx context.Context,
 	models []db.SeriesModel,
-) (*services.FileURLsContainer, *services.ServiceError) {
+) (*services.FileURLsContainer, *exceptions.ServiceError) {
 	optsList := make([]services.FindFileURLOptions, 0)
 
 	for _, m := range models {
@@ -291,7 +292,7 @@ func (c *Controllers) GetPaginatedSeries(ctx *fiber.Ctx) error {
 
 	var seriesModels []db.SeriesModel
 	var count int64
-	var serviceErr *services.ServiceError
+	var serviceErr *exceptions.ServiceError
 
 	if user, err := c.GetUserClaims(ctx); err == nil {
 		if user.IsStaff {
@@ -496,7 +497,7 @@ func (c *Controllers) UpdateSeries(ctx *fiber.Ctx) error {
 	user, err := c.GetUserClaims(ctx)
 	if err != nil || !user.IsStaff {
 		log.ErrorContext(userCtx, "User is not staff, should not have reached here")
-		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	params := dtos.SeriesPathParams{
@@ -531,7 +532,7 @@ func (c *Controllers) UpdateSeries(ctx *fiber.Ctx) error {
 		SeriesID:  series.ID,
 	})
 	if serviceErr != nil {
-		if serviceErr.Code != services.CodeNotFound {
+		if serviceErr.Code != exceptions.CodeNotFound {
 			return c.serviceErrorResponse(serviceErr, ctx)
 		}
 
@@ -582,7 +583,7 @@ func (c *Controllers) UpdateSeriesIsPublished(ctx *fiber.Ctx) error {
 	user, err := c.GetUserClaims(ctx)
 	if err != nil || !user.IsStaff {
 		log.ErrorContext(userCtx, "User is not staff, should not have reached here")
-		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	params := dtos.SeriesPathParams{
@@ -616,7 +617,7 @@ func (c *Controllers) UpdateSeriesIsPublished(ctx *fiber.Ctx) error {
 		SeriesID:  series.ID,
 	})
 	if serviceErr != nil {
-		if serviceErr.Code != services.CodeNotFound {
+		if serviceErr.Code != exceptions.CodeNotFound {
 			return c.serviceErrorResponse(serviceErr, ctx)
 		}
 
@@ -667,7 +668,7 @@ func (c *Controllers) DeleteSeries(ctx *fiber.Ctx) error {
 	user, err := c.GetUserClaims(ctx)
 	if err != nil || !user.IsStaff {
 		log.ErrorContext(userCtx, "User is not staff, should not have reached here")
-		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	params := dtos.SeriesPathParams{

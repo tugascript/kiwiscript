@@ -37,6 +37,19 @@ func (q *Queries) CompleteLessonProgress(ctx context.Context, id int32) (LessonP
 	return i, err
 }
 
+const countLessonProgressByLessonID = `-- name: CountLessonProgressByLessonID :one
+SELECT COUNT("id") FROM "lesson_progress"
+WHERE "lesson_id" = $1
+LIMIT 1
+`
+
+func (q *Queries) CountLessonProgressByLessonID(ctx context.Context, lessonID int32) (int64, error) {
+	row := q.db.QueryRow(ctx, countLessonProgressByLessonID, lessonID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createLessonProgress = `-- name: CreateLessonProgress :one
 
 INSERT INTO "lesson_progress" (

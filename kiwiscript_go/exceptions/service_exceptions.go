@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with KiwiScript.  If not, see <https://www.gnu.org/licenses/>.
 
-package services
+package exceptions
 
 import (
 	"errors"

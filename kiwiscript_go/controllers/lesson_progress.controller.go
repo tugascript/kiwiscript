@@ -20,6 +20,7 @@ package controllers
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/kiwiscript/kiwiscript_go/dtos"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	"github.com/kiwiscript/kiwiscript_go/services"
 	"strconv"
 )
@@ -44,7 +45,7 @@ func (c *Controllers) CreateOrUpdateLessonProgress(ctx *fiber.Ctx) error {
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil {
 		log.ErrorContext(userCtx, "This route is protected should have not reached here")
-		return ctx.Status(fiber.StatusUnauthorized).JSON(NewRequestError(services.NewUnauthorizedError()))
+		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
 	}
 
 	params := dtos.LessonPathParams{
@@ -61,9 +62,9 @@ func (c *Controllers) CreateOrUpdateLessonProgress(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+			JSON(exceptions.NewRequestValidationError(exceptions.RequestValidationLocationParams, []exceptions.FieldError{{
 				Param:   "sectionId",
-				Message: StrFieldErrMessageNumber,
+				Message: exceptions.StrFieldErrMessageNumber,
 				Value:   params.SectionID,
 			}}))
 	}
@@ -72,9 +73,9 @@ func (c *Controllers) CreateOrUpdateLessonProgress(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+			JSON(exceptions.NewRequestValidationError(exceptions.RequestValidationLocationParams, []exceptions.FieldError{{
 				Param:   "lessonId",
-				Message: StrFieldErrMessageNumber,
+				Message: exceptions.StrFieldErrMessageNumber,
 				Value:   params.LessonID,
 			}}))
 	}
@@ -117,7 +118,7 @@ func (c *Controllers) CompleteLessonProgress(ctx *fiber.Ctx) error {
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil {
 		log.ErrorContext(userCtx, "This route is protected should have not reached here")
-		return ctx.Status(fiber.StatusUnauthorized).JSON(NewRequestError(services.NewUnauthorizedError()))
+		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
 	}
 
 	params := dtos.LessonPathParams{
@@ -134,9 +135,9 @@ func (c *Controllers) CompleteLessonProgress(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+			JSON(exceptions.NewRequestValidationError(exceptions.RequestValidationLocationParams, []exceptions.FieldError{{
 				Param:   "sectionId",
-				Message: StrFieldErrMessageNumber,
+				Message: exceptions.StrFieldErrMessageNumber,
 				Value:   params.SectionID,
 			}}))
 	}
@@ -145,9 +146,9 @@ func (c *Controllers) CompleteLessonProgress(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+			JSON(exceptions.NewRequestValidationError(exceptions.RequestValidationLocationParams, []exceptions.FieldError{{
 				Param:   "lessonId",
-				Message: StrFieldErrMessageNumber,
+				Message: exceptions.StrFieldErrMessageNumber,
 				Value:   params.LessonID,
 			}}))
 	}
@@ -200,7 +201,7 @@ func (c *Controllers) ResetLessonProgress(ctx *fiber.Ctx) error {
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil {
 		log.ErrorContext(userCtx, "This route is protected should have not reached here")
-		return ctx.Status(fiber.StatusUnauthorized).JSON(NewRequestError(services.NewUnauthorizedError()))
+		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
 	}
 
 	params := dtos.LessonPathParams{
@@ -217,9 +218,9 @@ func (c *Controllers) ResetLessonProgress(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+			JSON(exceptions.NewRequestValidationError(exceptions.RequestValidationLocationParams, []exceptions.FieldError{{
 				Param:   "sectionId",
-				Message: StrFieldErrMessageNumber,
+				Message: exceptions.StrFieldErrMessageNumber,
 				Value:   params.SectionID,
 			}}))
 	}
@@ -228,9 +229,9 @@ func (c *Controllers) ResetLessonProgress(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
+			JSON(exceptions.NewRequestValidationError(exceptions.RequestValidationLocationParams, []exceptions.FieldError{{
 				Param:   "lessonId",
-				Message: StrFieldErrMessageNumber,
+				Message: exceptions.StrFieldErrMessageNumber,
 				Value:   params.LessonID,
 			}}))
 	}

@@ -20,6 +20,7 @@ package controllers
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/kiwiscript/kiwiscript_go/dtos"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	"github.com/kiwiscript/kiwiscript_go/services"
 )
 
@@ -39,7 +40,7 @@ func (c *Controllers) CreateOrUpdateSeriesProgress(ctx *fiber.Ctx) error {
 	user, err := c.GetUserClaims(ctx)
 	if err != nil {
 		log.ErrorContext(userCtx, "This route is protected should have not reached here")
-		return ctx.Status(fiber.StatusUnauthorized).JSON(NewRequestError(services.NewUnauthorizedError()))
+		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
 	}
 
 	params := dtos.SeriesPathParams{
@@ -101,7 +102,7 @@ func (c *Controllers) ResetSeriesProgress(ctx *fiber.Ctx) error {
 	user, err := c.GetUserClaims(ctx)
 	if err != nil {
 		log.ErrorContext(userCtx, "This route is protected should have not reached here")
-		return ctx.Status(fiber.StatusUnauthorized).JSON(NewRequestError(services.NewUnauthorizedError()))
+		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
 	}
 
 	params := dtos.SeriesPathParams{

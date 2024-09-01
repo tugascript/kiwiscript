@@ -66,3 +66,8 @@ WHERE "id" = $1;
 -- name: DeleteLessonProgress :exec
 DELETE FROM "lesson_progress"
 WHERE "id" = $1;
+
+-- name: CountLessonProgressByLessonID :one
+SELECT COUNT("id") FROM "lesson_progress"
+WHERE "lesson_id" = $1
+LIMIT 1;

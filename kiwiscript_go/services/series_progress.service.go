@@ -19,6 +19,7 @@ package services
 
 import (
 	"context"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 )
@@ -35,7 +36,7 @@ type FindSeriesProgressOptions struct {
 func (s *Services) FindSeriesProgress(
 	ctx context.Context,
 	opts FindSeriesProgressOptions,
-) (*db.SeriesProgress, *ServiceError) {
+) (*db.SeriesProgress, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, seriesProgressLocation, "FindSeriesProgress").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -50,7 +51,7 @@ func (s *Services) FindSeriesProgress(
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Error finding series progress", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Series progress found")
@@ -68,7 +69,7 @@ type createSeriesProgressOptions struct {
 func (s *Services) createSeriesProgress(
 	ctx context.Context,
 	opts createSeriesProgressOptions,
-) (*db.SeriesProgress, *ServiceError) {
+) (*db.SeriesProgress, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, seriesProgressLocation, "createSeriesProgress").With(
 		"userId", opts.UserID,
 		"languageProgressId", opts.LanguageProgressID,
@@ -85,7 +86,7 @@ func (s *Services) createSeriesProgress(
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Error creating series progress", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	return &seriesProgress, nil
@@ -101,7 +102,7 @@ type CreateOrUpdateSeriesProgressOptions struct {
 func (s *Services) CreateOrUpdateSeriesProgress(
 	ctx context.Context,
 	opts CreateOrUpdateSeriesProgressOptions,
-) (*db.FindPublishedSeriesBySlugsWithAuthorRow, *db.SeriesProgress, *ServiceError) {
+) (*db.FindPublishedSeriesBySlugsWithAuthorRow, *db.SeriesProgress, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, seriesProgressLocation, "CreateOrUpdateSeriesProgress").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -150,7 +151,7 @@ func (s *Services) CreateOrUpdateSeriesProgress(
 
 	if err := s.database.UpdateSeriesProgressViewedAt(ctx, seriesProgress.ID); err != nil {
 		log.ErrorContext(ctx, "Error updating series progress viewed at", "error", err)
-		return nil, nil, FromDBError(err)
+		return nil, nil, exceptions.FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Series progress updated")
@@ -164,7 +165,7 @@ type DeleteSeriesProgressOptions struct {
 	SeriesSlug   string
 }
 
-func (s *Services) DeleteSeriesProgress(ctx context.Context, opts DeleteSeriesProgressOptions) *ServiceError {
+func (s *Services) DeleteSeriesProgress(ctx context.Context, opts DeleteSeriesProgressOptions) *exceptions.ServiceError {
 	log := s.buildLogger(opts.RequestID, seriesProgressLocation, "DeleteSeriesProgress").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -172,31 +173,31 @@ func (s *Services) DeleteSeriesProgress(ctx context.Context, opts DeleteSeriesPr
 	)
 	log.InfoContext(ctx, "Deleting series progress")
 
-	seriesProgress, serviceError := s.FindSeriesProgress(ctx, FindSeriesProgressOptions{
+	seriesProgress, serviceErr := s.FindSeriesProgress(ctx, FindSeriesProgressOptions{
 		RequestID:    opts.RequestID,
 		UserID:       opts.UserID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
 	})
-	if serviceError != nil {
-		return serviceError
+	if serviceErr != nil {
+		return serviceErr
 	}
 
 	if seriesProgress.CompletedAt.Valid {
 		qrs, txn, err := s.database.BeginTx(ctx)
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-			return FromDBError(err)
+			return exceptions.FromDBError(err)
 		}
-		defer s.database.FinalizeTx(ctx, txn, err, serviceError)
+		defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 		if err := qrs.DeleteSeriesProgress(ctx, seriesProgress.ID); err != nil {
 			log.ErrorContext(ctx, "Error deleting series progress", "error", err)
-			return FromDBError(err)
+			return exceptions.FromDBError(err)
 		}
 		if err := qrs.DecrementLanguageProgressCompletedSeries(ctx, seriesProgress.LanguageProgressID); err != nil {
 			log.ErrorContext(ctx, "Error decrementing language progress completed series", "error", err)
-			return FromDBError(err)
+			return exceptions.FromDBError(err)
 		}
 
 		log.InfoContext(ctx, "Series progress deleted")
@@ -205,7 +206,7 @@ func (s *Services) DeleteSeriesProgress(ctx context.Context, opts DeleteSeriesPr
 
 	if err := s.database.DeleteSeriesProgress(ctx, seriesProgress.ID); err != nil {
 		log.ErrorContext(ctx, "Error deleting series progress", "error", err)
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Series progress deleted")

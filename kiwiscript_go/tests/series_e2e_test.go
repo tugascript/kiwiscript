@@ -21,10 +21,9 @@ import (
 	"context"
 	"github.com/go-faker/faker/v4"
 	"github.com/gofiber/fiber/v2"
-	"github.com/kiwiscript/kiwiscript_go/controllers"
 	"github.com/kiwiscript/kiwiscript_go/dtos"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
-	"github.com/kiwiscript/kiwiscript_go/services"
 	"github.com/kiwiscript/kiwiscript_go/utils"
 	"net/http"
 	"strings"
@@ -96,10 +95,10 @@ func TestCreateSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, req dtos.CreateSeriesBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestValidationError{})
 				AssertEqual(t, 1, len(resBody.Fields))
 				AssertEqual(t, "title", resBody.Fields[0].Param)
-				AssertEqual(t, controllers.StrFieldErrMessageMax, resBody.Fields[0].Message)
+				AssertEqual(t, exceptions.StrFieldErrMessageMax, resBody.Fields[0].Message)
 			},
 			Path: baseLanguagesPath + "/rust/series",
 		},
@@ -112,9 +111,9 @@ func TestCreateSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusForbidden,
 			AssertFn: func(t *testing.T, req dtos.CreateSeriesBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, resBody.Code, controllers.StatusForbidden)
-				AssertEqual(t, resBody.Message, controllers.StatusForbidden)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, resBody.Code, exceptions.StatusForbidden)
+				AssertEqual(t, resBody.Message, exceptions.StatusForbidden)
 			},
 			Path: baseLanguagesPath + "/rust/series",
 		},
@@ -127,9 +126,7 @@ func TestCreateSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusNotFound,
 			AssertFn: func(t *testing.T, req dtos.CreateSeriesBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, resBody.Code, controllers.StatusNotFound)
-				AssertEqual(t, resBody.Message, services.MessageNotFound)
+				AssertNotFoundResponse(t, resp)
 			},
 			Path: baseLanguagesPath + "/not-a-language/series",
 		},
@@ -224,10 +221,10 @@ func TestUpdateSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, req dtos.UpdateSeriesBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestValidationError{})
 				AssertEqual(t, 1, len(resBody.Fields))
 				AssertEqual(t, "title", resBody.Fields[0].Param)
-				AssertEqual(t, controllers.StrFieldErrMessageMax, resBody.Fields[0].Message)
+				AssertEqual(t, exceptions.StrFieldErrMessageMax, resBody.Fields[0].Message)
 				t.Cleanup(languagesCleanUp(t))
 			},
 			Path: baseLanguagesPath + "/rust/series/existing-series",
@@ -242,9 +239,9 @@ func TestUpdateSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusForbidden,
 			AssertFn: func(t *testing.T, req dtos.UpdateSeriesBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, resBody.Code, controllers.StatusForbidden)
-				AssertEqual(t, resBody.Message, controllers.StatusForbidden)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, resBody.Code, exceptions.StatusForbidden)
+				AssertEqual(t, resBody.Message, exceptions.StatusForbidden)
 				t.Cleanup(languagesCleanUp(t))
 			},
 			Path: baseLanguagesPath + "/rust/series/existing-series",
@@ -260,9 +257,9 @@ func TestUpdateSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusForbidden,
 			AssertFn: func(t *testing.T, req dtos.UpdateSeriesBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, resBody.Code, controllers.StatusForbidden)
-				AssertEqual(t, resBody.Message, controllers.StatusForbidden)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, resBody.Code, exceptions.StatusForbidden)
+				AssertEqual(t, resBody.Message, exceptions.StatusForbidden)
 				t.Cleanup(languagesCleanUp(t))
 			},
 			Path: baseLanguagesPath + "/rust/series/existing-series",
@@ -277,9 +274,7 @@ func TestUpdateSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusNotFound,
 			AssertFn: func(t *testing.T, req dtos.UpdateSeriesBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, resBody.Code, controllers.StatusNotFound)
-				AssertEqual(t, resBody.Message, services.MessageNotFound)
+				AssertNotFoundResponse(t, resp)
 				t.Cleanup(languagesCleanUp(t))
 			},
 			Path: baseLanguagesPath + "/rust/series/non-existing-series",
@@ -294,9 +289,7 @@ func TestUpdateSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusNotFound,
 			AssertFn: func(t *testing.T, req dtos.UpdateSeriesBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, resBody.Code, controllers.StatusNotFound)
-				AssertEqual(t, resBody.Message, services.MessageNotFound)
+				AssertNotFoundResponse(t, resp)
 				t.Cleanup(languagesCleanUp(t))
 			},
 			Path: baseLanguagesPath + "/non-existing/series/non-existing-series",
@@ -367,9 +360,7 @@ func TestGetSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusNotFound,
 			AssertFn: func(t *testing.T, req string, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, resBody.Code, controllers.StatusNotFound)
-				AssertEqual(t, resBody.Message, services.MessageNotFound)
+				AssertNotFoundResponse(t, resp)
 			},
 			Path: baseLanguagesPath + "/rust/series/existing-series",
 		},
@@ -380,9 +371,7 @@ func TestGetSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusNotFound,
 			AssertFn: func(t *testing.T, req string, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, resBody.Code, controllers.StatusNotFound)
-				AssertEqual(t, resBody.Message, services.MessageNotFound)
+				AssertNotFoundResponse(t, resp)
 			},
 			Path: baseLanguagesPath + "/rust/series/existing-series",
 		},
@@ -481,9 +470,7 @@ func TestGetSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusNotFound,
 			AssertFn: func(t *testing.T, req string, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, resBody.Code, controllers.StatusNotFound)
-				AssertEqual(t, resBody.Message, services.MessageNotFound)
+				AssertNotFoundResponse(t, resp)
 			},
 			Path: baseLanguagesPath + "/rust/series/non-existing-series",
 		},
@@ -496,9 +483,7 @@ func TestGetSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusNotFound,
 			AssertFn: func(t *testing.T, req string, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, resBody.Code, controllers.StatusNotFound)
-				AssertEqual(t, resBody.Message, services.MessageNotFound)
+				AssertNotFoundResponse(t, resp)
 			},
 			Path: baseLanguagesPath + "/python/series/existing-series",
 		},
@@ -511,11 +496,11 @@ func TestGetSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, req string, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestValidationError{})
-				AssertEqual(t, resBody.Code, controllers.StatusValidation)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestValidationError{})
+				AssertEqual(t, resBody.Code, exceptions.StatusValidation)
 				AssertEqual(t, 1, len(resBody.Fields))
 				AssertEqual(t, "seriesSlug", resBody.Fields[0].Param)
-				AssertEqual(t, controllers.StrFieldErrMessageSlug, resBody.Fields[0].Message)
+				AssertEqual(t, exceptions.StrFieldErrMessageSlug, resBody.Fields[0].Message)
 			},
 			Path: baseLanguagesPath + "/rust/series/invalid--slug",
 		},
@@ -889,9 +874,9 @@ func TestDeleteSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusForbidden,
 			AssertFn: func(t *testing.T, req string, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, resBody.Code, controllers.StatusForbidden)
-				AssertEqual(t, resBody.Message, controllers.StatusForbidden)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, resBody.Code, exceptions.StatusForbidden)
+				AssertEqual(t, resBody.Message, exceptions.StatusForbidden)
 				afterEach(t)
 			},
 			Path: baseLanguagesPath + "/rust/series/existing-series",
@@ -906,9 +891,7 @@ func TestDeleteSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusNotFound,
 			AssertFn: func(t *testing.T, req string, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, resBody.Code, controllers.StatusNotFound)
-				AssertEqual(t, resBody.Message, services.MessageNotFound)
+				AssertNotFoundResponse(t, resp)
 				afterEach(t)
 			},
 			Path: baseLanguagesPath + "/rust/series/non-existing-series",
@@ -923,9 +906,7 @@ func TestDeleteSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusNotFound,
 			AssertFn: func(t *testing.T, req string, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, resBody.Code, controllers.StatusNotFound)
-				AssertEqual(t, resBody.Message, services.MessageNotFound)
+				AssertNotFoundResponse(t, resp)
 				afterEach(t)
 			},
 			Path: baseLanguagesPath + "/python/series/existing-series",
@@ -979,8 +960,8 @@ func TestDeleteSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusConflict,
 			AssertFn: func(t *testing.T, req string, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, resBody.Code, controllers.StatusConflict)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, resBody.Code, exceptions.StatusConflict)
 				AssertEqual(t, resBody.Message, "Series has students")
 				afterEach(t)
 			},
@@ -1140,8 +1121,8 @@ func TestPublishSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusBadRequest,
 			AssertFn: func(t *testing.T, req dtos.UpdateIsPublishedBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, resBody.Code, controllers.StatusValidation)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, resBody.Code, exceptions.StatusValidation)
 				AssertEqual(t, resBody.Message, "Series must have sections to be published")
 				afterEach(t)
 			},
@@ -1206,8 +1187,8 @@ func TestPublishSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusConflict,
 			AssertFn: func(t *testing.T, req dtos.UpdateIsPublishedBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, resBody.Code, controllers.StatusConflict)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, resBody.Code, exceptions.StatusConflict)
 				AssertEqual(t, resBody.Message, "Series has students")
 				afterEach(t)
 			},
@@ -1223,9 +1204,9 @@ func TestPublishSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusForbidden,
 			AssertFn: func(t *testing.T, req dtos.UpdateIsPublishedBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, resBody.Code, controllers.StatusForbidden)
-				AssertEqual(t, resBody.Message, controllers.StatusForbidden)
+				resBody := AssertTestResponseBody(t, resp, exceptions.RequestError{})
+				AssertEqual(t, resBody.Code, exceptions.StatusForbidden)
+				AssertEqual(t, resBody.Message, exceptions.StatusForbidden)
 				afterEach(t)
 			},
 			Path: baseLanguagesPath + "/rust/series/existing-series/publish",
@@ -1240,9 +1221,7 @@ func TestPublishSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusNotFound,
 			AssertFn: func(t *testing.T, req dtos.UpdateIsPublishedBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, resBody.Code, controllers.StatusNotFound)
-				AssertEqual(t, resBody.Message, services.MessageNotFound)
+				AssertNotFoundResponse(t, resp)
 				afterEach(t)
 			},
 			Path: baseLanguagesPath + "/rust/series/non-existing-series/publish",
@@ -1257,9 +1236,7 @@ func TestPublishSeries(t *testing.T) {
 			},
 			ExpStatus: fiber.StatusNotFound,
 			AssertFn: func(t *testing.T, req dtos.UpdateIsPublishedBody, resp *http.Response) {
-				resBody := AssertTestResponseBody(t, resp, controllers.RequestError{})
-				AssertEqual(t, resBody.Code, controllers.StatusNotFound)
-				AssertEqual(t, resBody.Message, services.MessageNotFound)
+				AssertNotFoundResponse(t, resp)
 				afterEach(t)
 			},
 			Path: baseLanguagesPath + "/python/series/existing-series/publish",

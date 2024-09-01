@@ -21,6 +21,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/kiwiscript/kiwiscript_go/dtos"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	"github.com/kiwiscript/kiwiscript_go/paths"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/services"
@@ -46,11 +47,14 @@ func (c *Controllers) GetCertificate(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationParams, []FieldError{{
-				Param:   "certificateId",
-				Message: StrFieldErrMessageUUID,
-				Value:   params.CertificateID,
-			}}))
+			JSON(exceptions.NewRequestValidationError(
+				exceptions.RequestValidationLocationParams,
+				[]exceptions.FieldError{{
+					Param:   "certificateId",
+					Message: exceptions.StrFieldErrMessageUUID,
+					Value:   params.CertificateID,
+				}},
+			))
 	}
 
 	certificate, serviceErr := c.services.FindCertificateByID(userCtx, services.FindCertificateByIDOptions{
@@ -73,7 +77,7 @@ func (c *Controllers) GetUserCertificates(ctx *fiber.Ctx) error {
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil {
 		log.ErrorContext(userCtx, "This route is protected should have not reached here")
-		return ctx.Status(fiber.StatusUnauthorized).JSON(NewRequestError(services.NewUnauthorizedError()))
+		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
 	}
 
 	queryParams := dtos.PaginationQueryParams{

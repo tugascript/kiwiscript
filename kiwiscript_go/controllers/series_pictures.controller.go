@@ -20,6 +20,7 @@ package controllers
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/kiwiscript/kiwiscript_go/dtos"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	"github.com/kiwiscript/kiwiscript_go/services"
 )
 
@@ -39,7 +40,7 @@ func (c *Controllers) UploadSeriesPicture(ctx *fiber.Ctx) error {
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
 		log.ErrorContext(userCtx, "User is not staff, should not have reached here")
-		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	params := dtos.SeriesPathParams{
@@ -54,10 +55,13 @@ func (c *Controllers) UploadSeriesPicture(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationBody, []FieldError{{
-				Param:   "file",
-				Message: FieldErrMessageRequired,
-			}}))
+			JSON(exceptions.NewRequestValidationError(
+				exceptions.RequestValidationLocationBody,
+				[]exceptions.FieldError{{
+					Param:   "file",
+					Message: exceptions.FieldErrMessageRequired,
+				}},
+			))
 	}
 
 	seriesPicture, serviceErr := c.services.UploadSeriesPicture(userCtx, services.UploadSeriesPictureOptions{
@@ -116,7 +120,7 @@ func (c *Controllers) GetSeriesPicture(ctx *fiber.Ctx) error {
 	}
 
 	if user, serviceErr := c.GetUserClaims(ctx); serviceErr != nil || (!user.IsStaff && !series.IsPublished) {
-		return c.serviceErrorResponse(services.NewNotFoundError(), ctx)
+		return c.serviceErrorResponse(exceptions.NewNotFoundError(), ctx)
 	}
 
 	seriesPicture, serviceErr := c.services.FindSeriesPictureBySeriesID(
@@ -162,7 +166,7 @@ func (c *Controllers) DeleteSeriesPicture(ctx *fiber.Ctx) error {
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
 		log.ErrorContext(userCtx, "User is not staff, should not have reached here")
-		return ctx.Status(fiber.StatusForbidden).JSON(NewRequestError(services.NewForbiddenError()))
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	params := dtos.SeriesPathParams{

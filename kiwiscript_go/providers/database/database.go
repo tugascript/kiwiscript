@@ -21,6 +21,7 @@ import (
 	"context"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 )
 
 type Database struct {
@@ -49,8 +50,8 @@ func (database *Database) BeginTx(ctx context.Context) (*Queries, pgx.Tx, error)
 	return database.WithTx(txn), txn, nil
 }
 
-func (database *Database) FinalizeTx(ctx context.Context, txn pgx.Tx, err error, serviceErr error) {
-	if err != nil || serviceErr != nil {
+func (database *Database) FinalizeTx(ctx context.Context, txn pgx.Tx, err error, serviceErr *exceptions.ServiceError) {
+	if serviceErr != nil || err != nil {
 		if err := txn.Rollback(ctx); err != nil {
 			panic(err)
 		}

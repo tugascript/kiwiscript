@@ -20,6 +20,7 @@ package services
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 )
 
@@ -35,7 +36,7 @@ type FindPaginatedCertificatesOptions struct {
 func (s *Services) FindPaginatedCertificates(
 	ctx context.Context,
 	opts FindPaginatedCertificatesOptions,
-) ([]db.FindPaginatedCertificatesByUserIDRow, int64, *ServiceError) {
+) ([]db.FindPaginatedCertificatesByUserIDRow, int64, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, certificatesLocation, "FindPaginatedCertificates").With(
 		"userId", opts.UserID,
 		"offset", opts.Offset,
@@ -46,7 +47,7 @@ func (s *Services) FindPaginatedCertificates(
 	count, err := s.database.CountCertificatesByUserID(ctx, opts.UserID)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to count certificates", "error", err)
-		return nil, 0, FromDBError(err)
+		return nil, 0, exceptions.FromDBError(err)
 	}
 	if count == 0 {
 		return make([]db.FindPaginatedCertificatesByUserIDRow, 0), 0, nil
@@ -62,7 +63,7 @@ func (s *Services) FindPaginatedCertificates(
 	)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to find certificates", "error", err)
-		return nil, 0, FromDBError(err)
+		return nil, 0, exceptions.FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Certificates found successfully")
@@ -77,7 +78,7 @@ type FindCertificateByIDOptions struct {
 func (s *Services) FindCertificateByID(
 	ctx context.Context,
 	opts FindCertificateByIDOptions,
-) (*db.FindCertificateByIDWithUserAndLanguageRow, *ServiceError) {
+) (*db.FindCertificateByIDWithUserAndLanguageRow, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, "certificatesLocation", "FindCertificateByID").With(
 		"id", opts.ID.String(),
 	)
@@ -86,7 +87,7 @@ func (s *Services) FindCertificateByID(
 	certificate, err := s.database.FindCertificateByIDWithUserAndLanguage(ctx, opts.ID)
 	if err != nil {
 		log.WarnContext(ctx, "Certificate not found", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Certificate found successfully")

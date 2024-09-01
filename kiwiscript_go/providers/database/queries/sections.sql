@@ -29,7 +29,10 @@ INSERT INTO "sections" (
   $3,
   $4,
   $5,
-  $6
+  (
+    SELECT COUNT("id") + 1 FROM "sections"
+    WHERE "series_slug" = $3::VARCHAR(100)
+  )
 ) RETURNING *;
 
 -- name: UpdateSection :one

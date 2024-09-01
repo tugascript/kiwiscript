@@ -19,6 +19,7 @@ package controllers
 
 import (
 	"github.com/kiwiscript/kiwiscript_go/dtos"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	"unicode"
 
 	"github.com/gofiber/fiber/v2"
@@ -35,7 +36,7 @@ type passwordValidity struct {
 	hasSymbol    bool
 }
 
-func passwordValidator(password string) *services.ServiceError {
+func passwordValidator(password string) *exceptions.ServiceError {
 	validity := passwordValidity{}
 
 	for _, char := range password {
@@ -52,7 +53,7 @@ func passwordValidator(password string) *services.ServiceError {
 	}
 
 	if !validity.hasLowercase || !validity.hasUppercase || !validity.hasNumber || !validity.hasSymbol {
-		return services.NewValidationError("Password must contain at least one lowercase letter, one uppercase letter, one number, and one symbol")
+		return exceptions.NewValidationError("Password must contain at least one lowercase letter, one uppercase letter, one number, and one symbol")
 	}
 
 	return nil
@@ -90,9 +91,12 @@ func (c *Controllers) SignUp(ctx *fiber.Ctx) error {
 		log.WarnContext(userCtx, "Failed to validate password", "error", err)
 		return ctx.
 			Status(fiber.StatusBadRequest).
-			JSON(NewRequestValidationError(RequestValidationLocationBody, []FieldError{
-				{Param: "password", Message: err.Message},
-			}))
+			JSON(exceptions.NewRequestValidationError(
+				exceptions.RequestValidationLocationBody,
+				[]exceptions.FieldError{
+					{Param: "password", Message: err.Message},
+				},
+			))
 	}
 
 	opts := services.SignUpOptions{

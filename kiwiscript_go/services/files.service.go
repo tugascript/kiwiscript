@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	cc "github.com/kiwiscript/kiwiscript_go/providers/cache"
 	objStg "github.com/kiwiscript/kiwiscript_go/providers/object_storage"
 	"sync"
@@ -17,7 +18,7 @@ type FindFileURLOptions struct {
 	FileExt   string
 }
 
-func (s *Services) FindFileURL(ctx context.Context, opts FindFileURLOptions) (string, *ServiceError) {
+func (s *Services) FindFileURL(ctx context.Context, opts FindFileURLOptions) (string, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, filesLocation, "FindFileURL").With(
 		"userId", opts.UserID,
 		"fileId", opts.FileID,
@@ -42,7 +43,7 @@ func (s *Services) FindFileURL(ctx context.Context, opts FindFileURLOptions) (st
 	})
 	if err != nil {
 		log.Error("Error getting file URL", "error", err)
-		return "", NewServerError()
+		return "", exceptions.NewServerError()
 	}
 
 	addFileUrlOpts := cc.AddFileURLOptions{
@@ -53,7 +54,7 @@ func (s *Services) FindFileURL(ctx context.Context, opts FindFileURLOptions) (st
 	}
 	if err := s.cache.AddFileURL(ctx, addFileUrlOpts); err != nil {
 		log.Error("Error caching file URL", "error", err)
-		return "", NewServerError()
+		return "", exceptions.NewServerError()
 	}
 
 	return url, nil
@@ -77,7 +78,7 @@ func (c *FileURLsContainer) Get(fileID uuid.UUID) (string, bool) {
 	return url, ok
 }
 
-func (s *Services) FindFileURLs(ctx context.Context, opts []FindFileURLOptions) (*FileURLsContainer, *ServiceError) {
+func (s *Services) FindFileURLs(ctx context.Context, opts []FindFileURLOptions) (*FileURLsContainer, *exceptions.ServiceError) {
 	var wg sync.WaitGroup
 	container := FileURLsContainer{
 		urls: make(map[uuid.UUID]string),
@@ -106,7 +107,7 @@ func (s *Services) FindFileURLs(ctx context.Context, opts []FindFileURLOptions) 
 	wg.Wait()
 
 	if ctx.Err() != nil {
-		return nil, NewServerError()
+		return nil, exceptions.NewServerError()
 	}
 
 	return &container, nil

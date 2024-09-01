@@ -20,6 +20,7 @@ package services
 import (
 	"context"
 	"github.com/google/uuid"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"log/slog"
 )
@@ -38,7 +39,7 @@ type FindLessonProgressOptions struct {
 func (s *Services) FindLessonProgressBySlugsAndIDs(
 	ctx context.Context,
 	opts FindLessonProgressOptions,
-) (*db.LessonProgress, *ServiceError) {
+) (*db.LessonProgress, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, lessonProgressLocation, "FindLessonProgressBySlugsAndIDs").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -60,7 +61,7 @@ func (s *Services) FindLessonProgressBySlugsAndIDs(
 	)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to find lesson progress", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	return &lessonProgress, nil
@@ -81,13 +82,13 @@ func (s *Services) createLessonProgress(
 	ctx context.Context,
 	log *slog.Logger,
 	opts createLessonProgressOptions,
-) (*db.LessonProgress, *ServiceError) {
+) (*db.LessonProgress, *exceptions.ServiceError) {
 	log.InfoContext(ctx, "Creating lesson progress...")
 
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 	defer s.database.FinalizeTx(ctx, txn, err, nil)
 
@@ -102,7 +103,7 @@ func (s *Services) createLessonProgress(
 		SectionID:          opts.SectionID,
 	})
 	if err != nil {
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	return &lessonProgress, nil
@@ -120,7 +121,7 @@ type CreateOrUpdateLessonProgressOptions struct {
 func (s *Services) CreateOrUpdateLessonProgress(
 	ctx context.Context,
 	opts CreateOrUpdateLessonProgressOptions,
-) (*db.Lesson, *db.LessonProgress, *ServiceError) {
+) (*db.Lesson, *db.LessonProgress, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, lessonProgressLocation, "CreateOrUpdateLessonProgress").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -140,7 +141,7 @@ func (s *Services) CreateOrUpdateLessonProgress(
 		return nil, nil, serviceErr
 	}
 	if !lesson.IsPublished {
-		return nil, nil, NewNotFoundError()
+		return nil, nil, exceptions.NewNotFoundError()
 	}
 
 	lessonProgress, serviceErr := s.FindLessonProgressBySlugsAndIDs(ctx, FindLessonProgressOptions{
@@ -168,7 +169,7 @@ func (s *Services) CreateOrUpdateLessonProgress(
 
 	if err := s.database.UpdateLanguageProgressViewedAt(ctx, lessonProgress.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to update lesson progress viewed at", "error", err)
-		return nil, nil, FromDBError(err)
+		return nil, nil, exceptions.FromDBError(err)
 	}
 
 	return lesson, lessonProgress, nil
@@ -186,7 +187,7 @@ type CompleteLessonProgressOptions struct {
 func (s *Services) CompleteLessonProgress(
 	ctx context.Context,
 	opts CompleteLessonProgressOptions,
-) (*db.Lesson, *db.LessonProgress, *db.Certificate, *ServiceError) {
+) (*db.Lesson, *db.LessonProgress, *db.Certificate, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, lessonProgressLocation, "CompleteLessonProgress").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -197,6 +198,7 @@ func (s *Services) CompleteLessonProgress(
 	log.InfoContext(ctx, "Completing lesson progress...")
 
 	lesson, serviceErr := s.FindPublishedLessonBySlugsAndIDs(ctx, FindLessonOptions{
+		RequestID:    opts.RequestID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
 		SectionID:    opts.SectionID,
@@ -214,27 +216,27 @@ func (s *Services) CompleteLessonProgress(
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return nil, nil, nil, FromDBError(err)
+		return nil, nil, nil, exceptions.FromDBError(err)
 	}
 	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	*lessonProgress, err = qrs.CompleteLessonProgress(ctx, lessonProgress.ID)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to complete progress", "error", err)
-		return nil, nil, nil, FromDBError(err)
+		return nil, nil, nil, exceptions.FromDBError(err)
 	}
 
 	sectionProgress, err := qrs.IncrementSectionProgressCompletedLessons(ctx, lessonProgress.SectionProgressID)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to increment section progress completed lessons", "error", err)
-		return nil, nil, nil, FromDBError(err)
+		return nil, nil, nil, exceptions.FromDBError(err)
 	}
 
 	if sectionProgress.CompletedAt.Valid {
 		seriesProgress, err := qrs.IncrementSeriesProgressCompletedSections(ctx, sectionProgress.SeriesProgressID)
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to increment series progress completed sections", "error", err)
-			return nil, nil, nil, FromDBError(err)
+			return nil, nil, nil, exceptions.FromDBError(err)
 		}
 
 		if seriesProgress.CompletedAt.Valid {
@@ -247,7 +249,7 @@ func (s *Services) CompleteLessonProgress(
 			)
 			if err != nil {
 				log.ErrorContext(ctx, "Published series not found")
-				return nil, nil, nil, FromDBError(err)
+				return nil, nil, nil, exceptions.FromDBError(err)
 			}
 
 			certificate, err := qrs.FindCertificateByUserIDAndSeriesSlug(
@@ -270,7 +272,7 @@ func (s *Services) CompleteLessonProgress(
 				})
 				if err != nil {
 					log.ErrorContext(ctx, "Failed to create certificate")
-					return nil, nil, nil, FromDBError(err)
+					return nil, nil, nil, exceptions.FromDBError(err)
 				}
 			}
 
@@ -282,7 +284,7 @@ func (s *Services) CompleteLessonProgress(
 
 	if err := qrs.IncrementSeriesProgressCompletedLessons(ctx, sectionProgress.SeriesProgressID); err != nil {
 		log.ErrorContext(ctx, "Failed to increment series progress completed lessons", "error", err)
-		return nil, nil, nil, FromDBError(err)
+		return nil, nil, nil, exceptions.FromDBError(err)
 	}
 
 	return lesson, lessonProgress, nil, nil
@@ -300,7 +302,7 @@ type DeleteLessonProgressOptions struct {
 func (s *Services) DeleteLessonProgress(
 	ctx context.Context,
 	opts DeleteLessonProgressOptions,
-) *ServiceError {
+) *exceptions.ServiceError {
 	log := s.buildLogger(opts.RequestID, lessonProgressLocation, "DeleteLessonProgress").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -327,24 +329,24 @@ func (s *Services) DeleteLessonProgress(
 		qrs, txn, err := s.database.BeginTx(ctx)
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-			return FromDBError(err)
+			return exceptions.FromDBError(err)
 		}
 		defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 		if err := qrs.DeleteLessonProgress(ctx, lessonProgress.ID); err != nil {
 			log.ErrorContext(ctx, "Failed to delete lesson progress")
-			return FromDBError(err)
+			return exceptions.FromDBError(err)
 		}
 
 		sectionProgress, err := qrs.FindSectionProgressByID(ctx, lessonProgress.SectionProgressID)
 		if err != nil {
 			log.ErrorContext(ctx, "Failed to find section progress")
-			return FromDBError(err)
+			return exceptions.FromDBError(err)
 		}
 
 		if err := qrs.DecrementSectionProgressCompletedLessons(ctx, sectionProgress.ID); err != nil {
 			log.ErrorContext(ctx, "Failed to decrement section progress completed lessons")
-			return FromDBError(err)
+			return exceptions.FromDBError(err)
 		}
 
 		if sectionProgress.CompletedAt.Valid {
@@ -354,19 +356,19 @@ func (s *Services) DeleteLessonProgress(
 			}
 			if err := qrs.DecrementSeriesProgressCompletedSections(ctx, seriesProgressOpts); err != nil {
 				log.ErrorContext(ctx, "Failed to decrement series' completed sections")
-				return FromDBError(err)
+				return exceptions.FromDBError(err)
 			}
 		} else {
 			if err := qrs.DecrementSeriesProgressCompletedLessons(ctx, lessonProgress.SectionProgressID); err != nil {
 				log.ErrorContext(ctx, "Failed to decrement series progress completed lessons")
-				return FromDBError(err)
+				return exceptions.FromDBError(err)
 			}
 		}
 	}
 
 	if err := s.database.DeleteLessonProgress(ctx, lessonProgress.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to delete lesson progress")
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Delete lesson progress successfully")

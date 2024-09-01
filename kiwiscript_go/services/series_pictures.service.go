@@ -19,6 +19,7 @@ package services
 
 import (
 	"context"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	objStg "github.com/kiwiscript/kiwiscript_go/providers/object_storage"
 	"mime/multipart"
@@ -34,7 +35,7 @@ type FindSeriesPictureBySeriesIDOptions struct {
 func (s *Services) FindSeriesPictureBySeriesID(
 	ctx context.Context,
 	opts FindSeriesPictureBySeriesIDOptions,
-) (*db.SeriesPicture, *ServiceError) {
+) (*db.SeriesPicture, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, seriesPicturesLocation, "FindSeriesPictureBySeriesID").With(
 		"seriesId", opts.SeriesID,
 	)
@@ -43,7 +44,7 @@ func (s *Services) FindSeriesPictureBySeriesID(
 	seriesPicture, err := s.database.FindSeriesPictureBySeriesID(ctx, opts.SeriesID)
 	if err != nil {
 		log.WarnContext(ctx, "Series picture not found", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	return &seriesPicture, nil
@@ -60,7 +61,7 @@ type UploadSeriesPictureOptions struct {
 func (s *Services) UploadSeriesPicture(
 	ctx context.Context,
 	opts UploadSeriesPictureOptions,
-) (*db.SeriesPicture, *ServiceError) {
+) (*db.SeriesPicture, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, seriesPicturesLocation, "UploadSeriesPicture").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -93,7 +94,7 @@ func (s *Services) UploadSeriesPicture(
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Error uploading picture", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	*seriesPicture, err = s.database.CreateSeriesPicture(ctx, db.CreateSeriesPictureParams{
@@ -104,7 +105,7 @@ func (s *Services) UploadSeriesPicture(
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Error creating series picture", "error", err)
-		return nil, FromDBError(err)
+		return nil, exceptions.FromDBError(err)
 	}
 
 	return seriesPicture, nil
@@ -120,7 +121,7 @@ type DeletePictureOptions struct {
 func (s *Services) DeleteSeriesPicture(
 	ctx context.Context,
 	opts DeletePictureOptions,
-) *ServiceError {
+) *exceptions.ServiceError {
 	log := s.buildLogger(opts.RequestID, seriesPicturesLocation, "DeleteSeriesPicture").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -149,17 +150,17 @@ func (s *Services) DeleteSeriesPicture(
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
 
 	if err := qrs.DeleteSeriesPicture(ctx, seriesPicture.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to delete series picture", "error", err)
-		return FromDBError(err)
+		return exceptions.FromDBError(err)
 	}
 	if err := s.objStg.DeleteFile(ctx, opts.UserID, seriesPicture.ID, seriesPicture.Ext); err != nil {
 		log.ErrorContext(ctx, "Failed to delete file from object storage", "error", err)
-		return NewServerError()
+		return exceptions.NewServerError()
 	}
 
 	return nil
