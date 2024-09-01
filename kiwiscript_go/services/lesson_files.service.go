@@ -133,20 +133,26 @@ func (s *Services) DeleteLessonFile(
 		return exceptions.FromDBError(err)
 	}
 
+	var serviceErr *exceptions.ServiceError
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return exceptions.FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err, nil)
+	defer func() {
+		log.DebugContext(ctx, "Finalizing transaction")
+		s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	}()
 
 	if err := qrs.DeleteLessonFile(ctx, lessonFile.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to delete lesson file", "error", err)
-		return exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return serviceErr
 	}
 	if err := s.objStg.DeleteFile(ctx, opts.UserID, opts.File, lessonFile.Ext); err != nil {
 		log.ErrorContext(ctx, "Failed to delete file from object storage", "error", err)
-		return exceptions.NewServerError()
+		serviceErr = exceptions.NewServerError()
+		return serviceErr
 	}
 
 	return nil

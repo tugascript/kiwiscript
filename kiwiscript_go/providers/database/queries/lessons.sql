@@ -171,8 +171,8 @@ ORDER BY "position" ASC;
 
 -- name: UpdateLessonReadTimeSeconds :exec
 UPDATE "lessons" SET
-  "read_time_seconds" = $1
-WHERE "id" = $2;
+  "read_time_seconds" = $2
+WHERE "id" = $1;
 
 -- name: UpdateLessonWatchTimeSeconds :exec
 UPDATE "lessons" SET

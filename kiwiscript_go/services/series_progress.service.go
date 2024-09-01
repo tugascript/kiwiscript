@@ -189,15 +189,20 @@ func (s *Services) DeleteSeriesProgress(ctx context.Context, opts DeleteSeriesPr
 			log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 			return exceptions.FromDBError(err)
 		}
-		defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
+		defer func() {
+			log.DebugContext(ctx, "Finalizing transaction")
+			s.database.FinalizeTx(ctx, txn, err, serviceErr)
+		}()
 
 		if err := qrs.DeleteSeriesProgress(ctx, seriesProgress.ID); err != nil {
 			log.ErrorContext(ctx, "Error deleting series progress", "error", err)
-			return exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return serviceErr
 		}
 		if err := qrs.DecrementLanguageProgressCompletedSeries(ctx, seriesProgress.LanguageProgressID); err != nil {
 			log.ErrorContext(ctx, "Error decrementing language progress completed series", "error", err)
-			return exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return serviceErr
 		}
 
 		log.InfoContext(ctx, "Series progress deleted")
@@ -206,7 +211,8 @@ func (s *Services) DeleteSeriesProgress(ctx context.Context, opts DeleteSeriesPr
 
 	if err := s.database.DeleteSeriesProgress(ctx, seriesProgress.ID); err != nil {
 		log.ErrorContext(ctx, "Error deleting series progress", "error", err)
-		return exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return serviceErr
 	}
 
 	log.InfoContext(ctx, "Series progress deleted")

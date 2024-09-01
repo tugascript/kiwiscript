@@ -68,12 +68,16 @@ func (s *Services) CreateUser(ctx context.Context, opts CreateUserOptions) (*db.
 		location = utils.LocationOTH
 	}
 
+	var serviceErr *exceptions.ServiceError
 	qrs, txn, err := s.database.BeginTx(ctx)
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, exceptions.FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err, nil)
+	defer func() {
+		log.DebugContext(ctx, "Finalizing transaction")
+		s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	}()
 
 	var user db.User
 	if provider == utils.ProviderEmail {
@@ -94,16 +98,18 @@ func (s *Services) CreateUser(ctx context.Context, opts CreateUserOptions) (*db.
 	}
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to create user", "error", err)
-		return nil, exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return nil, serviceErr
 	}
 
 	params := db.CreateAuthProviderParams{
 		Email:    user.Email,
 		Provider: provider,
 	}
-	if err = qrs.CreateAuthProvider(ctx, params); err != nil {
+	if err := qrs.CreateAuthProvider(ctx, params); err != nil {
 		log.ErrorContext(ctx, "Failed to create auth provider", "error", err)
-		return nil, exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return nil, serviceErr
 	}
 
 	log.InfoContext(ctx, "Created user successfully")

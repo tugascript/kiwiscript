@@ -216,7 +216,10 @@ func (s *Services) DeleteSectionProgress(
 			log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 			return exceptions.FromDBError(err)
 		}
-		defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
+		defer func() {
+			log.DebugContext(ctx, "Finalizing transaction")
+			s.database.FinalizeTx(ctx, txn, err, serviceErr)
+		}()
 
 		if err := qrs.DeleteSectionProgress(ctx, seriesPartProgress.ID); err != nil {
 			log.ErrorContext(ctx, "Failed to delete series part progress", "error", err)
@@ -230,7 +233,8 @@ func (s *Services) DeleteSectionProgress(
 			}
 			if err := qrs.DecrementSeriesProgressCompletedSections(ctx, params); err != nil {
 				log.ErrorContext(ctx, "Failed to decrement series progress completed sections", "error", err)
-				return exceptions.FromDBError(err)
+				serviceErr = exceptions.FromDBError(err)
+				return serviceErr
 			}
 
 			return nil
@@ -242,7 +246,8 @@ func (s *Services) DeleteSectionProgress(
 		}
 		if err := qrs.RemoveSeriesProgressCompletedLessons(ctx, params); err != nil {
 			log.ErrorContext(ctx, "Failed to remove series progress completed lessons", "error", err)
-			return exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return serviceErr
 		}
 
 		return nil
@@ -250,7 +255,8 @@ func (s *Services) DeleteSectionProgress(
 
 	if err := s.database.DeleteSectionProgress(ctx, seriesPartProgress.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to delete series part progress", "error", err)
-		return exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return serviceErr
 	}
 
 	return nil

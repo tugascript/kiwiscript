@@ -433,7 +433,10 @@ func (s *Services) UpdateSection(ctx context.Context, opts UpdateSectionOptions)
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, exceptions.FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	defer func() {
+		log.DebugContext(ctx, "Finalizing transaction")
+		s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	}()
 
 	oldPosition := section.Position
 	if oldPosition < opts.Position {
@@ -444,7 +447,8 @@ func (s *Services) UpdateSection(ctx context.Context, opts UpdateSectionOptions)
 		}
 		if err := qrs.DecrementSectionPosition(ctx, params); err != nil {
 			log.ErrorContext(ctx, "Failed to decrement series part position", "error", err)
-			return nil, exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return nil, serviceErr
 		}
 	} else {
 		params := db.IncrementSectionPositionParams{
@@ -454,7 +458,8 @@ func (s *Services) UpdateSection(ctx context.Context, opts UpdateSectionOptions)
 		}
 		if err := qrs.IncrementSectionPosition(ctx, params); err != nil {
 			log.ErrorContext(ctx, "Failed to increment series part position", "error", err)
-			return nil, exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return nil, serviceErr
 		}
 	}
 
@@ -466,7 +471,8 @@ func (s *Services) UpdateSection(ctx context.Context, opts UpdateSectionOptions)
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to update series part", "error", err)
-		return nil, exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return nil, serviceErr
 	}
 
 	log.InfoContext(ctx, "Series part updated", "id", section.ID)
@@ -534,7 +540,10 @@ func (s *Services) UpdateSectionIsPublished(ctx context.Context, opts UpdateSect
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, exceptions.FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	defer func() {
+		log.DebugContext(ctx, "Finalizing transaction")
+		s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	}()
 
 	*section, err = qrs.UpdateSectionIsPublished(ctx, db.UpdateSectionIsPublishedParams{
 		ID:          section.ID,
@@ -542,7 +551,8 @@ func (s *Services) UpdateSectionIsPublished(ctx context.Context, opts UpdateSect
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to update series part is published", "error", err)
-		return nil, exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return nil, serviceErr
 	}
 	if opts.IsPublished {
 		params := db.AddSeriesSectionsCountParams{
@@ -553,7 +563,8 @@ func (s *Services) UpdateSectionIsPublished(ctx context.Context, opts UpdateSect
 		}
 		if err := qrs.AddSeriesSectionsCount(ctx, params); err != nil {
 			log.ErrorContext(ctx, "Failed to add series parts count", "error", err)
-			return nil, exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return nil, serviceErr
 		}
 	} else {
 		params := db.DecrementSeriesSectionsCountParams{
@@ -564,7 +575,8 @@ func (s *Services) UpdateSectionIsPublished(ctx context.Context, opts UpdateSect
 		}
 		if err := qrs.DecrementSeriesSectionsCount(ctx, params); err != nil {
 			log.ErrorContext(ctx, "Failed to decrement series parts count", "error", err)
-			return nil, exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return nil, serviceErr
 		}
 	}
 
@@ -611,11 +623,15 @@ func (s *Services) DeleteSection(ctx context.Context, opts DeleteSectionOptions)
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return exceptions.FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	defer func() {
+		log.DebugContext(ctx, "Finalizing transaction")
+		s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	}()
 
 	if err := qrs.DeleteSectionById(ctx, opts.SectionID); err != nil {
 		log.ErrorContext(ctx, "Failed to delete series part", "error", err)
-		return exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return serviceErr
 	}
 
 	posParams := db.DecrementSectionPositionParams{
@@ -625,7 +641,8 @@ func (s *Services) DeleteSection(ctx context.Context, opts DeleteSectionOptions)
 	}
 	if err := qrs.DecrementSectionPosition(ctx, posParams); err != nil {
 		log.ErrorContext(ctx, "Failed to decrement series part position", "error", err)
-		return exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return serviceErr
 	}
 
 	countParams := db.DecrementSeriesSectionsCountParams{
@@ -636,7 +653,8 @@ func (s *Services) DeleteSection(ctx context.Context, opts DeleteSectionOptions)
 	}
 	if err := qrs.DecrementSeriesSectionsCount(ctx, countParams); err != nil {
 		log.ErrorContext(ctx, "Failed to decrement series parts count", "error", err)
-		return exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return serviceErr
 	}
 
 	log.InfoContext(ctx, "Series part deleted", "id", section.ID)

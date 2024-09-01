@@ -102,9 +102,23 @@ func (s *Services) CreateLessonArticle(ctx context.Context, opts CreateLessonArt
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, exceptions.FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	defer func() {
+		log.DebugContext(ctx, "Finalizing transaction")
+		s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	}()
 
 	readTime := CalculateReadingTime(opts.Content)
+	lessonPrms := db.UpdateLessonReadTimeSecondsParams{
+		ID:              opts.LessonID,
+		ReadTimeSeconds: readTime,
+	}
+	if err := qrs.UpdateLessonReadTimeSeconds(ctx, lessonPrms); err != nil {
+		log.ErrorContext(ctx, "Failed to update lesson read time", "error", err)
+		serviceErr = exceptions.FromDBError(err)
+		return nil, serviceErr
+	}
+	log.InfoContext(ctx, "Leson read time updated", "readTime", lesson.ReadTimeSeconds)
+
 	lessonArticle, err := qrs.CreateLessonArticle(ctx, db.CreateLessonArticleParams{
 		LessonID:        opts.LessonID,
 		AuthorID:        opts.UserID,
@@ -113,16 +127,8 @@ func (s *Services) CreateLessonArticle(ctx context.Context, opts CreateLessonArt
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to create lesson article", "error", err)
-		return nil, exceptions.FromDBError(err)
-	}
-
-	lessonPrms := db.UpdateLessonReadTimeSecondsParams{
-		ID:              opts.LessonID,
-		ReadTimeSeconds: readTime,
-	}
-	if err := qrs.UpdateLessonReadTimeSeconds(ctx, lessonPrms); err != nil {
-		log.ErrorContext(ctx, "Failed to update lesson read time", "error", err)
-		return nil, exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return nil, serviceErr
 	}
 
 	if lesson.IsPublished {
@@ -132,7 +138,8 @@ func (s *Services) CreateLessonArticle(ctx context.Context, opts CreateLessonArt
 		}
 		if err := qrs.AddSeriesReadTime(ctx, seriesParams); err != nil {
 			log.ErrorContext(ctx, "Failed to add series read time", "error", err)
-			return nil, exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return nil, serviceErr
 		}
 
 		seriesPartParams := db.AddSectionReadTimeParams{
@@ -141,7 +148,8 @@ func (s *Services) CreateLessonArticle(ctx context.Context, opts CreateLessonArt
 		}
 		if err := qrs.AddSectionReadTime(ctx, seriesPartParams); err != nil {
 			log.ErrorContext(ctx, "Failed to add series part read time", "error", err)
-			return nil, exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return nil, serviceErr
 		}
 	}
 
@@ -199,7 +207,10 @@ func (s *Services) UpdateLessonArticle(
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, exceptions.FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	defer func() {
+		log.DebugContext(ctx, "Finalizing transaction")
+		s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	}()
 
 	*lessonArticle, err = qrs.UpdateLessonArticle(ctx, db.UpdateLessonArticleParams{
 		ID:              lessonArticle.ID,
@@ -208,7 +219,8 @@ func (s *Services) UpdateLessonArticle(
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to update lesson article", "error", err)
-		return nil, exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return nil, serviceErr
 	}
 
 	lecParams := db.UpdateLessonReadTimeSecondsParams{
@@ -217,7 +229,8 @@ func (s *Services) UpdateLessonArticle(
 	}
 	if err := qrs.UpdateLessonReadTimeSeconds(ctx, lecParams); err != nil {
 		log.ErrorContext(ctx, "Failed to update lesson read time", "error", err)
-		return nil, exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return nil, serviceErr
 	}
 
 	if lesson.IsPublished {
@@ -228,7 +241,8 @@ func (s *Services) UpdateLessonArticle(
 		}
 		if err := qrs.AddSeriesReadTime(ctx, seriesParams); err != nil {
 			log.ErrorContext(ctx, "Failed to add series read time", "error", err)
-			return nil, exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return nil, serviceErr
 		}
 
 		seriesPartParams := db.AddSectionReadTimeParams{
@@ -237,7 +251,8 @@ func (s *Services) UpdateLessonArticle(
 		}
 		if err := qrs.AddSectionReadTime(ctx, seriesPartParams); err != nil {
 			log.ErrorContext(ctx, "Failed to add series part read time", "error", err)
-			return nil, exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return nil, serviceErr
 		}
 	}
 
@@ -292,11 +307,15 @@ func (s *Services) DeleteLessonArticle(ctx context.Context, opts DeleteLessonArt
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return exceptions.FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	defer func() {
+		log.DebugContext(ctx, "Finalizing transaction")
+		s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	}()
 
 	if err := qrs.DeleteLessonArticle(ctx, lessonArticle.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to delete lesson article", "error", err)
-		return exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return serviceErr
 	}
 
 	lessonParams := db.UpdateLessonReadTimeSecondsParams{
@@ -305,7 +324,8 @@ func (s *Services) DeleteLessonArticle(ctx context.Context, opts DeleteLessonArt
 	}
 	if err := qrs.UpdateLessonReadTimeSeconds(ctx, lessonParams); err != nil {
 		log.ErrorContext(ctx, "Failed to update lesson read time", "error", err)
-		return exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return serviceErr
 	}
 
 	return nil

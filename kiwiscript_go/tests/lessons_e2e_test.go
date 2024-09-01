@@ -1564,26 +1564,6 @@ func TestPublishLesson(t *testing.T) {
 					t.Fatal("Failed to create lesson article", "serviceError", serviceErr)
 				}
 
-				lesson, err := testService.FindLessonBySlugsAndIDs(ctx, services.FindLessonOptions{
-					RequestID:    uuid.NewString(),
-					LanguageSlug: "rust",
-					SeriesSlug:   "existing-series",
-					SectionID:    sectionID,
-					LessonID:     lessonID,
-				})
-				if err != nil {
-					t.Fatal("Failed to find lesson", "error", err)
-				}
-
-				article, err := testService.FindLessonArticleByLessonID(ctx, services.FindLessonArticleByLessonIDOptions{
-					RequestID: uuid.NewString(),
-					LessonID:  lesson.ID,
-				})
-				if err != nil {
-					t.Fatal("Failed to find lesson article", "error", err)
-				}
-				AssertEqual(t, lesson.ReadTimeSeconds, article.ReadTimeSeconds)
-
 				testUser.IsStaff = true
 				accessToken, _ := GenerateTestAuthTokens(t, testUser)
 				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken

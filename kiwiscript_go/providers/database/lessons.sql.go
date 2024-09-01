@@ -699,17 +699,17 @@ func (q *Queries) UpdateLessonPosition(ctx context.Context, arg UpdateLessonPosi
 
 const updateLessonReadTimeSeconds = `-- name: UpdateLessonReadTimeSeconds :exec
 UPDATE "lessons" SET
-  "read_time_seconds" = $1
-WHERE "id" = $2
+  "read_time_seconds" = $2
+WHERE "id" = $1
 `
 
 type UpdateLessonReadTimeSecondsParams struct {
-	ReadTimeSeconds int32
 	ID              int32
+	ReadTimeSeconds int32
 }
 
 func (q *Queries) UpdateLessonReadTimeSeconds(ctx context.Context, arg UpdateLessonReadTimeSecondsParams) error {
-	_, err := q.db.Exec(ctx, updateLessonReadTimeSeconds, arg.ReadTimeSeconds, arg.ID)
+	_, err := q.db.Exec(ctx, updateLessonReadTimeSeconds, arg.ID, arg.ReadTimeSeconds)
 	return err
 }
 

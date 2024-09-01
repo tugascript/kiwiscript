@@ -152,15 +152,20 @@ func (s *Services) DeleteSeriesPicture(
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return exceptions.FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	defer func() {
+		log.DebugContext(ctx, "Finalizing transaction")
+		s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	}()
 
 	if err := qrs.DeleteSeriesPicture(ctx, seriesPicture.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to delete series picture", "error", err)
-		return exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return serviceErr
 	}
 	if err := s.objStg.DeleteFile(ctx, opts.UserID, seriesPicture.ID, seriesPicture.Ext); err != nil {
 		log.ErrorContext(ctx, "Failed to delete file from object storage", "error", err)
-		return exceptions.NewServerError()
+		serviceErr = exceptions.NewServerError()
+		return serviceErr
 	}
 
 	return nil

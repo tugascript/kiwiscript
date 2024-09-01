@@ -96,7 +96,10 @@ func (s *Services) CreateLessonVideo(
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, exceptions.FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	defer func() {
+		log.DebugContext(ctx, "Finalizing transaction")
+		s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	}()
 
 	lessonVideo, err := qrs.CreateLessonVideo(ctx, db.CreateLessonVideoParams{
 		LessonID:         lesson.ID,
@@ -105,7 +108,8 @@ func (s *Services) CreateLessonVideo(
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to create lesson video", "error", err)
-		return nil, exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return nil, serviceErr
 	}
 
 	lecParams := db.UpdateLessonWatchTimeSecondsParams{
@@ -114,7 +118,8 @@ func (s *Services) CreateLessonVideo(
 	}
 	if err := qrs.UpdateLessonWatchTimeSeconds(ctx, lecParams); err != nil {
 		log.ErrorContext(ctx, "Failed to update lesson watch time", "error", err)
-		return nil, exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return nil, serviceErr
 	}
 
 	return &lessonVideo, nil
@@ -172,7 +177,10 @@ func (s *Services) UpdateLessonVideo(
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, exceptions.FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	defer func() {
+		log.DebugContext(ctx, "Finalizing transaction")
+		s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	}()
 
 	*lessonVideo, err = qrs.UpdateLessonVideo(ctx, db.UpdateLessonVideoParams{
 		ID:               lessonVideo.ID,
@@ -181,7 +189,8 @@ func (s *Services) UpdateLessonVideo(
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to update lesson video", "error", err)
-		return nil, exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return nil, serviceErr
 	}
 
 	lecParams := db.UpdateLessonWatchTimeSecondsParams{
@@ -190,7 +199,8 @@ func (s *Services) UpdateLessonVideo(
 	}
 	if err := qrs.UpdateLessonWatchTimeSeconds(ctx, lecParams); err != nil {
 		log.ErrorContext(ctx, "Failed to update lesson watch time", "error", err)
-		return nil, exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return nil, serviceErr
 	}
 
 	if lesson.IsPublished {
@@ -201,7 +211,8 @@ func (s *Services) UpdateLessonVideo(
 		}
 		if err := qrs.AddSeriesWatchTime(ctx, seriesParams); err != nil {
 			log.ErrorContext(ctx, "Failed to update series watch time", "error", err)
-			return nil, exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return nil, serviceErr
 		}
 
 		sectionParams := db.AddSectionWatchTimeParams{
@@ -210,7 +221,8 @@ func (s *Services) UpdateLessonVideo(
 		}
 		if err := qrs.AddSectionWatchTime(ctx, sectionParams); err != nil {
 			log.ErrorContext(ctx, "Failed to update series part watch time", "error", err)
-			return nil, exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return nil, serviceErr
 		}
 	}
 
@@ -268,11 +280,15 @@ func (s *Services) DeleteLessonVideo(
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return exceptions.FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	defer func() {
+		log.DebugContext(ctx, "Finalizing transaction")
+		s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	}()
 
 	if err := qrs.DeleteLessonVideo(ctx, lessonVideo.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to delete lesson video", "error", err)
-		return exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return serviceErr
 	}
 
 	lecParams := db.UpdateLessonWatchTimeSecondsParams{
@@ -281,7 +297,8 @@ func (s *Services) DeleteLessonVideo(
 	}
 	if err := qrs.UpdateLessonWatchTimeSeconds(ctx, lecParams); err != nil {
 		log.ErrorContext(ctx, "Failed to update lesson watch time", "error", err)
-		return exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return serviceErr
 	}
 
 	return nil

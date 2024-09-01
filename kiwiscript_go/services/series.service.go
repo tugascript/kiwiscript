@@ -838,7 +838,10 @@ func (s *Services) UpdateSeriesIsPublished(
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, exceptions.FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	defer func() {
+		log.DebugContext(ctx, "Finalizing transaction")
+		s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	}()
 
 	*series, err = qrs.UpdateSeriesIsPublished(ctx, db.UpdateSeriesIsPublishedParams{
 		ID:          series.ID,
@@ -846,18 +849,21 @@ func (s *Services) UpdateSeriesIsPublished(
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Error publishing series", "error", err)
-		return nil, exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return nil, serviceErr
 	}
 
 	if opts.IsPublished {
 		if err := qrs.IncrementLanguageSeriesCount(ctx, opts.LanguageSlug); err != nil {
 			log.ErrorContext(ctx, "Error incrementing language series count", "error", err)
-			return nil, exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return nil, serviceErr
 		}
 	} else {
 		if err := qrs.DecrementLanguageSeriesCount(ctx, opts.LanguageSlug); err != nil {
 			log.ErrorContext(ctx, "Error decrementing language series count", "error", err)
-			return nil, exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return nil, serviceErr
 		}
 	}
 

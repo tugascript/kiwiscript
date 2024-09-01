@@ -390,6 +390,8 @@ func NewLessonResponseWithEmbeddedOptions(
 		Position:    lesson.Position,
 		IsCompleted: lesson.IsCompleted,
 		IsPublished: lesson.IsPublished,
+		WatchTime:   lesson.WatchTimeSeconds,
+		ReadTime:    lesson.ReadTimeSeconds,
 		Links: newLessonLinks(
 			backendDomain,
 			lesson.LanguageSlug,

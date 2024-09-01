@@ -419,7 +419,10 @@ func (s *Services) UpdatePassword(ctx context.Context, opts UpdatePasswordOption
 			log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 			return nil, exceptions.FromDBError(err)
 		}
-		defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
+		defer func() {
+			log.DebugContext(ctx, "Finalizing transaction")
+			s.database.FinalizeTx(ctx, txn, err, serviceErr)
+		}()
 
 		err = qrs.CreateAuthProvider(ctx, db.CreateAuthProviderParams{
 			Email:    user.Email,
@@ -568,7 +571,6 @@ func (s *Services) ResetPassword(ctx context.Context, opts ResetPasswordOptions)
 		return exceptions.NewServerError()
 	}
 
-	// TODO: fix, create email oauth provider if it does not exist
 	authProviderParams := db.FindAuthProviderByEmailAndProviderParams{
 		Email:    user.Email,
 		Provider: utils.ProviderEmail,
@@ -584,7 +586,10 @@ func (s *Services) ResetPassword(ctx context.Context, opts ResetPasswordOptions)
 			log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 			return exceptions.FromDBError(err)
 		}
-		defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
+		defer func() {
+			log.DebugContext(ctx, "Finalizing transaction")
+			s.database.FinalizeTx(ctx, txn, err, serviceErr)
+		}()
 
 		authProvParams := db.CreateAuthProviderParams{
 			Email:    user.Email,
@@ -592,13 +597,15 @@ func (s *Services) ResetPassword(ctx context.Context, opts ResetPasswordOptions)
 		}
 		if err := qrs.CreateAuthProvider(ctx, authProvParams); err != nil {
 			log.ErrorContext(ctx, "Failed to create auth provider", "error", err)
-			return exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return serviceErr
 		}
 
 		var password pgtype.Text
 		if err := password.Scan(opts.NewPassword); err != nil || opts.NewPassword == "" {
 			log.WarnContext(ctx, "Password is invalid")
-			return exceptions.NewValidationError("'password' is invalid")
+			serviceErr = exceptions.NewValidationError("'password' is invalid")
+			return serviceErr
 		}
 
 		passParams := db.UpdateUserPasswordParams{
@@ -607,7 +614,8 @@ func (s *Services) ResetPassword(ctx context.Context, opts ResetPasswordOptions)
 		}
 		if _, err := qrs.UpdateUserPassword(ctx, passParams); err != nil {
 			log.ErrorContext(ctx, "Failed to update user password")
-			return exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return serviceErr
 		}
 
 		log.InfoContext(ctx, "Reset password successful")
@@ -691,7 +699,10 @@ func (s *Services) UpdateEmail(ctx context.Context, opts UpdateEmailOptions) (*A
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, exceptions.FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	defer func() {
+		log.DebugContext(ctx, "Finalizing transaction")
+		s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	}()
 
 	*user, err = qrs.UpdateUserEmail(ctx, db.UpdateUserEmailParams{
 		ID:    user.ID,
@@ -699,14 +710,16 @@ func (s *Services) UpdateEmail(ctx context.Context, opts UpdateEmailOptions) (*A
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to update email", "error", err)
-		return nil, exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return nil, serviceErr
 	}
 	if err = qrs.DeleteProviderByEmailAndNotProvider(ctx, db.DeleteProviderByEmailAndNotProviderParams{
 		Email:    user.Email,
 		Provider: utils.ProviderEmail,
 	}); err != nil {
 		log.ErrorContext(ctx, "Failed to delete auth provider", "error", err)
-		return nil, exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return nil, serviceErr
 	}
 
 	return s.generateAuthResponse(ctx, log, "Update email successfully", user)

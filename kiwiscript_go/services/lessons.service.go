@@ -528,7 +528,10 @@ func (s *Services) UpdateLesson(ctx context.Context, opts UpdateLessonOptions) (
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, exceptions.FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err, nil)
+	defer func() {
+		log.DebugContext(ctx, "Finalizing transaction")
+		s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	}()
 
 	oldPosition := lesson.Position
 	*lesson, err = qrs.UpdateLessonWithPosition(ctx, db.UpdateLessonWithPositionParams{
@@ -538,7 +541,8 @@ func (s *Services) UpdateLesson(ctx context.Context, opts UpdateLessonOptions) (
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to update lesson with position", "error", err)
-		return nil, exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return nil, serviceErr
 	}
 
 	if oldPosition < opts.Position {
@@ -549,7 +553,8 @@ func (s *Services) UpdateLesson(ctx context.Context, opts UpdateLessonOptions) (
 		}
 		if err := qrs.DecrementLessonPosition(ctx, params); err != nil {
 			log.ErrorContext(ctx, "Failed to decrement lesson position", "error", err)
-			return nil, exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return nil, serviceErr
 		}
 	} else {
 		params := db.IncrementLessonPositionParams{
@@ -559,7 +564,8 @@ func (s *Services) UpdateLesson(ctx context.Context, opts UpdateLessonOptions) (
 		}
 		if err := qrs.IncrementLessonPosition(ctx, params); err != nil {
 			log.ErrorContext(ctx, "Failed to increment lesson position", "error", err)
-			return nil, exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return nil, serviceErr
 		}
 	}
 
@@ -607,11 +613,15 @@ func (s *Services) DeleteLesson(ctx context.Context, opts DeleteLessonOptions) *
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return exceptions.FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	defer func() {
+		log.DebugContext(ctx, "Finalizing transaction")
+		s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	}()
 
 	if err := qrs.DeleteLessonByID(ctx, lesson.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to delete lesson", "error", err)
-		return exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return serviceErr
 	}
 
 	params := db.DecrementLessonPositionParams{
@@ -621,7 +631,8 @@ func (s *Services) DeleteLesson(ctx context.Context, opts DeleteLessonOptions) *
 	}
 	if err := qrs.DecrementLessonPosition(ctx, params); err != nil {
 		log.ErrorContext(ctx, "Failed to decrement lesson position", "error", err)
-		return exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return serviceErr
 	}
 
 	log.InfoContext(ctx, "Lesson deleted successfully")
@@ -690,7 +701,10 @@ func (s *Services) UpdateLessonIsPublished(
 		log.ErrorContext(ctx, "Failed to begin transaction", "error", err)
 		return nil, exceptions.FromDBError(err)
 	}
-	defer s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	defer func() {
+		log.DebugContext(ctx, "Finalizing transaction")
+		s.database.FinalizeTx(ctx, txn, err, serviceErr)
+	}()
 
 	*lesson, err = qrs.UpdateLessonIsPublished(ctx, db.UpdateLessonIsPublishedParams{
 		ID:          lesson.ID,
@@ -698,7 +712,8 @@ func (s *Services) UpdateLessonIsPublished(
 	})
 	if err != nil {
 		log.ErrorContext(ctx, "Failed to update lesson article is published", "error", err)
-		return nil, exceptions.FromDBError(err)
+		serviceErr = exceptions.FromDBError(err)
+		return nil, serviceErr
 	}
 
 	if opts.IsPublished {
@@ -709,7 +724,8 @@ func (s *Services) UpdateLessonIsPublished(
 		}
 		if err := qrs.IncrementSectionLessonsCount(ctx, incPartParams); err != nil {
 			log.ErrorContext(ctx, "Failed to increment series part lessons count", "error", err)
-			return nil, exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return nil, serviceErr
 		}
 
 		incSeriesParams := db.IncrementSeriesLessonsCountParams{
@@ -719,7 +735,8 @@ func (s *Services) UpdateLessonIsPublished(
 		}
 		if err := qrs.IncrementSeriesLessonsCount(ctx, incSeriesParams); err != nil {
 			log.ErrorContext(ctx, "Failed to increment series lessons count", "error", err)
-			return nil, exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return nil, serviceErr
 		}
 	} else {
 		decPartParams := db.DecrementSectionLessonsCountParams{
@@ -729,7 +746,8 @@ func (s *Services) UpdateLessonIsPublished(
 		}
 		if err := qrs.DecrementSectionLessonsCount(ctx, decPartParams); err != nil {
 			log.ErrorContext(ctx, "Failed to decrement series part lessons count", "error", err)
-			return nil, exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return nil, serviceErr
 		}
 
 		decSeriesParams := db.DecrementSeriesLessonsCountParams{
@@ -739,7 +757,8 @@ func (s *Services) UpdateLessonIsPublished(
 		}
 		if err := qrs.DecrementSeriesLessonsCount(ctx, decSeriesParams); err != nil {
 			log.ErrorContext(ctx, "Failed to decrement series lessons count", "error", err)
-			return nil, exceptions.FromDBError(err)
+			serviceErr = exceptions.FromDBError(err)
+			return nil, serviceErr
 		}
 	}
 
