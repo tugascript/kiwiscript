@@ -89,6 +89,9 @@ server:
 dev:
 	air
 
+create-test-bucket:
+	aws --endpoint-url=http://localhost:4566 --profile localstack s3 mb s3://test
+
 keygen:
 	DEBUG=false go run ../keygen/main.go
 

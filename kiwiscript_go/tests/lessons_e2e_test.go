@@ -1466,11 +1466,8 @@ func TestPublishLesson(t *testing.T) {
 	languagesCleanUp(t)()
 	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 
-	// TODO: create series, section and lesson on beforeEach
-	var sectionID, lessonID int32
 	func() {
 		testDb := GetTestDatabase(t)
-		testServices := GetTestServices(t)
 
 		params := db.CreateLanguageParams{
 			Name:     "Rust",
@@ -1481,8 +1478,15 @@ func TestPublishLesson(t *testing.T) {
 		if _, err := testDb.CreateLanguage(context.Background(), params); err != nil {
 			t.Fatal("Failed to create language", err)
 		}
+	}()
 
-		series, err := testDb.CreateSeries(context.Background(), db.CreateSeriesParams{
+	var seriesID, sectionID, lessonID int32
+	beforeEach := func(t *testing.T) {
+		testDb := GetTestDatabase(t)
+		testServices := GetTestServices(t)
+		ctx := context.Background()
+
+		series, err := testDb.CreateSeries(ctx, db.CreateSeriesParams{
 			Title:        "Existing Series",
 			Slug:         "existing-series",
 			Description:  "Some description",
@@ -1493,15 +1497,16 @@ func TestPublishLesson(t *testing.T) {
 			t.Fatal("Failed to create series", "error", err)
 		}
 
+		seriesID = series.ID
 		isPubPrms := db.UpdateSeriesIsPublishedParams{
 			IsPublished: true,
 			ID:          series.ID,
 		}
-		if _, err := testDb.UpdateSeriesIsPublished(context.Background(), isPubPrms); err != nil {
+		if _, err := testDb.UpdateSeriesIsPublished(ctx, isPubPrms); err != nil {
 			t.Fatal("Failed to update series is published", "error", err)
 		}
 
-		section, serviceErr := testServices.CreateSection(context.Background(), services.CreateSectionOptions{
+		section, serviceErr := testServices.CreateSection(ctx, services.CreateSectionOptions{
 			UserID:       testUser.ID,
 			Title:        "Some Section",
 			LanguageSlug: "rust",
@@ -1517,14 +1522,11 @@ func TestPublishLesson(t *testing.T) {
 			IsPublished: true,
 			ID:          sectionID,
 		}
-		if _, err := testDb.UpdateSectionIsPublished(context.Background(), isPubSecPrms); err != nil {
+		if _, err := testDb.UpdateSectionIsPublished(ctx, isPubSecPrms); err != nil {
 			t.Fatal("Failed to update section is published", "error", err)
 		}
-	}()
 
-	beforeEach := func(t *testing.T) {
-		testServices := GetTestServices(t)
-		lesson, serviceErr := testServices.CreateLesson(context.Background(), services.CreateLessonOptions{
+		lesson, serviceErr := testServices.CreateLesson(ctx, services.CreateLessonOptions{
 			UserID:       testUser.ID,
 			LanguageSlug: "rust",
 			SeriesSlug:   "existing-series",
@@ -1539,8 +1541,15 @@ func TestPublishLesson(t *testing.T) {
 
 	afterEach := func(t *testing.T) {
 		testDb := GetTestDatabase(t)
-		if err := testDb.DeleteLessonByID(context.Background(), lessonID); err != nil {
+		ctx := context.Background()
+		if err := testDb.DeleteLessonByID(ctx, lessonID); err != nil {
 			t.Fatal("Failed to delete lesson", "error", err)
+		}
+		if err := testDb.DeleteSectionById(ctx, sectionID); err != nil {
+			t.Fatal("Failed to delete section", "error", err)
+		}
+		if err := testDb.DeleteSeriesById(ctx, seriesID); err != nil {
+			t.Fatal("Failed to delete series", "error", err)
 		}
 	}
 
@@ -1574,6 +1583,34 @@ func TestPublishLesson(t *testing.T) {
 				AssertEqual(t, resBody.IsPublished, true)
 				AssertEqual(t, resBody.ReadTime, 150)
 				AssertEqual(t, resBody.WatchTime, 0)
+
+				testServices := GetTestServices(t)
+				ctx := context.Background()
+				requestID := uuid.NewString()
+
+				section, serviceErr := testServices.FindSectionBySlugsAndID(ctx, services.FindSectionBySlugsAndIDOptions{
+					RequestID:    requestID,
+					LanguageSlug: "rust",
+					SeriesSlug:   "existing-series",
+					SectionID:    sectionID,
+				})
+				if serviceErr != nil {
+					t.Fatal("Failed to find section", "serviceError", serviceErr)
+				}
+				AssertEqual(t, section.ReadTimeSeconds, 150)
+				AssertEqual(t, section.WatchTimeSeconds, 0)
+
+				series, serviceErr := testServices.FindSeriesBySlugs(ctx, services.FindSeriesBySlugsOptions{
+					RequestID:    requestID,
+					LanguageSlug: "rust",
+					SeriesSlug:   "existing-series",
+				})
+				if serviceErr != nil {
+					t.Fatal("Failed to find series", "serviceError", serviceErr)
+				}
+				AssertEqual(t, series.ReadTimeSeconds, 150)
+				AssertEqual(t, series.WatchTimeSeconds, 0)
+
 				afterEach(t)
 			},
 			PathFn: func() string {
@@ -1613,6 +1650,34 @@ func TestPublishLesson(t *testing.T) {
 				AssertEqual(t, resBody.IsPublished, true)
 				AssertEqual(t, resBody.ReadTime, 0)
 				AssertEqual(t, resBody.WatchTime, 1000)
+
+				testServices := GetTestServices(t)
+				ctx := context.Background()
+				requestID := uuid.NewString()
+
+				section, serviceErr := testServices.FindSectionBySlugsAndID(ctx, services.FindSectionBySlugsAndIDOptions{
+					RequestID:    requestID,
+					LanguageSlug: "rust",
+					SeriesSlug:   "existing-series",
+					SectionID:    sectionID,
+				})
+				if serviceErr != nil {
+					t.Fatal("Failed to find section", "serviceError", serviceErr)
+				}
+				AssertEqual(t, section.ReadTimeSeconds, 0)
+				AssertEqual(t, section.WatchTimeSeconds, 1000)
+
+				series, serviceErr := testServices.FindSeriesBySlugs(ctx, services.FindSeriesBySlugsOptions{
+					RequestID:    requestID,
+					LanguageSlug: "rust",
+					SeriesSlug:   "existing-series",
+				})
+				if serviceErr != nil {
+					t.Fatal("Failed to find series", "serviceError", serviceErr)
+				}
+				AssertEqual(t, series.ReadTimeSeconds, 0)
+				AssertEqual(t, series.WatchTimeSeconds, 1000)
+
 				afterEach(t)
 			},
 			PathFn: func() string {
@@ -1628,9 +1693,10 @@ func TestPublishLesson(t *testing.T) {
 				beforeEach(t)
 				testService := GetTestServices(t)
 				ctx := context.Background()
+				requestID := uuid.NewString()
 
 				artOpts := services.CreateLessonArticleOptions{
-					RequestID:    uuid.NewString(),
+					RequestID:    requestID,
 					UserID:       testUser.ID,
 					LanguageSlug: "rust",
 					SeriesSlug:   "existing-series",
@@ -1656,6 +1722,58 @@ func TestPublishLesson(t *testing.T) {
 					t.Fatal("Failed to create lesson video", "serviceError", serviceErr)
 				}
 
+				secondLesson, serviceErr := testService.CreateLesson(ctx, services.CreateLessonOptions{
+					RequestID:    requestID,
+					UserID:       testUser.ID,
+					LanguageSlug: "rust",
+					SeriesSlug:   "existing-series",
+					SectionID:    sectionID,
+					Title:        faker.Name(),
+				})
+				if serviceErr != nil {
+					t.Fatal("Failed to create second lesson", "serviceError", serviceErr)
+				}
+
+				art2Opts := services.CreateLessonArticleOptions{
+					RequestID:    requestID,
+					UserID:       testUser.ID,
+					LanguageSlug: "rust",
+					SeriesSlug:   "existing-series",
+					SectionID:    sectionID,
+					LessonID:     secondLesson.ID,
+					Content:      strings.Repeat("Lorem ipsum dolor sit amet, ", 200),
+				}
+				if _, serviceErr := testService.CreateLessonArticle(ctx, art2Opts); serviceErr != nil {
+					t.Fatal("Failed to create lesson article", "serviceError", serviceErr)
+				}
+
+				vid2Opts := services.CreateLessonVideoOptions{
+					RequestID:    uuid.NewString(),
+					UserID:       testUser.ID,
+					LanguageSlug: "rust",
+					SeriesSlug:   "existing-series",
+					SectionID:    sectionID,
+					LessonID:     secondLesson.ID,
+					URL:          "https://www.youtube.com/watch?v=123456789",
+					WatchTime:    2000,
+				}
+				if _, serviceErr := testService.CreateLessonVideo(ctx, vid2Opts); serviceErr != nil {
+					t.Fatal("Failed to create lesson video", "serviceError", serviceErr)
+				}
+
+				isPubOpts := services.UpdateLessonIsPublishedOptions{
+					RequestID:    requestID,
+					UserID:       testUser.ID,
+					LanguageSlug: "rust",
+					SeriesSlug:   "existing-series",
+					SectionID:    sectionID,
+					LessonID:     secondLesson.ID,
+					IsPublished:  true,
+				}
+				if _, serviceErr := testService.UpdateLessonIsPublished(ctx, isPubOpts); serviceErr != nil {
+					t.Fatal("Failed to update lesson is published", "serviceError", serviceErr)
+				}
+
 				testUser.IsStaff = true
 				accessToken, _ := GenerateTestAuthTokens(t, testUser)
 				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken
@@ -1667,7 +1785,34 @@ func TestPublishLesson(t *testing.T) {
 				AssertEqual(t, resBody.ReadTime, 150)
 				AssertEqual(t, resBody.WatchTime, 1000)
 
-				// TODO: check if the section time has been updated
+				testServices := GetTestServices(t)
+				ctx := context.Background()
+				requestID := uuid.NewString()
+
+				section, serviceErr := testServices.FindSectionBySlugsAndID(ctx, services.FindSectionBySlugsAndIDOptions{
+					RequestID:    requestID,
+					LanguageSlug: "rust",
+					SeriesSlug:   "existing-series",
+					SectionID:    sectionID,
+				})
+				if serviceErr != nil {
+					t.Fatal("Failed to find section", "serviceError", serviceErr)
+				}
+				AssertEqual(t, section.LessonsCount, 2)
+				AssertEqual(t, section.ReadTimeSeconds, 450)
+				AssertEqual(t, section.WatchTimeSeconds, 3000)
+
+				series, serviceErr := testServices.FindSeriesBySlugs(ctx, services.FindSeriesBySlugsOptions{
+					RequestID:    requestID,
+					LanguageSlug: "rust",
+					SeriesSlug:   "existing-series",
+				})
+				if serviceErr != nil {
+					t.Fatal("Failed to find series", "serviceError", serviceErr)
+				}
+				AssertEqual(t, series.LessonsCount, 2)
+				AssertEqual(t, series.ReadTimeSeconds, 450)
+				AssertEqual(t, series.WatchTimeSeconds, 3000)
 
 				afterEach(t)
 			},
@@ -1694,6 +1839,292 @@ func TestPublishLesson(t *testing.T) {
 			PathFn: func() string {
 				return fmt.Sprintf(
 					"%s/rust/series/existing-series/sections/%d/lessons/%d/publish",
+					baseLanguagesPath, sectionID, lessonID,
+				)
+			},
+		},
+		{
+			Name: "Should return 200 OK unpublishing lesson without students",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testService := GetTestServices(t)
+				ctx := context.Background()
+				requestID := uuid.NewString()
+
+				artOpts := services.CreateLessonArticleOptions{
+					RequestID:    requestID,
+					UserID:       testUser.ID,
+					LanguageSlug: "rust",
+					SeriesSlug:   "existing-series",
+					SectionID:    sectionID,
+					LessonID:     lessonID,
+					Content:      strings.Repeat("Lorem ipsum dolor sit amet, ", 100),
+				}
+				if _, serviceErr := testService.CreateLessonArticle(ctx, artOpts); serviceErr != nil {
+					t.Fatal("Failed to create lesson article", "serviceError", serviceErr)
+				}
+
+				isPubOpts := services.UpdateLessonIsPublishedOptions{
+					RequestID:    requestID,
+					UserID:       testUser.ID,
+					LanguageSlug: "rust",
+					SeriesSlug:   "existing-series",
+					SectionID:    sectionID,
+					LessonID:     lessonID,
+					IsPublished:  true,
+				}
+				if _, serviceErr := testService.UpdateLessonIsPublished(ctx, isPubOpts); serviceErr != nil {
+					t.Fatal("Failed to update lesson is published", "serviceError", serviceErr)
+				}
+
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: false}, accessToken
+			},
+			ExpStatus: fiber.StatusOK,
+			AssertFn: func(t *testing.T, _ dtos.UpdateIsPublishedBody, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.LessonResponse{})
+				AssertEqual(t, resBody.IsPublished, false)
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf(
+					"%s/rust/series/existing-series/sections/%d/lessons/%d/publish",
+					baseLanguagesPath, sectionID, lessonID,
+				)
+			},
+		},
+		{
+			Name: "Should return 409 CONFLICT if the lesson has students",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testService := GetTestServices(t)
+				testDb := GetTestDatabase(t)
+				ctx := context.Background()
+				requestID := uuid.NewString()
+
+				artOpts := services.CreateLessonArticleOptions{
+					RequestID:    requestID,
+					UserID:       testUser.ID,
+					LanguageSlug: "rust",
+					SeriesSlug:   "existing-series",
+					SectionID:    sectionID,
+					LessonID:     lessonID,
+					Content:      strings.Repeat("Lorem ipsum dolor sit amet, ", 100),
+				}
+				if _, serviceErr := testService.CreateLessonArticle(ctx, artOpts); serviceErr != nil {
+					t.Fatal("Failed to create lesson article", "serviceError", serviceErr)
+				}
+
+				isPubOpts := services.UpdateLessonIsPublishedOptions{
+					RequestID:    requestID,
+					UserID:       testUser.ID,
+					LanguageSlug: "rust",
+					SeriesSlug:   "existing-series",
+					SectionID:    sectionID,
+					LessonID:     lessonID,
+					IsPublished:  true,
+				}
+				if _, serviceErr := testService.UpdateLessonIsPublished(ctx, isPubOpts); serviceErr != nil {
+					t.Fatal("Failed to update lesson is published", "serviceError", serviceErr)
+				}
+
+				progUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+				langProg, err := testDb.CreateLanguageProgress(ctx, db.CreateLanguageProgressParams{
+					LanguageSlug: "rust",
+					UserID:       progUser.ID,
+				})
+				if err != nil {
+					t.Fatal("Failed to create language progress", "error", err)
+				}
+
+				seriesProg, err := testDb.CreateSeriesProgress(ctx, db.CreateSeriesProgressParams{
+					LanguageSlug:       "rust",
+					SeriesSlug:         "existing-series",
+					LanguageProgressID: langProg.ID,
+					UserID:             progUser.ID,
+				})
+				if err != nil {
+					t.Fatal("Failed to create series progress", "error", err)
+				}
+
+				secProg, err := testDb.CreateSectionProgress(ctx, db.CreateSectionProgressParams{
+					LanguageSlug:       "rust",
+					SeriesSlug:         "existing-series",
+					SectionID:          sectionID,
+					LanguageProgressID: langProg.ID,
+					SeriesProgressID:   seriesProg.ID,
+					UserID:             progUser.ID,
+				})
+				if err != nil {
+					t.Fatal("Failed to create section progress", "error", err)
+				}
+
+				lPrms := db.CreateLessonProgressParams{
+					LanguageSlug:       "rust",
+					SeriesSlug:         "existing-series",
+					SectionID:          sectionID,
+					LessonID:           lessonID,
+					LanguageProgressID: langProg.ID,
+					SeriesProgressID:   seriesProg.ID,
+					SectionProgressID:  secProg.ID,
+					UserID:             progUser.ID,
+				}
+				if _, err := testDb.CreateLessonProgress(ctx, lPrms); err != nil {
+					t.Fatal("Failed to create lesson progress", "error", err)
+				}
+
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: false}, accessToken
+			},
+			ExpStatus: fiber.StatusConflict,
+			AssertFn: func(t *testing.T, _ dtos.UpdateIsPublishedBody, resp *http.Response) {
+				AssertConflictResponse(t, resp, "Lesson has students")
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf(
+					"%s/rust/series/existing-series/sections/%d/lessons/%d/publish",
+					baseLanguagesPath, sectionID, lessonID,
+				)
+			},
+		},
+		{
+			Name: "Should return 403 FORBIDDEN if the user is staff but not the owner",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				newUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+				newUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, newUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken
+			},
+			ExpStatus: fiber.StatusForbidden,
+			AssertFn: func(t *testing.T, _ dtos.UpdateIsPublishedBody, resp *http.Response) {
+				AssertForbiddenResponse(t, resp)
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf(
+					"%s/rust/series/existing-series/sections/%d/lessons/%d/publish",
+					baseLanguagesPath, sectionID, lessonID,
+				)
+			},
+		},
+		{
+			Name: "Should return 403 FORBIDDEN if the user is not staff",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				newUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+				accessToken, _ := GenerateTestAuthTokens(t, newUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken
+			},
+			ExpStatus: fiber.StatusForbidden,
+			AssertFn: func(t *testing.T, _ dtos.UpdateIsPublishedBody, resp *http.Response) {
+				AssertForbiddenResponse(t, resp)
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf(
+					"%s/rust/series/existing-series/sections/%d/lessons/%d/publish",
+					baseLanguagesPath, sectionID, lessonID,
+				)
+			},
+		},
+		{
+			Name: "Should return 401 UNAUTHORIZED if the user is not authenticated",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				return dtos.UpdateIsPublishedBody{IsPublished: true}, ""
+			},
+			ExpStatus: fiber.StatusUnauthorized,
+			AssertFn: func(t *testing.T, _ dtos.UpdateIsPublishedBody, resp *http.Response) {
+				AssertUnauthorizedResponse(t, resp)
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf(
+					"%s/rust/series/existing-series/sections/%d/lessons/%d/publish",
+					baseLanguagesPath, sectionID, lessonID,
+				)
+			},
+		},
+		{
+			Name: "Should return 404 NOT FOUND if the lesson is not found",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, _ dtos.UpdateIsPublishedBody, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf(
+					"%s/rust/series/existing-series/sections/%d/lessons/987654321/publish",
+					baseLanguagesPath, sectionID,
+				)
+			},
+		},
+		{
+			Name: "Should return 404 NOT FOUND if the section is not found",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, _ dtos.UpdateIsPublishedBody, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf(
+					"%s/rust/series/existing-series/sections/987654321/lessons/%d/publish",
+					baseLanguagesPath, lessonID,
+				)
+			},
+		},
+		{
+			Name: "Should return 404 NOT FOUND if the series is not found",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, _ dtos.UpdateIsPublishedBody, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf(
+					"%s/rust/series/non-existing-series/sections/%d/lessons/%d/publish",
+					baseLanguagesPath, sectionID, lessonID,
+				)
+			},
+		},
+		{
+			Name: "Should return 404 NOT FOUND if the language is not found",
+			ReqFn: func(t *testing.T) (dtos.UpdateIsPublishedBody, string) {
+				beforeEach(t)
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateIsPublishedBody{IsPublished: true}, accessToken
+			},
+			ExpStatus: fiber.StatusNotFound,
+			AssertFn: func(t *testing.T, _ dtos.UpdateIsPublishedBody, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+				afterEach(t)
+			},
+			PathFn: func() string {
+				return fmt.Sprintf(
+					"%s/python/series/existing-series/sections/%d/lessons/%d/publish",
 					baseLanguagesPath, sectionID, lessonID,
 				)
 			},
