@@ -162,7 +162,6 @@ Table lessons as LES {
 
   indexes {
     (title, section_id) [unique, name: 'lessons_title_section_id_unique_idx']
-    (section_id, position) [unique, name: 'lessons_section_id_position_unique_idx']
     (language_slug, series_slug) [name: 'lessons_language_slug_series_slug_idx']
     (language_slug, series_slug, is_published) [name: 'lessons_language_slug_series_slug_is_published_idx']
     (language_slug, series_slug, id) [name: 'lessons_language_slug_series_slug_id_idx']

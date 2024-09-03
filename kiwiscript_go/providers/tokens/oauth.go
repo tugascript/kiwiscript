@@ -59,7 +59,7 @@ func (t *Tokens) CreateOAuthToken(user *db.User) (string, error) {
 func (t *Tokens) VerifyOAuthToken(token string) (OAuthUserClaims, error) {
 	claims := oauthClaims{}
 	_, err := jwt.ParseWithClaims(token, &claims, func(token *jwt.Token) (interface{}, error) {
-		return t.accessData.publicKey, nil
+		return t.oauthData.publicKey, nil
 	})
 	return claims.User, err
 }

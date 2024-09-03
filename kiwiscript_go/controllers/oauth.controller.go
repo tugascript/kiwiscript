@@ -33,9 +33,9 @@ const oauthLocation string = "oauth"
 func (c *Controllers) generateOAuthAcceptURL(ctx *fiber.Ctx, response *services.OAuthResponse) error {
 	params := make(url.Values)
 	params.Add("code", response.Code)
-	params.Add("accessToken", response.AccessToken)
-	params.Add("tokenType", "Bearer")
-	params.Add("expiresIn", strconv.FormatInt(response.ExpiresIn, 10))
+	params.Add("access_token", response.AccessToken)
+	params.Add("token_type", "Bearer")
+	params.Add("expires_in", strconv.FormatInt(response.ExpiresIn, 10))
 	redirectUrl := fmt.Sprintf("https://%s/auth/callback?%s", c.frontendDomain, params.Encode())
 	return ctx.Redirect(redirectUrl, fiber.StatusFound)
 }
@@ -102,14 +102,14 @@ func (c *Controllers) GoogleSignIn(ctx *fiber.Ctx) error {
 
 	authUrl, serviceErr := c.services.GetAuthorizationURL(userCtx, services.GetAuthorizationURLOptions{
 		RequestID: requestID,
-		Provider:  utils.ProviderGitHub,
+		Provider:  utils.ProviderGoogle,
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
 	log.InfoContext(userCtx, "Redirecting the user to front-end login")
-	return ctx.Redirect(authUrl, fiber.StatusFound)
+	return ctx.Redirect(authUrl, fiber.StatusTemporaryRedirect)
 }
 
 func (c *Controllers) GoogleCallback(ctx *fiber.Ctx) error {

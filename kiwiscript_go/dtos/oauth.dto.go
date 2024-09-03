@@ -18,7 +18,7 @@
 package dtos
 
 type OAuthTokenBody struct {
-	Code        string `json:"code" validate:"required,min=22,alphanum"`
+	Code        string `json:"code" validate:"required,min=1,max=30,alphanum"`
 	RedirectURI string `json:"redirectUri" validate:"required,url"`
 }
 

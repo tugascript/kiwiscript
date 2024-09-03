@@ -59,6 +59,7 @@ func (s *Services) CreateSection(ctx context.Context, opts CreateSectionOptions)
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   series.Slug,
 		Title:        opts.Title,
+		Description:  opts.Description,
 		AuthorID:     opts.UserID,
 	})
 	if err != nil {

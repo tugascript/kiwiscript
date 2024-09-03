@@ -29,6 +29,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -276,6 +277,12 @@ func AssertNotEmpty[V comparable](t *testing.T, actual V) {
 	var empty V
 	if actual == empty {
 		t.Fatal("Value is empty")
+	}
+}
+
+func AssertStringContains(t *testing.T, actual string, expected string) {
+	if !strings.Contains(actual, expected) {
+		t.Fatalf("Actual: %s, Expected: %s", actual, expected)
 	}
 }
 
