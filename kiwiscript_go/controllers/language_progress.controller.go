@@ -41,12 +41,17 @@ func (c *Controllers) CreateOrUpdateLanguageProgress(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
 	}
 
-	params := dtos.LessonPathParams{LanguageSlug: slug}
+	if user.IsStaff {
+		log.WarnContext(userCtx, "Staff users cannot crate language progress")
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
+	}
+
+	params := dtos.LanguagePathParams{LanguageSlug: slug}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}
 
-	language, languageProgress, serviceErr := c.services.CreateOrUpdateLanguageProgress(
+	language, languageProgress, created, serviceErr := c.services.CreateOrUpdateLanguageProgress(
 		userCtx,
 		services.CreateOrUpdateLanguageProgressOptions{
 			RequestID:    requestID,
@@ -56,6 +61,12 @@ func (c *Controllers) CreateOrUpdateLanguageProgress(ctx *fiber.Ctx) error {
 	)
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	if created {
+		return ctx.Status(fiber.StatusCreated).JSON(
+			dtos.NewLanguageResponse(c.backendDomain, language.ToLanguageModelWithProgress(languageProgress)),
+		)
 	}
 
 	return ctx.JSON(dtos.NewLanguageResponse(c.backendDomain, language.ToLanguageModelWithProgress(languageProgress)))
@@ -76,7 +87,12 @@ func (c *Controllers) ResetLanguageProgress(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
 	}
 
-	params := dtos.LessonPathParams{LanguageSlug: slug}
+	if user.IsStaff {
+		log.WarnContext(userCtx, "Staff users cannot reset language progress")
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
+	}
+
+	params := dtos.LanguagePathParams{LanguageSlug: slug}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}

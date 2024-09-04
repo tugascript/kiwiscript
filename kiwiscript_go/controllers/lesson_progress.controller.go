@@ -48,6 +48,11 @@ func (c *Controllers) CreateOrUpdateLessonProgress(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
 	}
 
+	if user.IsStaff {
+		log.WarnContext(userCtx, "Staff users cannot create or update lesson progress")
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
+	}
+
 	params := dtos.LessonPathParams{
 		LanguageSlug: languageSlug,
 		SeriesSlug:   seriesSlug,
@@ -82,7 +87,7 @@ func (c *Controllers) CreateOrUpdateLessonProgress(ctx *fiber.Ctx) error {
 
 	parsedSectionIDi32 := int32(parsedSectionID)
 	parsedLessonIDi32 := int32(parsedLessonID)
-	lesson, progress, serviceErr := c.services.CreateOrUpdateLessonProgress(
+	lesson, progress, created, serviceErr := c.services.CreateOrUpdateLessonProgress(
 		userCtx,
 		services.CreateOrUpdateLessonProgressOptions{
 			RequestID:    requestID,
@@ -95,6 +100,12 @@ func (c *Controllers) CreateOrUpdateLessonProgress(ctx *fiber.Ctx) error {
 	)
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	if created {
+		return ctx.Status(fiber.StatusCreated).JSON(
+			dtos.NewLessonResponse(c.backendDomain, lesson.ToLessonModelWithProgress(progress)),
+		)
 	}
 
 	return ctx.JSON(dtos.NewLessonResponse(c.backendDomain, lesson.ToLessonModelWithProgress(progress)))

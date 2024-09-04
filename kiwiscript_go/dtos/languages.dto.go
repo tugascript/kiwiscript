@@ -104,6 +104,7 @@ func NewLanguageResponse(backendDomain string, model *db.LanguageModel) *Languag
 		Icon:            model.Icon,
 		CompletedSeries: model.CompletedSeries,
 		TotalSeries:     model.TotalSeries,
+		ViewedAt:        model.ViewedAt,
 		Links:           newLanguageLinks(backendDomain, model.Slug),
 	}
 }

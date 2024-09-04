@@ -114,7 +114,7 @@ type CreateOrUpdateLessonProgressOptions struct {
 func (s *Services) CreateOrUpdateLessonProgress(
 	ctx context.Context,
 	opts CreateOrUpdateLessonProgressOptions,
-) (*db.Lesson, *db.LessonProgress, *exceptions.ServiceError) {
+) (*db.Lesson, *db.LessonProgress, bool, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, lessonProgressLocation, "CreateOrUpdateLessonProgress").With(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -131,10 +131,10 @@ func (s *Services) CreateOrUpdateLessonProgress(
 		LessonID:     opts.LessonID,
 	})
 	if serviceErr != nil {
-		return nil, nil, serviceErr
+		return nil, nil, false, serviceErr
 	}
 	if !lesson.IsPublished {
-		return nil, nil, exceptions.NewNotFoundError()
+		return nil, nil, false, exceptions.NewNotFoundError()
 	}
 
 	lessonProgress, serviceErr := s.FindLessonProgressBySlugsAndIDs(ctx, FindLessonProgressOptions{
@@ -154,18 +154,18 @@ func (s *Services) CreateOrUpdateLessonProgress(
 			LessonID:     opts.LessonID,
 		})
 		if serviceErr != nil {
-			return nil, nil, serviceErr
+			return nil, nil, false, serviceErr
 		}
 
-		return lesson, lessonProgress, nil
+		return lesson, lessonProgress, true, nil
 	}
 
 	if err := s.database.UpdateLanguageProgressViewedAt(ctx, lessonProgress.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to update lesson progress viewed at", "error", err)
-		return nil, nil, exceptions.FromDBError(err)
+		return nil, nil, false, exceptions.FromDBError(err)
 	}
 
-	return lesson, lessonProgress, nil
+	return lesson, lessonProgress, false, nil
 }
 
 type CompleteLessonProgressOptions struct {
