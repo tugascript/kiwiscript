@@ -245,6 +245,7 @@ SELECT
   "series_progress"."id" AS "series_progress_id",
   "series_progress"."completed_sections" AS "series_progress_completed_sections",
   "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+  "series_progress"."viewed_at" AS "series_progress_viewed_at",
   "series_pictures"."id" AS "picture_id",
   "series_pictures"."ext" AS "picture_ext"
 FROM "series"
@@ -268,6 +269,7 @@ SELECT
   "series_progress"."id" AS "series_progress_id",
   "series_progress"."completed_sections" AS "series_progress_completed_sections",
   "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+  "series_progress"."viewed_at" AS "series_progress_viewed_at",
   "series_pictures"."id" AS "picture_id",
   "series_pictures"."ext" AS "picture_ext"
 FROM "series"
@@ -291,6 +293,7 @@ SELECT
   "series_progress"."id" AS "series_progress_id",
   "series_progress"."completed_sections" AS "series_progress_completed_sections",
   "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+  "series_progress"."viewed_at" AS "series_progress_viewed_at",
   "series_pictures"."id" AS "picture_id",
   "series_pictures"."ext" AS "picture_ext"
 FROM "series"
@@ -319,6 +322,7 @@ SELECT
   "series_progress"."id" AS "series_progress_id",
   "series_progress"."completed_sections" AS "series_progress_completed_sections",
   "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+  "series_progress"."viewed_at" AS "series_progress_viewed_at",
   "series_pictures"."id" AS "picture_id",
   "series_pictures"."ext" AS "picture_ext"
 FROM "series"
@@ -429,6 +433,7 @@ SELECT
     "series_progress"."id" AS "series_progress_id",
     "series_progress"."completed_sections" AS "series_progress_completed_sections",
     "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+    "series_progress"."viewed_at" AS "series_progress_viewed_at",
     "series_pictures"."id" AS "picture_id",
     "series_pictures"."ext" AS "picture_ext"
 FROM "series"

@@ -17,7 +17,10 @@
 
 package db
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+	"time"
+)
 
 type SeriesAuthor struct {
 	ID        int32
@@ -42,6 +45,7 @@ type SeriesModel struct {
 	TotalLessons      int16
 	WatchTime         int32
 	ReadTime          int32
+	ViewedAt          string
 	IsPublished       bool
 	Author            SeriesAuthor
 	Picture           *SeriesPictureIDAndEXT
@@ -151,6 +155,11 @@ func (s *FindPublishedSeriesBySlugWithAuthorAndProgressRow) ToSeriesModel() *Ser
 		}
 	}
 
+	var viewedAt string
+	if s.SeriesProgressViewedAt.Valid {
+		viewedAt = s.SeriesProgressViewedAt.Time.Format(time.RFC3339)
+	}
+
 	return &SeriesModel{
 		ID:                s.ID,
 		Title:             s.Title,
@@ -164,6 +173,7 @@ func (s *FindPublishedSeriesBySlugWithAuthorAndProgressRow) ToSeriesModel() *Ser
 		IsPublished:       s.IsPublished,
 		WatchTime:         s.WatchTimeSeconds,
 		ReadTime:          s.ReadTimeSeconds,
+		ViewedAt:          viewedAt,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,
@@ -422,6 +432,11 @@ func (s *FindPaginatedPublishedSeriesWithAuthorAndProgressSortByIDRow) ToSeriesM
 		}
 	}
 
+	var viewedAt string
+	if s.SeriesProgressViewedAt.Valid {
+		viewedAt = s.SeriesProgressViewedAt.Time.Format(time.RFC3339)
+	}
+
 	return &SeriesModel{
 		ID:                s.ID,
 		Title:             s.Title,
@@ -435,6 +450,7 @@ func (s *FindPaginatedPublishedSeriesWithAuthorAndProgressSortByIDRow) ToSeriesM
 		IsPublished:       s.IsPublished,
 		WatchTime:         s.WatchTimeSeconds,
 		ReadTime:          s.ReadTimeSeconds,
+		ViewedAt:          viewedAt,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,
@@ -453,6 +469,11 @@ func (s *FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlugRow) ToSerie
 		}
 	}
 
+	var viewedAt string
+	if s.SeriesProgressViewedAt.Valid {
+		viewedAt = s.SeriesProgressViewedAt.Time.Format(time.RFC3339)
+	}
+
 	return &SeriesModel{
 		ID:                s.ID,
 		Title:             s.Title,
@@ -466,6 +487,7 @@ func (s *FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlugRow) ToSerie
 		IsPublished:       s.IsPublished,
 		WatchTime:         s.WatchTimeSeconds,
 		ReadTime:          s.ReadTimeSeconds,
+		ViewedAt:          viewedAt,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,
@@ -484,6 +506,11 @@ func (s *FindFilteredPublishedSeriesWithAuthorAndProgressSortByIDRow) ToSeriesMo
 		}
 	}
 
+	var viewedAt string
+	if s.SeriesProgressViewedAt.Valid {
+		viewedAt = s.SeriesProgressViewedAt.Time.Format(time.RFC3339)
+	}
+
 	return &SeriesModel{
 		ID:                s.ID,
 		Title:             s.Title,
@@ -497,6 +524,7 @@ func (s *FindFilteredPublishedSeriesWithAuthorAndProgressSortByIDRow) ToSeriesMo
 		IsPublished:       s.IsPublished,
 		WatchTime:         s.WatchTimeSeconds,
 		ReadTime:          s.ReadTimeSeconds,
+		ViewedAt:          viewedAt,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,
@@ -515,6 +543,11 @@ func (s *FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlugRow) ToSeries
 		}
 	}
 
+	var viewedAt string
+	if s.SeriesProgressViewedAt.Valid {
+		viewedAt = s.SeriesProgressViewedAt.Time.Format(time.RFC3339)
+	}
+
 	return &SeriesModel{
 		ID:                s.ID,
 		Title:             s.Title,
@@ -528,6 +561,7 @@ func (s *FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlugRow) ToSeries
 		IsPublished:       s.IsPublished,
 		WatchTime:         s.WatchTimeSeconds,
 		ReadTime:          s.ReadTimeSeconds,
+		ViewedAt:          viewedAt,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,
@@ -546,6 +580,11 @@ func (s *FindPublishedSeriesBySlugsWithAuthorRow) ToSeriesModelWithProgress(prog
 		}
 	}
 
+	var viewedAt string
+	if progress.ViewedAt.Valid {
+		viewedAt = progress.ViewedAt.Time.Format(time.RFC3339)
+	}
+
 	return &SeriesModel{
 		ID:                s.ID,
 		Title:             s.Title,
@@ -559,6 +598,7 @@ func (s *FindPublishedSeriesBySlugsWithAuthorRow) ToSeriesModelWithProgress(prog
 		IsPublished:       s.IsPublished,
 		WatchTime:         s.WatchTimeSeconds,
 		ReadTime:          s.ReadTimeSeconds,
+		ViewedAt:          viewedAt,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,

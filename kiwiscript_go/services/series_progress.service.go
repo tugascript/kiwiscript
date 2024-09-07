@@ -102,7 +102,7 @@ type CreateOrUpdateSeriesProgressOptions struct {
 func (s *Services) CreateOrUpdateSeriesProgress(
 	ctx context.Context,
 	opts CreateOrUpdateSeriesProgressOptions,
-) (*db.FindPublishedSeriesBySlugsWithAuthorRow, *db.SeriesProgress, *exceptions.ServiceError) {
+) (*db.FindPublishedSeriesBySlugsWithAuthorRow, *db.SeriesProgress, bool, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, seriesProgressLocation, "CreateOrUpdateSeriesProgress").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -116,7 +116,7 @@ func (s *Services) CreateOrUpdateSeriesProgress(
 		SeriesSlug:   opts.SeriesSlug,
 	})
 	if serviceErr != nil {
-		return nil, nil, serviceErr
+		return nil, nil, false, serviceErr
 	}
 
 	languageProgress, serviceErr := s.FindLanguageProgressBySlug(ctx, FindLanguageProgressOptions{
@@ -125,7 +125,7 @@ func (s *Services) CreateOrUpdateSeriesProgress(
 		LanguageSlug: opts.LanguageSlug,
 	})
 	if serviceErr != nil {
-		return nil, nil, serviceErr
+		return nil, nil, false, serviceErr
 	}
 
 	seriesProgress, serviceErr := s.FindSeriesProgress(ctx, FindSeriesProgressOptions{
@@ -143,19 +143,19 @@ func (s *Services) CreateOrUpdateSeriesProgress(
 			SeriesSlug:         opts.SeriesSlug,
 		})
 		if serviceErr != nil {
-			return nil, nil, serviceErr
+			return nil, nil, false, serviceErr
 		}
 
-		return series, seriesProgress, nil
+		return series, seriesProgress, true, nil
 	}
 
 	if err := s.database.UpdateSeriesProgressViewedAt(ctx, seriesProgress.ID); err != nil {
 		log.ErrorContext(ctx, "Error updating series progress viewed at", "error", err)
-		return nil, nil, exceptions.FromDBError(err)
+		return nil, nil, false, exceptions.FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Series progress updated")
-	return series, seriesProgress, nil
+	return series, seriesProgress, false, nil
 }
 
 type DeleteSeriesProgressOptions struct {

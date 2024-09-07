@@ -290,6 +290,7 @@ SELECT
   "series_progress"."id" AS "series_progress_id",
   "series_progress"."completed_sections" AS "series_progress_completed_sections",
   "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+  "series_progress"."viewed_at" AS "series_progress_viewed_at",
   "series_pictures"."id" AS "picture_id",
   "series_pictures"."ext" AS "picture_ext"
 FROM "series"
@@ -338,6 +339,7 @@ type FindFilteredPublishedSeriesWithAuthorAndProgressSortByIDRow struct {
 	SeriesProgressID                pgtype.Int4
 	SeriesProgressCompletedSections pgtype.Int2
 	SeriesProgressCompletedLessons  pgtype.Int2
+	SeriesProgressViewedAt          pgtype.Timestamp
 	PictureID                       pgtype.UUID
 	PictureExt                      pgtype.Text
 }
@@ -376,6 +378,7 @@ func (q *Queries) FindFilteredPublishedSeriesWithAuthorAndProgressSortByID(ctx c
 			&i.SeriesProgressID,
 			&i.SeriesProgressCompletedSections,
 			&i.SeriesProgressCompletedLessons,
+			&i.SeriesProgressViewedAt,
 			&i.PictureID,
 			&i.PictureExt,
 		); err != nil {
@@ -397,6 +400,7 @@ SELECT
   "series_progress"."id" AS "series_progress_id",
   "series_progress"."completed_sections" AS "series_progress_completed_sections",
   "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+  "series_progress"."viewed_at" AS "series_progress_viewed_at",
   "series_pictures"."id" AS "picture_id",
   "series_pictures"."ext" AS "picture_ext"
 FROM "series"
@@ -445,6 +449,7 @@ type FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlugRow struct {
 	SeriesProgressID                pgtype.Int4
 	SeriesProgressCompletedSections pgtype.Int2
 	SeriesProgressCompletedLessons  pgtype.Int2
+	SeriesProgressViewedAt          pgtype.Timestamp
 	PictureID                       pgtype.UUID
 	PictureExt                      pgtype.Text
 }
@@ -483,6 +488,7 @@ func (q *Queries) FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlug(ctx
 			&i.SeriesProgressID,
 			&i.SeriesProgressCompletedSections,
 			&i.SeriesProgressCompletedLessons,
+			&i.SeriesProgressViewedAt,
 			&i.PictureID,
 			&i.PictureExt,
 		); err != nil {
@@ -870,6 +876,7 @@ SELECT
   "series_progress"."id" AS "series_progress_id",
   "series_progress"."completed_sections" AS "series_progress_completed_sections",
   "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+  "series_progress"."viewed_at" AS "series_progress_viewed_at",
   "series_pictures"."id" AS "picture_id",
   "series_pictures"."ext" AS "picture_ext"
 FROM "series"
@@ -912,6 +919,7 @@ type FindPaginatedPublishedSeriesWithAuthorAndProgressSortByIDRow struct {
 	SeriesProgressID                pgtype.Int4
 	SeriesProgressCompletedSections pgtype.Int2
 	SeriesProgressCompletedLessons  pgtype.Int2
+	SeriesProgressViewedAt          pgtype.Timestamp
 	PictureID                       pgtype.UUID
 	PictureExt                      pgtype.Text
 }
@@ -949,6 +957,7 @@ func (q *Queries) FindPaginatedPublishedSeriesWithAuthorAndProgressSortByID(ctx 
 			&i.SeriesProgressID,
 			&i.SeriesProgressCompletedSections,
 			&i.SeriesProgressCompletedLessons,
+			&i.SeriesProgressViewedAt,
 			&i.PictureID,
 			&i.PictureExt,
 		); err != nil {
@@ -970,6 +979,7 @@ SELECT
   "series_progress"."id" AS "series_progress_id",
   "series_progress"."completed_sections" AS "series_progress_completed_sections",
   "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+  "series_progress"."viewed_at" AS "series_progress_viewed_at",
   "series_pictures"."id" AS "picture_id",
   "series_pictures"."ext" AS "picture_ext"
 FROM "series"
@@ -1012,6 +1022,7 @@ type FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlugRow struct {
 	SeriesProgressID                pgtype.Int4
 	SeriesProgressCompletedSections pgtype.Int2
 	SeriesProgressCompletedLessons  pgtype.Int2
+	SeriesProgressViewedAt          pgtype.Timestamp
 	PictureID                       pgtype.UUID
 	PictureExt                      pgtype.Text
 }
@@ -1049,6 +1060,7 @@ func (q *Queries) FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlug(ct
 			&i.SeriesProgressID,
 			&i.SeriesProgressCompletedSections,
 			&i.SeriesProgressCompletedLessons,
+			&i.SeriesProgressViewedAt,
 			&i.PictureID,
 			&i.PictureExt,
 		); err != nil {
@@ -1425,6 +1437,7 @@ SELECT
     "series_progress"."id" AS "series_progress_id",
     "series_progress"."completed_sections" AS "series_progress_completed_sections",
     "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+    "series_progress"."viewed_at" AS "series_progress_viewed_at",
     "series_pictures"."id" AS "picture_id",
     "series_pictures"."ext" AS "picture_ext"
 FROM "series"
@@ -1466,6 +1479,7 @@ type FindPublishedSeriesBySlugWithAuthorAndProgressRow struct {
 	SeriesProgressID                pgtype.Int4
 	SeriesProgressCompletedSections pgtype.Int2
 	SeriesProgressCompletedLessons  pgtype.Int2
+	SeriesProgressViewedAt          pgtype.Timestamp
 	PictureID                       pgtype.UUID
 	PictureExt                      pgtype.Text
 }
@@ -1492,6 +1506,7 @@ func (q *Queries) FindPublishedSeriesBySlugWithAuthorAndProgress(ctx context.Con
 		&i.SeriesProgressID,
 		&i.SeriesProgressCompletedSections,
 		&i.SeriesProgressCompletedLessons,
+		&i.SeriesProgressViewedAt,
 		&i.PictureID,
 		&i.PictureExt,
 	)

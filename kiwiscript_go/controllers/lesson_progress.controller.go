@@ -48,7 +48,7 @@ func (c *Controllers) CreateOrUpdateLessonProgress(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
 	}
 
-	if user.IsStaff {
+	if user.IsStaff || user.IsAdmin {
 		log.WarnContext(userCtx, "Staff users cannot create or update lesson progress")
 		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}

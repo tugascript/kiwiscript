@@ -43,6 +43,11 @@ func (c *Controllers) CreateOrUpdateSeriesProgress(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
 	}
 
+	if user.IsStaff || user.IsAdmin {
+		log.WarnContext(userCtx, "Staff or admin user cannot create or update series progress")
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
+	}
+
 	params := dtos.SeriesPathParams{
 		LanguageSlug: languageSlug,
 		SeriesSlug:   seriesSlug,
@@ -51,7 +56,7 @@ func (c *Controllers) CreateOrUpdateSeriesProgress(ctx *fiber.Ctx) error {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}
 
-	series, seriesProgress, serviceErr := c.services.CreateOrUpdateSeriesProgress(
+	series, seriesProgress, created, serviceErr := c.services.CreateOrUpdateSeriesProgress(
 		userCtx,
 		services.CreateOrUpdateSeriesProgressOptions{
 			RequestID:    requestID,
@@ -81,6 +86,14 @@ func (c *Controllers) CreateOrUpdateSeriesProgress(ctx *fiber.Ctx) error {
 		))
 	}
 
+	if created {
+		return ctx.Status(fiber.StatusCreated).JSON(dtos.NewSeriesResponse(
+			c.backendDomain,
+			series.ToSeriesModelWithProgress(seriesProgress),
+			"",
+		))
+	}
+
 	return ctx.JSON(dtos.NewSeriesResponse(
 		c.backendDomain,
 		series.ToSeriesModelWithProgress(seriesProgress),
@@ -103,6 +116,11 @@ func (c *Controllers) ResetSeriesProgress(ctx *fiber.Ctx) error {
 	if err != nil {
 		log.ErrorContext(userCtx, "This route is protected should have not reached here")
 		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
+	}
+
+	if user.IsStaff || user.IsAdmin {
+		log.WarnContext(userCtx, "Staff or admin user is trying to reset series progress")
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	params := dtos.SeriesPathParams{

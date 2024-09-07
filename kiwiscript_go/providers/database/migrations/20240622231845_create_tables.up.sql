@@ -1,6 +1,6 @@
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2024-08-31T07:58:39.473Z
+-- Generated at: 2024-09-04T13:35:52.399Z
 
 CREATE TABLE "users" (
   "id" serial PRIMARY KEY,
@@ -228,7 +228,7 @@ CREATE INDEX "series_images_author_id_idx" ON "series_pictures" ("author_id");
 
 CREATE UNIQUE INDEX "sections_title_series_slug_unique_idx" ON "sections" ("title", "series_slug");
 
-CREATE INDEX "sections_series_slug_position_unique_idx" ON "sections" ("series_slug", "position");
+CREATE INDEX "sections_series_slug_position_idx" ON "sections" ("series_slug", "position");
 
 CREATE INDEX "sections_language_slug_series_slug_idx" ON "sections" ("language_slug", "series_slug");
 
@@ -302,7 +302,7 @@ CREATE INDEX "series_progress_language_progress_id_idx" ON "series_progress" ("l
 
 CREATE INDEX "series_progress_viewed_at_idx" ON "series_progress" ("viewed_at");
 
-CREATE UNIQUE INDEX "section_progress_user_id_language_slug_series_slug_section_id_unique_idx" ON "section_progress" ("user_id", "language_slug", "series_slug", "section_id");
+CREATE UNIQUE INDEX "section_progress_user_id_lang_ser_sec_unique_idx" ON "section_progress" ("user_id", "language_slug", "series_slug", "section_id");
 
 CREATE INDEX "section_progress_user_id_idx" ON "section_progress" ("user_id");
 
@@ -318,7 +318,7 @@ CREATE INDEX "section_progress_series_progress_id_idx" ON "section_progress" ("s
 
 CREATE INDEX "section_progress_viewed_at_idx" ON "section_progress" ("viewed_at");
 
-CREATE UNIQUE INDEX "lesson_progress_user_id_language_slug_series_slug_section_id_lesson_id_unique_idx" ON "lesson_progress" ("user_id", "language_slug", "series_slug", "section_id", "lesson_id");
+CREATE UNIQUE INDEX "lesson_progress_user_id_lang_ser_sec_les_unique_idx" ON "lesson_progress" ("user_id", "language_slug", "series_slug", "section_id", "lesson_id");
 
 CREATE INDEX "lesson_progress_user_id_idx" ON "lesson_progress" ("user_id");
 
