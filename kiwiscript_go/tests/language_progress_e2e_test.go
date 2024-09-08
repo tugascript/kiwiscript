@@ -30,7 +30,7 @@ import (
 	"testing"
 )
 
-func TestCreateOrUpdateLessonProgress(t *testing.T) {
+func TestCreateOrUpdateLanguageProgress(t *testing.T) {
 	languagesCleanUp(t)()
 	staffUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
 	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)

@@ -112,7 +112,7 @@ type CreateOrUpdateSectionProgressOptions struct {
 func (s *Services) CreateOrUpdateSectionProgress(
 	ctx context.Context,
 	opts CreateOrUpdateSectionProgressOptions,
-) (*db.Section, *db.SectionProgress, *exceptions.ServiceError) {
+) (*db.Section, *db.SectionProgress, bool, *exceptions.ServiceError) {
 	log := s.buildLogger(opts.RequestID, sectionProgressLocation, "CreateOrUpdateSectionProgress").With(
 		"userID", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
@@ -128,7 +128,7 @@ func (s *Services) CreateOrUpdateSectionProgress(
 	})
 	if serviceErr != nil {
 		log.InfoContext(ctx, "Series part not found")
-		return nil, nil, serviceErr
+		return nil, nil, false, serviceErr
 	}
 
 	seriesProgress, serviceErr := s.FindSeriesProgress(ctx, FindSeriesProgressOptions{
@@ -138,7 +138,7 @@ func (s *Services) CreateOrUpdateSectionProgress(
 	})
 	if serviceErr != nil {
 		log.InfoContext(ctx, "Series progress not found")
-		return nil, nil, serviceErr
+		return nil, nil, false, serviceErr
 	}
 
 	seriesPartProgress, serviceErr := s.FindSectionProgressBySlugsAndID(
@@ -161,19 +161,19 @@ func (s *Services) CreateOrUpdateSectionProgress(
 			SectionID:          opts.SectionID,
 		})
 		if serviceErr != nil {
-			return nil, nil, serviceErr
+			return nil, nil, false, serviceErr
 		}
 
-		return seriesPart, seriesPartProgress, nil
+		return seriesPart, seriesPartProgress, true, nil
 	}
 
 	if err := s.database.UpdateSectionProgressViewedAt(ctx, seriesPartProgress.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to update series part progress viewed at", "error", err)
-		return nil, nil, exceptions.FromDBError(err)
+		return nil, nil, false, exceptions.FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Series part progress updated")
-	return seriesPart, seriesPartProgress, nil
+	return seriesPart, seriesPartProgress, false, nil
 }
 
 type DeleteSectionProgressOptions struct {

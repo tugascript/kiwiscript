@@ -46,6 +46,11 @@ func (c *Controllers) CreateOrUpdateSectionProgress(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
 	}
 
+	if user.IsStaff || user.IsAdmin {
+		log.WarnContext(userCtx, "Staff or admin user cannot create or update section progress")
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
+	}
+
 	params := dtos.SectionPathParams{
 		LanguageSlug: languageSlug,
 		SeriesSlug:   seriesSlug,
@@ -67,7 +72,7 @@ func (c *Controllers) CreateOrUpdateSectionProgress(ctx *fiber.Ctx) error {
 	}
 
 	parsedSectionIDi32 := int32(parsedSectionID)
-	section, progress, serviceErr := c.services.CreateOrUpdateSectionProgress(
+	section, progress, created, serviceErr := c.services.CreateOrUpdateSectionProgress(
 		userCtx,
 		services.CreateOrUpdateSectionProgressOptions{
 			RequestID:    requestID,
@@ -79,6 +84,12 @@ func (c *Controllers) CreateOrUpdateSectionProgress(ctx *fiber.Ctx) error {
 	)
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	if created {
+		return ctx.Status(fiber.StatusCreated).JSON(
+			dtos.NewSectionResponse(c.backendDomain, section.ToSectionModelWithProgress(progress), nil),
+		)
 	}
 
 	return ctx.JSON(dtos.NewSectionResponse(c.backendDomain, section.ToSectionModelWithProgress(progress), nil))
@@ -101,6 +112,11 @@ func (c *Controllers) ResetSectionProgress(ctx *fiber.Ctx) error {
 	if serviceErr != nil {
 		log.ErrorContext(userCtx, "This route is protected should have not reached here")
 		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
+	}
+
+	if user.IsStaff || user.IsAdmin {
+		log.WarnContext(userCtx, "Staff or admin user cannot reset section progress")
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	params := dtos.SectionPathParams{

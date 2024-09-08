@@ -149,6 +149,7 @@ type SectionResponse struct {
 	ReadTime         int32            `json:"readTime"`
 	WatchTime        int32            `json:"watchTime"`
 	IsPublished      bool             `json:"isPublished"`
+	ViewedAt         string           `json:"viewedAt,omitempty"`
 	Links            SectionLinks     `json:"_links"`
 	Embedded         *SectionEmbedded `json:"_embedded,omitempty"`
 }
@@ -165,6 +166,7 @@ func NewSectionResponse(backendDomain string, section *db.SectionModel, lessons 
 		ReadTime:         section.ReadTimeSeconds,
 		WatchTime:        section.WatchTimeSeconds,
 		IsPublished:      section.IsPublished,
+		ViewedAt:         section.ViewedAt,
 		Links:            newSectionLinks(backendDomain, section.LanguageSlug, section.SeriesSlug, section.ID),
 		Embedded:         newSectionEmbedded(backendDomain, lessons),
 	}
