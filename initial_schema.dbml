@@ -131,7 +131,7 @@ Table sections as SP {
 
   indexes {
     (title, series_slug) [unique, name: 'sections_title_series_slug_unique_idx']
-    (series_slug, position) [name: 'sections_series_slug_position_unique_idx']
+    (series_slug, position) [name: 'sections_series_slug_position_idx']
     (language_slug, series_slug) [name: 'sections_language_slug_series_slug_idx']
     (language_slug, series_slug, is_published) [name: 'sections_language_slug_series_slug_is_published_idx']
     (language_slug, series_slug, id) [name: 'sections_language_slug_series_slug_id_idx']
@@ -293,7 +293,7 @@ Table section_progress as SPP {
   updated_at timestamp [not null, default: `now()`]
 
   indexes {
-    (user_id, language_slug, series_slug, section_id) [unique, name: 'section_progress_user_id_language_slug_series_slug_section_id_unique_idx']
+    (user_id, language_slug, series_slug, section_id) [unique, name: 'section_progress_user_id_lang_ser_sec_unique_idx']
     user_id [name: 'section_progress_user_id_idx']
     language_slug [name: 'section_progress_language_slug_idx']
     series_slug [name: 'section_progress_series_slug_idx']
@@ -326,7 +326,7 @@ Table lesson_progress as LP {
   updated_at timestamp [not null, default: `now()`]
 
   indexes {
-    (user_id, language_slug, series_slug, section_id, lesson_id) [unique, name: 'lesson_progress_user_id_language_slug_series_slug_section_id_lesson_id_unique_idx']
+    (user_id, language_slug, series_slug, section_id, lesson_id) [unique, name: 'lesson_progress_user_id_lang_ser_sec_les_unique_idx']
     user_id [name: 'lesson_progress_user_id_idx']
     language_slug [name: 'lesson_progress_language_slug_idx']
     series_slug [name: 'lesson_progress_series_slug_idx']
