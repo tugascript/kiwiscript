@@ -38,6 +38,9 @@ pm-up:
 pm-start:
 	podman-compose -f ../docker-compose.yaml start
 
+pm-stop:
+	podman-compose -f ../docker-compose.yaml stop
+
 dc-down:
 	docker-compose -f ../docker-compose.yaml down
 

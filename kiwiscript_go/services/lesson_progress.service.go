@@ -119,12 +119,13 @@ func (s *Services) CreateOrUpdateLessonProgress(
 		"userId", opts.UserID,
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
-		"seriesPartId", opts.SectionID,
+		"sectionId", opts.SectionID,
 		"lessonId", opts.LessonID,
 	)
 	log.InfoContext(ctx, "Creating or updating lesson progress...")
 
-	lesson, serviceErr := s.FindLessonBySlugsAndIDs(ctx, FindLessonOptions{
+	lesson, serviceErr := s.FindPublishedLessonBySlugsAndIDs(ctx, FindLessonOptions{
+		RequestID:    opts.RequestID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
 		SectionID:    opts.SectionID,
@@ -133,8 +134,16 @@ func (s *Services) CreateOrUpdateLessonProgress(
 	if serviceErr != nil {
 		return nil, nil, false, serviceErr
 	}
-	if !lesson.IsPublished {
-		return nil, nil, false, exceptions.NewNotFoundError()
+
+	sectionProgress, serviceErr := s.FindSectionProgressBySlugsAndID(ctx, FindSectionProgressBySlugsAndIDOptions{
+		RequestID:    opts.RequestID,
+		UserID:       opts.UserID,
+		LanguageSlug: opts.LanguageSlug,
+		SeriesSlug:   opts.SeriesSlug,
+		SectionID:    opts.SectionID,
+	})
+	if serviceErr != nil {
+		return nil, nil, false, serviceErr
 	}
 
 	lessonProgress, serviceErr := s.FindLessonProgressBySlugsAndIDs(ctx, FindLessonProgressOptions{
@@ -147,11 +156,14 @@ func (s *Services) CreateOrUpdateLessonProgress(
 	})
 	if serviceErr != nil {
 		lessonProgress, serviceErr := s.createLessonProgress(ctx, log, createLessonProgressOptions{
-			UserID:       opts.UserID,
-			LanguageSlug: opts.LanguageSlug,
-			SeriesSlug:   opts.SeriesSlug,
-			SectionID:    opts.SectionID,
-			LessonID:     opts.LessonID,
+			UserID:             opts.UserID,
+			LanguageSlug:       opts.LanguageSlug,
+			SeriesSlug:         opts.SeriesSlug,
+			SectionID:          opts.SectionID,
+			LessonID:           opts.LessonID,
+			LanguageProgressID: sectionProgress.LanguageProgressID,
+			SeriesProgressID:   sectionProgress.SeriesProgressID,
+			SectionProgressID:  sectionProgress.ID,
 		})
 		if serviceErr != nil {
 			return nil, nil, false, serviceErr
@@ -204,6 +216,11 @@ func (s *Services) CompleteLessonProgress(
 	lessonProgress, serviceErr := s.FindLessonProgressBySlugsAndIDs(ctx, FindLessonProgressOptions(opts))
 	if serviceErr != nil {
 		return nil, nil, nil, serviceErr
+	}
+
+	if lessonProgress.CompletedAt.Valid {
+		log.InfoContext(ctx, "Lesson progress already completed")
+		return lesson, lessonProgress, nil, nil
 	}
 
 	qrs, txn, err := s.database.BeginTx(ctx)
@@ -374,6 +391,9 @@ func (s *Services) DeleteLessonProgress(
 				return serviceErr
 			}
 		}
+
+		log.InfoContext(ctx, "Delete lesson progress successfully")
+		return nil
 	}
 
 	if err := s.database.DeleteLessonProgress(ctx, lessonProgress.ID); err != nil {

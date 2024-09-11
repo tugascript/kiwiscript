@@ -97,10 +97,7 @@ const decrementSectionProgressCompletedLessons = `-- name: DecrementSectionProgr
 UPDATE "section_progress"
 SET
     "completed_lessons" = "section_progress"."completed_lessons" -1,
-    "completed_at" = CASE
-        WHEN "section_progress"."completed_lessons" IS NOT NULL THEN (NULL)
-        ELSE "section_progress"."completed_at"
-    END
+    "completed_at" = NULL
 FROM "sections"
 WHERE
     "section_progress"."section_id" = "sections"."id" AND

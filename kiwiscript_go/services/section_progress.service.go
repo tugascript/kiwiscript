@@ -121,7 +121,7 @@ func (s *Services) CreateOrUpdateSectionProgress(
 	)
 	log.InfoContext(ctx, "Creating or updating series part progress...")
 
-	seriesPart, serviceErr := s.FindPublishedSectionBySlugsAndID(ctx, FindSectionBySlugsAndIDOptions{
+	section, serviceErr := s.FindPublishedSectionBySlugsAndID(ctx, FindSectionBySlugsAndIDOptions{
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,
 		SectionID:    opts.SectionID,
@@ -141,7 +141,7 @@ func (s *Services) CreateOrUpdateSectionProgress(
 		return nil, nil, false, serviceErr
 	}
 
-	seriesPartProgress, serviceErr := s.FindSectionProgressBySlugsAndID(
+	sectionProgress, serviceErr := s.FindSectionProgressBySlugsAndID(
 		ctx,
 		FindSectionProgressBySlugsAndIDOptions{
 			UserID:       opts.UserID,
@@ -164,16 +164,16 @@ func (s *Services) CreateOrUpdateSectionProgress(
 			return nil, nil, false, serviceErr
 		}
 
-		return seriesPart, seriesPartProgress, true, nil
+		return section, seriesPartProgress, true, nil
 	}
 
-	if err := s.database.UpdateSectionProgressViewedAt(ctx, seriesPartProgress.ID); err != nil {
+	if err := s.database.UpdateSectionProgressViewedAt(ctx, sectionProgress.ID); err != nil {
 		log.ErrorContext(ctx, "Failed to update series part progress viewed at", "error", err)
 		return nil, nil, false, exceptions.FromDBError(err)
 	}
 
 	log.InfoContext(ctx, "Series part progress updated")
-	return seriesPart, seriesPartProgress, false, nil
+	return section, sectionProgress, false, nil
 }
 
 type DeleteSectionProgressOptions struct {

@@ -79,6 +79,11 @@ func (l *Lesson) ToLessonModelWithProgress(progress *LessonProgress) *LessonMode
 }
 
 func (l *FindPaginatedPublishedLessonsBySlugsAndSectionIDWithProgressRow) ToLessonModel() *LessonModel {
+	var viewedAt string
+	if l.LessonProgressViewedAt.Valid {
+		viewedAt = l.LessonProgressViewedAt.Time.Format(time.RFC3339)
+	}
+
 	return &LessonModel{
 		ID:               l.ID,
 		Title:            l.Title,
@@ -90,10 +95,16 @@ func (l *FindPaginatedPublishedLessonsBySlugsAndSectionIDWithProgressRow) ToLess
 		SectionID:        l.SectionID,
 		IsPublished:      l.IsPublished,
 		IsCompleted:      l.LessonProgressCompletedAt.Valid,
+		ViewedAt:         viewedAt,
 	}
 }
 
 func (l *FindPublishedLessonBySlugsAndIDsWithProgressArticleAndVideoRow) ToLessonModel() *LessonModel {
+	var viewedAt string
+	if l.LessonProgressViewedAt.Valid {
+		viewedAt = l.LessonProgressViewedAt.Time.Format(time.RFC3339)
+	}
+
 	return &LessonModel{
 		ID:               l.ID,
 		Title:            l.Title,
@@ -105,6 +116,7 @@ func (l *FindPublishedLessonBySlugsAndIDsWithProgressArticleAndVideoRow) ToLesso
 		SectionID:        l.SectionID,
 		IsPublished:      l.IsPublished,
 		IsCompleted:      l.LessonProgressCompletedAt.Valid,
+		ViewedAt:         viewedAt,
 	}
 }
 

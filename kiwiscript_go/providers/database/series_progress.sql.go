@@ -98,8 +98,9 @@ func (q *Queries) DecrementSeriesProgressCompletedLessons(ctx context.Context, i
 
 const decrementSeriesProgressCompletedSections = `-- name: DecrementSeriesProgressCompletedSections :exec
 UPDATE "series_progress" SET
-  "completed_sections" = "completed_sections" - 1,
-  "completed_lessons" = "completed_lessons" - $1
+    "completed_sections" = "completed_sections" - 1,
+    "completed_lessons" = "completed_lessons" - $1,
+    "completed_at" = NULL
 WHERE "id" = $2
 `
 

@@ -160,6 +160,7 @@ func TestCreateOrUpdateSectionProgress(t *testing.T) {
 			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, dtos.SectionResponse{})
 				AssertNotEmpty(t, resBody.ViewedAt)
+				AssertEqual(t, resBody.IsCompleted, false)
 				afterEach(t)
 			},
 			Path: fmt.Sprintf("%s/rust/series/rust-series/sections/%d/progress", baseLanguagesPath, sectionID),
@@ -189,6 +190,7 @@ func TestCreateOrUpdateSectionProgress(t *testing.T) {
 			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
 				resBody := AssertTestResponseBody(t, resp, dtos.SectionResponse{})
 				AssertNotEmpty(t, resBody.ViewedAt)
+				AssertEqual(t, resBody.IsCompleted, false)
 				afterEach(t)
 			},
 			Path: fmt.Sprintf("%s/rust/series/rust-series/sections/%d/progress", baseLanguagesPath, sectionID),

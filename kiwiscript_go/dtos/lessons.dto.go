@@ -336,6 +336,7 @@ type LessonResponse struct {
 	IsPublished bool            `json:"isPublished"`
 	WatchTime   int32           `json:"watchTime"`
 	ReadTime    int32           `json:"readTime"`
+	ViewedAt    string          `json:"viewedAt,omitempty"`
 	Embedded    *LessonEmbedded `json:"_embedded,omitempty"`
 	Links       LessonLinks     `json:"_links"`
 }
@@ -349,6 +350,7 @@ func NewLessonResponse(backendDomain string, lesson *db.LessonModel) *LessonResp
 		IsPublished: lesson.IsPublished,
 		WatchTime:   lesson.WatchTimeSeconds,
 		ReadTime:    lesson.ReadTimeSeconds,
+		ViewedAt:    lesson.ViewedAt,
 		Links: newLessonLinks(
 			backendDomain,
 			lesson.LanguageSlug,
@@ -392,6 +394,7 @@ func NewLessonResponseWithEmbeddedOptions(
 		IsPublished: lesson.IsPublished,
 		WatchTime:   lesson.WatchTimeSeconds,
 		ReadTime:    lesson.ReadTimeSeconds,
+		ViewedAt:    lesson.ViewedAt,
 		Links: newLessonLinks(
 			backendDomain,
 			lesson.LanguageSlug,
@@ -423,6 +426,7 @@ func NewLessonResponseWithCertificate(
 		IsPublished: lesson.IsPublished,
 		WatchTime:   lesson.WatchTimeSeconds,
 		ReadTime:    lesson.ReadTimeSeconds,
+		ViewedAt:    lesson.ViewedAt,
 		Links: newLessonLinks(
 			backendDomain,
 			lesson.LanguageSlug,

@@ -132,6 +132,11 @@ func (c *Controllers) CompleteLessonProgress(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
 	}
 
+	if user.IsStaff || user.IsAdmin {
+		log.WarnContext(userCtx, "Staff users cannot complete lesson progress")
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
+	}
+
 	params := dtos.LessonPathParams{
 		LanguageSlug: languageSlug,
 		SeriesSlug:   seriesSlug,
@@ -213,6 +218,11 @@ func (c *Controllers) ResetLessonProgress(ctx *fiber.Ctx) error {
 	if serviceErr != nil {
 		log.ErrorContext(userCtx, "This route is protected should have not reached here")
 		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
+	}
+
+	if user.IsStaff || user.IsAdmin {
+		log.WarnContext(userCtx, "Staff users cannot reset lesson progress")
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
 	params := dtos.LessonPathParams{
