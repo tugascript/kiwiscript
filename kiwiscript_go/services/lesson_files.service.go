@@ -198,7 +198,7 @@ func (s *Services) FindLessonFile(
 
 	if opts.IsPublished && !lesson.IsPublished {
 		log.WarnContext(ctx, "Cannot find file from unpublished lesson")
-		return nil, exceptions.NewNotFoundError()
+		return nil, exceptions.NewForbiddenError()
 	}
 
 	lessonFile, err := s.database.FindLessonFileByIDAndLessonID(ctx, db.FindLessonFileByIDAndLessonIDParams{
@@ -248,7 +248,7 @@ func (s *Services) FindLessonFiles(
 
 	if opts.IsPublished && !lesson.IsPublished {
 		log.WarnContext(ctx, "Cannot find files from unpublished lesson")
-		return nil, exceptions.NewNotFoundError()
+		return nil, exceptions.NewForbiddenError()
 	}
 
 	lessonFiles, err := s.database.FindLessonFilesByLessonID(ctx, opts.LessonID)

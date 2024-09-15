@@ -509,8 +509,11 @@ func (c *Controllers) UpdateLessonFile(ctx *fiber.Ctx) error {
 			))
 	}
 
-	request := dtos.LessonFileBody{Name: ctx.FormValue("name")}
-	if err := c.validate.StructCtx(userCtx, request); err != nil {
+	var body dtos.LessonFileBody
+	if err := ctx.BodyParser(&body); err != nil {
+		return c.parseRequestErrorResponse(log, userCtx, err, ctx)
+	}
+	if err := c.validate.StructCtx(userCtx, body); err != nil {
 		return c.validateRequestErrorResponse(log, userCtx, err, ctx)
 	}
 
@@ -524,7 +527,7 @@ func (c *Controllers) UpdateLessonFile(ctx *fiber.Ctx) error {
 		SectionID:    sectionIDi32,
 		LessonID:     lessonIDi32,
 		File:         parsedFileID,
-		Name:         request.Name,
+		Name:         body.Name,
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)

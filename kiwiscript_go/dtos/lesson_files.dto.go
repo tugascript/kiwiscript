@@ -37,7 +37,7 @@ type LessonFilePathParams struct {
 // Bodies
 
 type LessonFileBody struct {
-	Name string `validate:"required,min=2,max=250,extalphanum"`
+	Name string `json:"name" validate:"required,min=2,max=250,extalphanum"`
 }
 
 // Response
