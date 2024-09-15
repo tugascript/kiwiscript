@@ -108,17 +108,6 @@ func (s *Services) CreateLessonArticle(ctx context.Context, opts CreateLessonArt
 	}()
 
 	readTime := CalculateReadingTime(opts.Content)
-	lessonPrms := db.UpdateLessonReadTimeSecondsParams{
-		ID:              opts.LessonID,
-		ReadTimeSeconds: readTime,
-	}
-	if err := qrs.UpdateLessonReadTimeSeconds(ctx, lessonPrms); err != nil {
-		log.ErrorContext(ctx, "Failed to update lesson read time", "error", err)
-		serviceErr = exceptions.FromDBError(err)
-		return nil, serviceErr
-	}
-	log.InfoContext(ctx, "Leson read time updated", "readTime", lesson.ReadTimeSeconds)
-
 	lessonArticle, err := qrs.CreateLessonArticle(ctx, db.CreateLessonArticleParams{
 		LessonID:        opts.LessonID,
 		AuthorID:        opts.UserID,
@@ -130,6 +119,17 @@ func (s *Services) CreateLessonArticle(ctx context.Context, opts CreateLessonArt
 		serviceErr = exceptions.FromDBError(err)
 		return nil, serviceErr
 	}
+
+	lessonPrms := db.UpdateLessonReadTimeSecondsParams{
+		ID:              opts.LessonID,
+		ReadTimeSeconds: readTime,
+	}
+	if err := qrs.UpdateLessonReadTimeSeconds(ctx, lessonPrms); err != nil {
+		log.ErrorContext(ctx, "Failed to update lesson read time", "error", err)
+		serviceErr = exceptions.FromDBError(err)
+		return nil, serviceErr
+	}
+	log.InfoContext(ctx, "Leson read time updated", "readTime", lesson.ReadTimeSeconds)
 
 	if lesson.IsPublished {
 		seriesParams := db.AddSeriesReadTimeParams{

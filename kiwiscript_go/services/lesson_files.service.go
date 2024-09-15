@@ -71,6 +71,11 @@ func (s *Services) UploadLessonFile(
 		FH:        opts.FileHeader,
 	})
 	if err != nil {
+		if err.Error() == "mime type not supported" {
+			log.WarnContext(ctx, "Mime type not supported")
+			return nil, exceptions.NewValidationError("File type not supported")
+		}
+
 		log.ErrorContext(ctx, "Error uploading document", "error", err)
 		return nil, exceptions.NewServerError()
 	}
@@ -193,7 +198,7 @@ func (s *Services) FindLessonFile(
 
 	if opts.IsPublished && !lesson.IsPublished {
 		log.WarnContext(ctx, "Cannot find file from unpublished lesson")
-		return nil, exceptions.NewValidationError("Cannot get file from published lesson")
+		return nil, exceptions.NewNotFoundError()
 	}
 
 	lessonFile, err := s.database.FindLessonFileByIDAndLessonID(ctx, db.FindLessonFileByIDAndLessonIDParams{
@@ -243,7 +248,7 @@ func (s *Services) FindLessonFiles(
 
 	if opts.IsPublished && !lesson.IsPublished {
 		log.WarnContext(ctx, "Cannot find files from unpublished lesson")
-		return nil, exceptions.NewValidationError("Cannot get file from published lesson")
+		return nil, exceptions.NewNotFoundError()
 	}
 
 	lessonFiles, err := s.database.FindLessonFilesByLessonID(ctx, opts.LessonID)
@@ -296,6 +301,7 @@ func (s *Services) UpdateLessonFile(
 	log.InfoContext(ctx, "Updating lesson file...")
 
 	lessonOpts := AssertLessonOwnershipOptions{
+		RequestID:    opts.RequestID,
 		UserID:       opts.UserID,
 		LanguageSlug: opts.LanguageSlug,
 		SeriesSlug:   opts.SeriesSlug,

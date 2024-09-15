@@ -43,7 +43,7 @@ func (c *Controllers) GetCertificate(ctx *fiber.Ctx) error {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
 	}
 
-	parsedCertificateID, err := uuid.FromBytes([]byte(params.CertificateID))
+	parsedCertificateID, err := uuid.Parse(params.CertificateID)
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
@@ -79,10 +79,14 @@ func (c *Controllers) GetUserCertificates(ctx *fiber.Ctx) error {
 		log.ErrorContext(userCtx, "This route is protected should have not reached here")
 		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
 	}
+	if user.IsStaff || user.IsAdmin {
+		log.WarnContext(userCtx, "Staff and admin users are not allowed to access this route")
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
+	}
 
 	queryParams := dtos.PaginationQueryParams{
-		Limit:  int32(ctx.QueryInt("offset", dtos.OffsetDefault)),
-		Offset: int32(ctx.QueryInt("limit", dtos.LimitDefault)),
+		Limit:  int32(ctx.QueryInt("limit", dtos.LimitDefault)),
+		Offset: int32(ctx.QueryInt("offset", dtos.OffsetDefault)),
 	}
 	if err := c.validate.StructCtx(userCtx, queryParams); err != nil {
 		return c.validateQueryErrorResponse(log, userCtx, err, ctx)

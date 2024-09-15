@@ -213,16 +213,16 @@ func CreateTestJSONRequestBody(t *testing.T, reqBody interface{}) *bytes.Reader 
 	return bytes.NewReader(jsonBody)
 }
 
-func PerformTestRequest(t *testing.T, app *fiber.App, delayMs int, method, path, accessToken string, body io.Reader) *http.Response {
+func PerformTestRequest(t *testing.T, app *fiber.App, delayMs int, method, path, accessToken, contentType string, body io.Reader) *http.Response {
 	req := httptest.NewRequest(method, path, body)
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("Accept", "application/json")
 
 	if accessToken != "" {
 		req.Header.Set("Authorization", "Bearer "+accessToken)
 	}
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, 2000)
 	if err != nil {
 		t.Fatal("Failed to perform request", err)
 	}
@@ -427,7 +427,24 @@ func PerformTestRequestCase[R any](t *testing.T, method, path string, tc TestReq
 	fiberApp := GetTestApp(t)
 
 	// Act
-	resp := PerformTestRequest(t, fiberApp, tc.DelayMs, method, path, accessToken, jsonBody)
+	resp := PerformTestRequest(t, fiberApp, tc.DelayMs, method, path, accessToken, "application/json", jsonBody)
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	// Assert
+	AssertTestStatusCode(t, resp, tc.ExpStatus)
+	tc.AssertFn(t, reqBody, resp)
+}
+
+func PerformTestRequestCaseWithForm(t *testing.T, tc TestRequestCase[FormFileBody]) {
+	// Arrange
+	reqBody, accessToken := tc.ReqFn(t)
+	fiberApp := GetTestApp(t)
+
+	resp := PerformTestRequest(t, fiberApp, tc.DelayMs, http.MethodPost, tc.Path, accessToken, reqBody.ContentType, bytes.NewReader(reqBody.Body.Bytes()))
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
 			t.Fatal(err)
@@ -446,7 +463,7 @@ func PerformTestRequestCaseWithPathFn[R any](t *testing.T, method string, tc Tes
 	fiberApp := GetTestApp(t)
 
 	// Act
-	resp := PerformTestRequest(t, fiberApp, tc.DelayMs, method, tc.PathFn(), accessToken, jsonBody)
+	resp := PerformTestRequest(t, fiberApp, tc.DelayMs, method, tc.PathFn(), accessToken, "application/json", jsonBody)
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
 			t.Fatal(err)
@@ -503,4 +520,99 @@ func FileUploadMock(t *testing.T) *multipart.FileHeader {
 	fileHeader := form.File["file"][0]
 
 	return fileHeader
+}
+
+type FormFileBody struct {
+	Body        *bytes.Buffer
+	ContentType string
+}
+
+func ImageUploadForm(t *testing.T, ext string) FormFileBody {
+	// Create a buffer to hold the file and form data
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+
+	// Add file to the form data
+	part, err := writer.CreateFormFile("file", "image."+ext)
+	if err != nil {
+		t.Fatalf("Failed to create form file: %v", err)
+	}
+
+	// Open a file to simulate file upload
+	file, err := os.Open("./fixtures/image." + ext)
+	if err != nil {
+		t.Fatal("Failed to open file", "error", err)
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Fatal("Failed to close file", "error", err)
+		}
+	}()
+
+	// Copy the file content to the multipart writer
+	_, err = io.Copy(part, file)
+	if err != nil {
+		t.Fatalf("Failed to copy file content: %v", err)
+	}
+
+	contentType := writer.FormDataContentType()
+	// Close the writer to finalize the multipart form data
+	if err := writer.Close(); err != nil {
+		t.Fatalf("Failed to close writer: %v", err)
+	}
+
+	return FormFileBody{
+		Body:        body,
+		ContentType: contentType,
+	}
+}
+
+func FileUploadForm(t *testing.T, name, ext string) FormFileBody {
+	// Create a buffer to hold the file and form data
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+
+	// Add file to the form data
+	part, err := writer.CreateFormFile("file", "lorem-ipsum-test."+ext)
+	if err != nil {
+		t.Fatalf("Failed to create form file: %v", err)
+	}
+
+	// Open a file to simulate file upload
+	file, err := os.Open("./fixtures/lorem-ipsum-test." + ext)
+	if err != nil {
+		t.Fatal("Failed to open file", "error", err)
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Fatal("Failed to close file", "error", err)
+		}
+	}()
+
+	// Copy the file content to the multipart writer
+	_, err = io.Copy(part, file)
+	if err != nil {
+		t.Fatalf("Failed to copy file content: %v", err)
+	}
+
+	fileName, err := writer.CreateFormField("name")
+	if err != nil {
+		t.Fatalf("Failed to create form field: %v", err)
+	}
+
+	_, err = fileName.Write([]byte(name))
+	if err != nil {
+		t.Fatalf("Failed to write form field: %v", err)
+	}
+
+	contentType := writer.FormDataContentType()
+	// Close the writer to finalize the multipart form data
+	if err := writer.Close(); err != nil {
+		t.Fatalf("Failed to close writer: %v", err)
+	}
+
+	return FormFileBody{
+		Body:        body,
+		ContentType: contentType,
+	}
 }

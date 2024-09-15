@@ -105,6 +105,10 @@ const (
 )
 
 func toCamelCase(camel string) string {
+	if camel == strings.ToUpper(camel) {
+		return strings.ToLower(camel)
+	}
+
 	var result strings.Builder
 	for i, char := range camel {
 		if unicode.IsUpper(char) {

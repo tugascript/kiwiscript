@@ -33,12 +33,12 @@ func (c *Controllers) CreateLessonArticle(ctx *fiber.Ctx) error {
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
-	lectureID := ctx.Params("lectureID")
+	lessonID := ctx.Params("lessonID")
 	log := c.buildLogger(ctx, requestID, lessonArticlesLocation, "CreateLessonArticle").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
-		"lectureID", lectureID,
+		"sectionId", sectionID,
+		"lessonId", lessonID,
 	)
 	log.InfoContext(userCtx, "Creating lecture article...")
 
@@ -52,7 +52,7 @@ func (c *Controllers) CreateLessonArticle(ctx *fiber.Ctx) error {
 		LanguageSlug: languageSlug,
 		SeriesSlug:   seriesSlug,
 		SectionID:    sectionID,
-		LessonID:     lectureID,
+		LessonID:     lessonID,
 	}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
@@ -128,12 +128,12 @@ func (c *Controllers) GetLessonArticle(ctx *fiber.Ctx) error {
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
-	lectureID := ctx.Params("lectureID")
+	lessonID := ctx.Params("lessonID")
 	log := c.buildLogger(ctx, requestID, lessonArticlesLocation, "GetLessonArticle").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
 		"sectionId", sectionID,
-		"lectureId", lectureID,
+		"lessonId", lessonID,
 	)
 	log.InfoContext(userCtx, "Creating lecture article...")
 
@@ -141,7 +141,7 @@ func (c *Controllers) GetLessonArticle(ctx *fiber.Ctx) error {
 		LanguageSlug: languageSlug,
 		SeriesSlug:   seriesSlug,
 		SectionID:    sectionID,
-		LessonID:     lectureID,
+		LessonID:     lessonID,
 	}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
@@ -213,12 +213,12 @@ func (c *Controllers) UpdateLessonArticle(ctx *fiber.Ctx) error {
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
-	lectureID := ctx.Params("lectureID")
+	lessonID := ctx.Params("lessonID")
 	log := c.buildLogger(ctx, requestID, lessonArticlesLocation, "UpdateLessonArticle").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
-		"lectureID", lectureID,
+		"sectionId", sectionID,
+		"lessonId", lessonID,
 	)
 	log.InfoContext(userCtx, "Updating lecture article...")
 
@@ -232,7 +232,7 @@ func (c *Controllers) UpdateLessonArticle(ctx *fiber.Ctx) error {
 		LanguageSlug: languageSlug,
 		SeriesSlug:   seriesSlug,
 		SectionID:    sectionID,
-		LessonID:     lectureID,
+		LessonID:     lessonID,
 	}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
@@ -307,12 +307,12 @@ func (c *Controllers) DeleteLessonArticle(ctx *fiber.Ctx) error {
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
-	lectureID := ctx.Params("lectureID")
+	lessonID := ctx.Params("lessonID")
 	log := c.buildLogger(ctx, requestID, lessonArticlesLocation, "DeleteLessonArticle").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
-		"sectionID", sectionID,
-		"lectureID", lectureID,
+		"sectionId", sectionID,
+		"lessonId", lessonID,
 	)
 	log.InfoContext(userCtx, "Delete lecture article...")
 
@@ -326,7 +326,7 @@ func (c *Controllers) DeleteLessonArticle(ctx *fiber.Ctx) error {
 		LanguageSlug: languageSlug,
 		SeriesSlug:   seriesSlug,
 		SectionID:    sectionID,
-		LessonID:     lectureID,
+		LessonID:     lessonID,
 	}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)

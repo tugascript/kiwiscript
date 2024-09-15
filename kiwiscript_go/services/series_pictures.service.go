@@ -79,12 +79,13 @@ func (s *Services) UploadSeriesPicture(
 		return nil, serviceErr
 	}
 
-	seriesPicture, serviceErr := s.FindSeriesPictureBySeriesID(ctx, FindSeriesPictureBySeriesIDOptions{
-		RequestID: "",
+	findOpts := FindSeriesPictureBySeriesIDOptions{
+		RequestID: opts.RequestID,
 		SeriesID:  series.ID,
-	})
-	if serviceErr != nil {
-		return nil, serviceErr
+	}
+	if _, serviceErr = s.FindSeriesPictureBySeriesID(ctx, findOpts); serviceErr == nil {
+		log.WarnContext(ctx, "Series picture already exists")
+		return nil, exceptions.NewConflictError("Series picture already exists")
 	}
 
 	fileId, ext, err := s.objStg.UploadImage(ctx, objStg.UploadImageOptions{
@@ -93,11 +94,16 @@ func (s *Services) UploadSeriesPicture(
 		FH:        opts.FileHeader,
 	})
 	if err != nil {
+		if err.Error() == "mime type not supported" {
+			log.WarnContext(ctx, "Invalid file type", "error", err)
+			return nil, exceptions.NewValidationError("Invalid file type")
+		}
+
 		log.ErrorContext(ctx, "Error uploading picture", "error", err)
-		return nil, exceptions.FromDBError(err)
+		return nil, exceptions.NewServerError()
 	}
 
-	*seriesPicture, err = s.database.CreateSeriesPicture(ctx, db.CreateSeriesPictureParams{
+	seriesPicture, err := s.database.CreateSeriesPicture(ctx, db.CreateSeriesPictureParams{
 		ID:       fileId,
 		SeriesID: series.ID,
 		AuthorID: opts.UserID,
@@ -108,7 +114,7 @@ func (s *Services) UploadSeriesPicture(
 		return nil, exceptions.FromDBError(err)
 	}
 
-	return seriesPicture, nil
+	return &seriesPicture, nil
 }
 
 type DeletePictureOptions struct {

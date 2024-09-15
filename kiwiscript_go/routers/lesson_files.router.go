@@ -7,7 +7,7 @@ const lessonFilesPath = paths.LanguagePathV1 +
 	paths.SeriesPath +
 	"/:seriesSlug" +
 	paths.SectionsPath +
-	"/:seriesPartID" +
+	"/:sectionID" +
 	paths.LessonsPath +
 	"/:lessonID" +
 	paths.FilesPath

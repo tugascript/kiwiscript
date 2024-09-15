@@ -306,6 +306,7 @@ func TestUpdateSeries(t *testing.T) {
 	t.Cleanup(userCleanUp(t))
 }
 
+// TODO: add with series picture
 func TestGetSeries(t *testing.T) {
 	languagesCleanUp(t)()
 	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
@@ -516,6 +517,7 @@ func TestGetSeries(t *testing.T) {
 	t.Cleanup(userCleanUp(t))
 }
 
+// TODO: add with series picture
 func TestGetPaginatedSeries(t *testing.T) {
 	languagesCleanUp(t)()
 	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)

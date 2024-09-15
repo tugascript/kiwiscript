@@ -123,6 +123,28 @@ func (s *Services) CreateLessonVideo(
 		return nil, serviceErr
 	}
 
+	if lesson.IsPublished {
+		seriesParams := db.AddSeriesWatchTimeParams{
+			Slug:             opts.SeriesSlug,
+			WatchTimeSeconds: opts.WatchTime,
+		}
+		if err := qrs.AddSeriesWatchTime(ctx, seriesParams); err != nil {
+			log.ErrorContext(ctx, "Failed to update series watch time", "error", err)
+			serviceErr = exceptions.FromDBError(err)
+			return nil, serviceErr
+		}
+
+		sectionParams := db.AddSectionWatchTimeParams{
+			ID:               opts.SectionID,
+			WatchTimeSeconds: opts.WatchTime,
+		}
+		if err := qrs.AddSectionWatchTime(ctx, sectionParams); err != nil {
+			log.ErrorContext(ctx, "Failed to update series part watch time", "error", err)
+			serviceErr = exceptions.FromDBError(err)
+			return nil, serviceErr
+		}
+	}
+
 	return &lessonVideo, nil
 }
 

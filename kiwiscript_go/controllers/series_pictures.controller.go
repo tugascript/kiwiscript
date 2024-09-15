@@ -65,6 +65,7 @@ func (c *Controllers) UploadSeriesPicture(ctx *fiber.Ctx) error {
 	}
 
 	seriesPicture, serviceErr := c.services.UploadSeriesPicture(userCtx, services.UploadSeriesPictureOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,
@@ -178,6 +179,7 @@ func (c *Controllers) DeleteSeriesPicture(ctx *fiber.Ctx) error {
 	}
 
 	opts := services.DeletePictureOptions{
+		RequestID:    requestID,
 		UserID:       user.ID,
 		LanguageSlug: params.LanguageSlug,
 		SeriesSlug:   params.SeriesSlug,

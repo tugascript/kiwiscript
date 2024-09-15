@@ -38,7 +38,7 @@ func newCertificatesLink(backendDomain, languageSlug, seriesSlug string, certifi
 	return CertificateLinks{
 		Self: LinkResponse{
 			Href: fmt.Sprintf(
-				"https://%s%s/%s",
+				"https://%s/api%s/%s",
 				backendDomain,
 				paths.CertificatesV1,
 				certificateID.String(),
@@ -46,7 +46,7 @@ func newCertificatesLink(backendDomain, languageSlug, seriesSlug string, certifi
 		},
 		Series: LinkResponse{
 			Href: fmt.Sprintf(
-				"https://%s%s/%s%s/%s",
+				"https://%s/api%s/%s%s/%s",
 				backendDomain,
 				paths.LanguagePathV1,
 				languageSlug,
@@ -55,7 +55,7 @@ func newCertificatesLink(backendDomain, languageSlug, seriesSlug string, certifi
 			),
 		},
 		Language: LinkResponse{
-			Href: fmt.Sprintf("https://%s%s/%s", backendDomain, paths.LanguagePathV1, languageSlug),
+			Href: fmt.Sprintf("https://%s/api%s/%s", backendDomain, paths.LanguagePathV1, languageSlug),
 		},
 	}
 }
@@ -77,7 +77,7 @@ func newCertificateLanguageEmbedded(
 		Slug: language.Slug,
 		Link: SelfLinkResponse{
 			Self: LinkResponse{
-				Href: fmt.Sprintf("https://%s%s/%s", backendDomain, paths.LanguagePathV1, language.Slug),
+				Href: fmt.Sprintf("https://%s/api%s/%s", backendDomain, paths.LanguagePathV1, language.Slug),
 			},
 		},
 	}

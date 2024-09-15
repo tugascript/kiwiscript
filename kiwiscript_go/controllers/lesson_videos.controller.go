@@ -33,12 +33,12 @@ func (c *Controllers) CreateLessonVideo(ctx *fiber.Ctx) error {
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
-	lectureID := ctx.Params("lectureID")
+	lessonID := ctx.Params("lessonID")
 	log := c.buildLogger(ctx, requestID, lessonVideosLocation, "CreateLessonVideo").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
 		"sectionId", sectionID,
-		"lectureId", lectureID,
+		"lessonId", lessonID,
 	)
 	log.InfoContext(userCtx, "Creating lecture video...")
 
@@ -52,7 +52,7 @@ func (c *Controllers) CreateLessonVideo(ctx *fiber.Ctx) error {
 		LanguageSlug: languageSlug,
 		SeriesSlug:   seriesSlug,
 		SectionID:    sectionID,
-		LessonID:     lectureID,
+		LessonID:     lessonID,
 	}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
@@ -123,12 +123,12 @@ func (c *Controllers) GetLessonVideo(ctx *fiber.Ctx) error {
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
-	lectureID := ctx.Params("lectureID")
+	lessonID := ctx.Params("lessonID")
 	log := c.buildLogger(ctx, requestID, lessonVideosLocation, "CreateLessonVideo").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
 		"sectionId", sectionID,
-		"lectureId", lectureID,
+		"lessonId", lessonID,
 	)
 	log.InfoContext(userCtx, "Creating lecture video...")
 
@@ -136,7 +136,7 @@ func (c *Controllers) GetLessonVideo(ctx *fiber.Ctx) error {
 		LanguageSlug: languageSlug,
 		SeriesSlug:   seriesSlug,
 		SectionID:    sectionID,
-		LessonID:     lectureID,
+		LessonID:     lessonID,
 	}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
@@ -202,12 +202,12 @@ func (c *Controllers) UpdateLessonVideo(ctx *fiber.Ctx) error {
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
-	lectureID := ctx.Params("lectureID")
+	lessonID := ctx.Params("lessonID")
 	log := c.buildLogger(ctx, requestID, lessonVideosLocation, "UpdateLessonVideo").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
 		"sectionId", sectionID,
-		"lectureId", lectureID,
+		"lessonId", lessonID,
 	)
 	log.InfoContext(userCtx, "Updating lecture video...")
 
@@ -221,7 +221,7 @@ func (c *Controllers) UpdateLessonVideo(ctx *fiber.Ctx) error {
 		LanguageSlug: languageSlug,
 		SeriesSlug:   seriesSlug,
 		SectionID:    sectionID,
-		LessonID:     lectureID,
+		LessonID:     lessonID,
 	}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
@@ -291,12 +291,12 @@ func (c *Controllers) DeleteLessonVideo(ctx *fiber.Ctx) error {
 	languageSlug := ctx.Params("languageSlug")
 	seriesSlug := ctx.Params("seriesSlug")
 	sectionID := ctx.Params("sectionID")
-	lectureID := ctx.Params("lectureID")
+	lessonID := ctx.Params("lessonID")
 	log := c.buildLogger(ctx, requestID, lessonVideosLocation, "DeleteLessonVideo").With(
 		"languageSlug", languageSlug,
 		"seriesSlug", seriesSlug,
 		"sectionId", sectionID,
-		"lectureId", lectureID,
+		"lessonId", lessonID,
 	)
 
 	user, serviceErr := c.GetUserClaims(ctx)
@@ -309,7 +309,7 @@ func (c *Controllers) DeleteLessonVideo(ctx *fiber.Ctx) error {
 		LanguageSlug: languageSlug,
 		SeriesSlug:   seriesSlug,
 		SectionID:    sectionID,
-		LessonID:     lectureID,
+		LessonID:     lessonID,
 	}
 	if err := c.validate.StructCtx(userCtx, params); err != nil {
 		return c.validateParamsErrorResponse(log, userCtx, err, ctx)

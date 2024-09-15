@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/google/uuid"
 	"github.com/kiwiscript/kiwiscript_go/utils"
 	"io"
 	"log/slog"
 	"mime/multipart"
-	"net/http"
 	"time"
 )
 
@@ -35,16 +35,11 @@ func NewObjectStorage(
 }
 
 func readMimeType(f multipart.File) (string, error) {
-	buf := make([]byte, 512)
-	_, err := f.Read(buf)
+	mtype, err := mimetype.DetectReader(f)
 	if err != nil {
 		return "", err
 	}
-	_, err = f.Seek(0, 0)
-	if err != nil {
-		return "", err
-	}
-	return http.DetectContentType(buf), nil
+	return mtype.String(), nil
 }
 
 func makeKey(userId int32, fileId uuid.UUID, fileExt string) string {

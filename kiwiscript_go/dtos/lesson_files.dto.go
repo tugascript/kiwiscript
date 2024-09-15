@@ -59,7 +59,7 @@ func newLessonFileLinks(
 	return LessonFileLinks{
 		Self: LinkResponse{
 			Href: fmt.Sprintf(
-				"https://%s%s/%s%s/%s%s/%d%s/%d%s/%s",
+				"https://%s/api%s/%s%s/%s%s/%d%s/%d%s/%s",
 				backendDomain,
 				paths.LanguagePathV1,
 				languageSlug,
@@ -75,7 +75,7 @@ func newLessonFileLinks(
 		},
 		LessonFiles: LinkResponse{
 			Href: fmt.Sprintf(
-				"https://%s%s/%s%s/%s%s/%d%s/%d%s",
+				"https://%s/api%s/%s%s/%s%s/%d%s/%d%s",
 				backendDomain,
 				paths.LanguagePathV1,
 				languageSlug,
@@ -90,7 +90,7 @@ func newLessonFileLinks(
 		},
 		Lesson: LinkResponse{
 			Href: fmt.Sprintf(
-				"https://%s%s/%s%s/%s%s/%d%s/%d",
+				"https://%s/api%s/%s%s/%s%s/%d%s/%d",
 				backendDomain,
 				paths.LanguagePathV1,
 				languageSlug,

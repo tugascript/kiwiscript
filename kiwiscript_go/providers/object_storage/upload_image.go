@@ -6,16 +6,13 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
+	_ "image/png"
 	"mime/multipart"
 
 	"github.com/google/uuid"
 )
 
-const maxSize = 256 * 1024
-
 const imageExt = "jpeg"
-
-var qualities = [10]int{100, 90, 80, 70, 60, 50, 40, 30, 20, 10}
 
 const (
 	pngMime  string = "image/png"
@@ -29,15 +26,8 @@ func valImgMime(mimeType string) bool {
 func compressImage(data image.Image) (bytes.Buffer, error) {
 	var jpegImage bytes.Buffer
 
-	for _, quality := range qualities {
-		jpegImage.Reset()
-		err := jpeg.Encode(&jpegImage, data, &jpeg.Options{Quality: quality})
-		if err != nil {
-			return bytes.Buffer{}, err
-		}
-		if jpegImage.Len() < maxSize {
-			break
-		}
+	if err := jpeg.Encode(&jpegImage, data, &jpeg.Options{Quality: 75}); err != nil {
+		return bytes.Buffer{}, err
 	}
 
 	return jpegImage, nil
@@ -48,6 +38,11 @@ func decodeImage(f multipart.File) (image.Image, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			err = closeErr
+		}
+	}()
 
 	switch format {
 	case "jpeg", "png":

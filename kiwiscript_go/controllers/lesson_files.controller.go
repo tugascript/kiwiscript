@@ -50,18 +50,6 @@ func (c *Controllers) UploadLessonFile(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
 	}
 
-	file, err := ctx.FormFile("file")
-	if err != nil {
-		return ctx.
-			Status(fiber.StatusBadRequest).
-			JSON(exceptions.NewRequestValidationError(
-				exceptions.RequestValidationLocationBody, []exceptions.FieldError{{
-					Param:   "file",
-					Message: exceptions.FieldErrMessageRequired,
-				}},
-			))
-	}
-
 	params := dtos.LessonPathParams{
 		LanguageSlug: languageSlug,
 		SeriesSlug:   seriesSlug,
@@ -96,6 +84,18 @@ func (c *Controllers) UploadLessonFile(ctx *fiber.Ctx) error {
 				Message: exceptions.StrFieldErrMessageNumber,
 				Value:   params.SectionID,
 			}}))
+	}
+
+	file, err := ctx.FormFile("file")
+	if err != nil {
+		return ctx.
+			Status(fiber.StatusBadRequest).
+			JSON(exceptions.NewRequestValidationError(
+				exceptions.RequestValidationLocationBody, []exceptions.FieldError{{
+					Param:   "file",
+					Message: exceptions.FieldErrMessageRequired,
+				}},
+			))
 	}
 
 	request := dtos.LessonFileBody{Name: ctx.FormValue("name")}
@@ -296,7 +296,7 @@ func (c *Controllers) GetLessonFile(ctx *fiber.Ctx) error {
 			}}))
 	}
 
-	parsedFileID, err := uuid.FromBytes([]byte(params.FileID))
+	parsedFileID, err := uuid.Parse(params.FileID)
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
@@ -407,7 +407,7 @@ func (c *Controllers) DeleteLessonFile(ctx *fiber.Ctx) error {
 			}}))
 	}
 
-	parsedFileID, err := uuid.FromBytes([]byte(params.FileID))
+	parsedFileID, err := uuid.Parse(params.FileID)
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).
@@ -495,7 +495,7 @@ func (c *Controllers) UpdateLessonFile(ctx *fiber.Ctx) error {
 			}}))
 	}
 
-	parsedFileID, err := uuid.FromBytes([]byte(params.FileID))
+	parsedFileID, err := uuid.Parse(params.FileID)
 	if err != nil {
 		return ctx.
 			Status(fiber.StatusBadRequest).

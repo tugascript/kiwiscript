@@ -67,7 +67,7 @@ func CreateApp(
 	})
 
 	appLog.Info("Building the app...")
-	app := fiber.New()
+	app := fiber.New(fiber.Config{BodyLimit: 10 * 1024 * 1024})
 
 	// Load common middlewares
 	appLog.Info("Loading common middlewares...")

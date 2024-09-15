@@ -26,7 +26,7 @@ func (r *Router) CertificatesPublicRoutes() {
 }
 
 func (r *Router) CertificatesPrivateRoutes() {
-	certificates := r.router.Group(paths.CertificatesV1)
+	certificates := r.router.Group(paths.CertificatesV1, r.controllers.UserMiddleware)
 
 	certificates.Get("/", r.controllers.GetUserCertificates)
 }
