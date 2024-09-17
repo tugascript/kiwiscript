@@ -1,6 +1,6 @@
 -- SQL dump generated using DBML (dbml.dbdiagram.io)
 -- Database: PostgreSQL
--- Generated at: 2024-09-04T13:35:52.399Z
+-- Generated at: 2024-09-16T09:21:49.554Z
 
 CREATE TABLE "users" (
   "id" serial PRIMARY KEY,
@@ -13,6 +13,25 @@ CREATE TABLE "users" (
   "is_staff" boolean NOT NULL DEFAULT false,
   "is_confirmed" boolean NOT NULL,
   "password" text,
+  "created_at" timestamp NOT NULL DEFAULT (now()),
+  "updated_at" timestamp NOT NULL DEFAULT (now())
+);
+
+CREATE TABLE "user_profiles" (
+  "id" serial PRIMARY KEY,
+  "user_id" int NOT NULL,
+  "bio" text NOT NULL,
+  "github" varchar(250) NOT NULL,
+  "linkedin" varchar(250) NOT NULL,
+  "website" varchar(250) NOT NULL,
+  "created_at" timestamp NOT NULL DEFAULT (now()),
+  "updated_at" timestamp NOT NULL DEFAULT (now())
+);
+
+CREATE TABLE "user_pictures" (
+  "id" uuid PRIMARY KEY,
+  "user_id" int NOT NULL,
+  "ext" varchar(10) NOT NULL,
   "created_at" timestamp NOT NULL DEFAULT (now()),
   "updated_at" timestamp NOT NULL DEFAULT (now())
 );
@@ -196,6 +215,10 @@ CREATE UNIQUE INDEX "users_email_unique_idx" ON "users" ("email");
 
 CREATE INDEX "users_is_staff_idx" ON "users" ("is_staff");
 
+CREATE UNIQUE INDEX "user_profiles_user_id_unique_idx" ON "user_profiles" ("user_id");
+
+CREATE UNIQUE INDEX "user_pictures_user_id_unique_idx" ON "user_pictures" ("user_id");
+
 CREATE INDEX "auth_providers_email_idx" ON "auth_providers" ("email");
 
 CREATE UNIQUE INDEX "auth_providers_email_provider_unique_idx" ON "auth_providers" ("email", "provider");
@@ -345,6 +368,10 @@ CREATE INDEX "certificates_user_id_idx" ON "certificates" ("user_id");
 CREATE INDEX "certificates_language_slug_idx" ON "certificates" ("language_slug");
 
 CREATE INDEX "certificates_series_slug_idx" ON "certificates" ("series_slug");
+
+ALTER TABLE "user_profiles" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "user_pictures" ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "auth_providers" ADD FOREIGN KEY ("email") REFERENCES "users" ("email") ON DELETE CASCADE ON UPDATE CASCADE;
 

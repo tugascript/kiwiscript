@@ -19,11 +19,31 @@ package routers
 
 import "github.com/kiwiscript/kiwiscript_go/paths"
 
+const (
+	myProfilePath   = paths.MePath + paths.ProfilePath
+	myPicturePath   = paths.MePath + paths.PicturePath
+	userIDPath      = "/:userID"
+	userProfilePath = userIDPath + paths.ProfilePath
+	userPicturePath = userIDPath + paths.PicturePath
+)
+
 func (r *Router) UsersRoutes() {
 	users := r.router.Group(paths.UsersPathV1)
 
-	users.Get("/me", r.controllers.GetMe)
-	users.Put("/me", r.controllers.UpdateCurrentAccount)
-	users.Delete("/me", r.controllers.DeleteCurrentAccount)
-	users.Get("/:userID", r.controllers.GetUser)
+	users.Get(paths.MePath, r.controllers.GetMe)
+	users.Put(paths.MePath, r.controllers.UpdateCurrentAccount)
+	users.Delete(paths.MePath, r.controllers.DeleteCurrentAccount)
+
+	users.Get(myProfilePath, r.controllers.GetMyProfile)
+	users.Post(myProfilePath, r.controllers.CreateUserProfile)
+	users.Put(myProfilePath, r.controllers.UpdateUserProfile)
+	users.Delete(myProfilePath, r.controllers.DeleteUserProfile)
+
+	users.Get(myPicturePath, r.controllers.GetMyPicture)
+	users.Post(myPicturePath, r.controllers.UploadUserPicture)
+	users.Delete(myPicturePath, r.controllers.DeleteUserPicture)
+
+	users.Get(userIDPath, r.controllers.GetUser)
+	users.Get(userProfilePath, r.controllers.GetUserProfile)
+	users.Get(userPicturePath, r.controllers.GetUserPicture)
 }

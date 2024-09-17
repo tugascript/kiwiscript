@@ -67,7 +67,7 @@ func (s *Services) UploadSeriesPicture(
 		"languageSlug", opts.LanguageSlug,
 		"seriesSlug", opts.SeriesSlug,
 	)
-	log.InfoContext(ctx, "Upload series picture...")
+	log.InfoContext(ctx, "Uploading series picture...")
 
 	series, serviceErr := s.AssertSeriesOwnership(ctx, AssertSeriesOwnershipOptions{
 		RequestID:    opts.RequestID,

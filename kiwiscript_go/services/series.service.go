@@ -45,7 +45,7 @@ func (s *Services) FindSeriesBySlugs(ctx context.Context, opts FindSeriesBySlugs
 		LanguageSlug: opts.LanguageSlug,
 	})
 	if err != nil {
-		log.Warn("Error getting series by slug", "error", err)
+		log.WarnContext(ctx, "Error getting series by slug", "error", err)
 		return nil, exceptions.FromDBError(err)
 	}
 

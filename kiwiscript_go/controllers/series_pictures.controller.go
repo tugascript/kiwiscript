@@ -24,7 +24,7 @@ import (
 	"github.com/kiwiscript/kiwiscript_go/services"
 )
 
-const seriesPicturesLocation string = "seriesPictures"
+const seriesPicturesLocation string = "series_pictures"
 
 func (c *Controllers) UploadSeriesPicture(ctx *fiber.Ctx) error {
 	requestID := c.requestID(ctx)

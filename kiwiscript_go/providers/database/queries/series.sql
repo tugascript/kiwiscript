@@ -449,6 +449,104 @@ WHERE
     "series"."is_published" = true
 LIMIT 1;
 
+-- name: FindPaginatedPublishedSeriesWithAuthorAndLanguage :many
+SELECT
+  "series".*,
+  "users"."first_name" AS "author_first_name",
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext",
+  "languages"."name" AS "language_name",
+  "languages"."icon" AS "language_icon"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+INNER JOIN "languages" ON "series"."language_slug" = "languages"."slug"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
+WHERE
+    "series"."is_published" = true
+ORDER BY "series"."slug" ASC
+LIMIT $1 OFFSET $2;
+
+-- name: FindFilteredPublishedSeriesWithAuthorAndLanguage :many
+SELECT
+  "series".*,
+  "users"."first_name" AS "author_first_name",
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext",
+  "languages"."name" AS "language_name",
+  "languages"."icon" AS "language_icon"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+INNER JOIN "languages" ON "series"."language_slug" = "languages"."slug"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
+WHERE
+    "series"."is_published" = true AND
+    (
+        "series"."title" ILIKE $3 OR
+        "users"."first_name" ILIKE $3 OR
+        "users"."last_name" ILIKE $3
+    )
+ORDER BY "series"."slug" ASC
+LIMIT $1 OFFSET $2;
+
+-- name: FindPaginatedPublishedSeriesWithAuthorLanguageAndProgress :many
+SELECT
+    "series".*,
+    "users"."first_name" AS "author_first_name",
+    "users"."last_name" AS "author_last_name",
+    "series_progress"."id" AS "series_progress_id",
+    "series_progress"."completed_sections" AS "series_progress_completed_sections",
+    "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+    "series_progress"."viewed_at" AS "series_progress_viewed_at",
+    "series_pictures"."id" AS "picture_id",
+    "series_pictures"."ext" AS "picture_ext",
+    "languages"."name" AS "language_name",
+    "languages"."icon" AS "language_icon"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+INNER JOIN "languages" ON "series"."language_slug" = "languages"."slug"
+LEFT JOIN "series_progress" ON (
+    "series"."slug" = "series_progress"."series_slug" AND
+    "series_progress"."user_id" = $1
+)
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
+WHERE
+    "series"."is_published" = true
+ORDER BY "series"."slug" ASC
+LIMIT $2 OFFSET $3;
+
+-- name: FindFilteredPublishedSeriesWithAuthorLanguageAndProgress :many
+SELECT
+    "series".*,
+    "users"."first_name" AS "author_first_name",
+    "users"."last_name" AS "author_last_name",
+    "series_progress"."id" AS "series_progress_id",
+    "series_progress"."completed_sections" AS "series_progress_completed_sections",
+    "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+    "series_progress"."viewed_at" AS "series_progress_viewed_at",
+    "series_pictures"."id" AS "picture_id",
+    "series_pictures"."ext" AS "picture_ext",
+    "languages"."name" AS "language_name",
+    "languages"."icon" AS "language_icon"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+INNER JOIN "languages" ON "series"."language_slug" = "languages"."slug"
+LEFT JOIN "series_progress" ON (
+    "series"."slug" = "series_progress"."series_slug" AND
+    "series_progress"."user_id" = $4
+)
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
+WHERE
+    "series"."is_published" = true AND
+    (
+        "series"."title" ILIKE $3 OR
+        "users"."first_name" ILIKE $3 OR
+        "users"."last_name" ILIKE $3
+    )
+ORDER BY "series"."slug" ASC
+LIMIT $1 OFFSET $2;
+
 -- name: DeleteAllLanguageSeries :exec
 DELETE FROM "series"
 WHERE "language_slug" = $1;

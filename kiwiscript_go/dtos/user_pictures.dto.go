@@ -24,60 +24,61 @@ import (
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 )
 
-// Response
-
-type SeriesPictureLinks struct {
-	Self   LinkResponse `json:"self"`
-	Series LinkResponse `json:"series"`
+type UserPictureLinks struct {
+	Self    LinkResponse `json:"self"`
+	User    LinkResponse `json:"user"`
+	Profile LinkResponse `json:"profile"`
 }
 
-func newSeriesPictureLinks(
-	backendDomain,
-	languageSlug,
-	seriesSlug string,
-) SeriesPictureLinks {
-	return SeriesPictureLinks{
+func newUserPictureLinks(
+	backendDomain string,
+	userID int32,
+) UserPictureLinks {
+	return UserPictureLinks{
 		Self: LinkResponse{
 			Href: fmt.Sprintf(
-				"https://%s/api%s/%s%s/%s%s",
+				"https://%s/api%s/%d%s",
 				backendDomain,
-				paths.LanguagePathV1,
-				languageSlug,
-				paths.SeriesPath,
-				seriesSlug,
+				paths.UsersPathV1,
+				userID,
 				paths.PicturePath,
 			),
 		},
-		Series: LinkResponse{
+		User: LinkResponse{
 			Href: fmt.Sprintf(
-				"https://%s/api%s/%s%s/%s",
+				"https://%s/api%s/%d",
 				backendDomain,
-				paths.LanguagePathV1,
-				languageSlug,
-				paths.SeriesPath,
-				seriesSlug,
+				paths.UsersPathV1,
+				userID,
+			),
+		},
+		Profile: LinkResponse{
+			Href: fmt.Sprintf(
+				"https://%s/api%s/%d%s",
+				backendDomain,
+				paths.UsersPathV1,
+				userID,
+				paths.ProfilePath,
 			),
 		},
 	}
 }
 
-type SeriesPictureResponse struct {
-	ID    uuid.UUID          `json:"id"`
-	EXT   string             `json:"ext"`
-	URL   string             `json:"url"`
-	Links SeriesPictureLinks `json:"_links"`
+type UserPictureResponse struct {
+	ID    uuid.UUID        `json:"id"`
+	EXT   string           `json:"ext"`
+	URL   string           `json:"url"`
+	Links UserPictureLinks `json:"_links"`
 }
 
-func NewSeriesPictureResponse(
-	backendDomain,
-	languageSlug,
-	seriesSlug string,
-	picture *db.SeriesPictureModel,
-) *SeriesPictureResponse {
-	return &SeriesPictureResponse{
+func NewUserPictureResponse(
+	backendDomain string,
+	picture *db.UserPictureModel,
+) *UserPictureResponse {
+	return &UserPictureResponse{
 		ID:    picture.ID,
 		EXT:   picture.EXT,
 		URL:   picture.URL,
-		Links: newSeriesPictureLinks(backendDomain, languageSlug, seriesSlug),
+		Links: newUserPictureLinks(backendDomain, picture.UserID),
 	}
 }

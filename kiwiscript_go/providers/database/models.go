@@ -198,3 +198,22 @@ type User struct {
 	CreatedAt   pgtype.Timestamp
 	UpdatedAt   pgtype.Timestamp
 }
+
+type UserPicture struct {
+	ID        uuid.UUID
+	UserID    int32
+	Ext       string
+	CreatedAt pgtype.Timestamp
+	UpdatedAt pgtype.Timestamp
+}
+
+type UserProfile struct {
+	ID        int32
+	UserID    int32
+	Bio       string
+	Github    string
+	Linkedin  string
+	Website   string
+	CreatedAt pgtype.Timestamp
+	UpdatedAt pgtype.Timestamp
+}
