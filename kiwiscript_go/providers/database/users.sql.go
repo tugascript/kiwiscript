@@ -175,6 +175,71 @@ func (q *Queries) DeleteUserById(ctx context.Context, id int32) error {
 	return err
 }
 
+const findStaffUserByIdWithProfileAndPicture = `-- name: FindStaffUserByIdWithProfileAndPicture :one
+SELECT
+    users.id, users.first_name, users.last_name, users.location, users.email, users.version, users.is_admin, users.is_staff, users.is_confirmed, users.password, users.created_at, users.updated_at,
+    "user_profiles"."id" AS "profile_id",
+    "user_profiles"."bio" AS "profile_bio",
+    "user_profiles"."github" AS "profile_github",
+    "user_profiles"."linkedin" AS "profile_linkedin",
+    "user_profiles"."website" AS "profile_website",
+    "user_pictures"."id" AS "picture_id",
+    "user_pictures"."ext" AS "picture_ext"
+FROM "users"
+LEFT JOIN "user_profiles" ON "users"."id" = "user_profiles"."user_id"
+LEFT JOIN "user_pictures" ON "users"."id" = "user_pictures"."user_id"
+WHERE "users"."id" = $1 AND "users"."is_staff" = true LIMIT 1
+`
+
+type FindStaffUserByIdWithProfileAndPictureRow struct {
+	ID              int32
+	FirstName       string
+	LastName        string
+	Location        string
+	Email           string
+	Version         int16
+	IsAdmin         bool
+	IsStaff         bool
+	IsConfirmed     bool
+	Password        pgtype.Text
+	CreatedAt       pgtype.Timestamp
+	UpdatedAt       pgtype.Timestamp
+	ProfileID       pgtype.Int4
+	ProfileBio      pgtype.Text
+	ProfileGithub   pgtype.Text
+	ProfileLinkedin pgtype.Text
+	ProfileWebsite  pgtype.Text
+	PictureID       pgtype.UUID
+	PictureExt      pgtype.Text
+}
+
+func (q *Queries) FindStaffUserByIdWithProfileAndPicture(ctx context.Context, id int32) (FindStaffUserByIdWithProfileAndPictureRow, error) {
+	row := q.db.QueryRow(ctx, findStaffUserByIdWithProfileAndPicture, id)
+	var i FindStaffUserByIdWithProfileAndPictureRow
+	err := row.Scan(
+		&i.ID,
+		&i.FirstName,
+		&i.LastName,
+		&i.Location,
+		&i.Email,
+		&i.Version,
+		&i.IsAdmin,
+		&i.IsStaff,
+		&i.IsConfirmed,
+		&i.Password,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ProfileID,
+		&i.ProfileBio,
+		&i.ProfileGithub,
+		&i.ProfileLinkedin,
+		&i.ProfileWebsite,
+		&i.PictureID,
+		&i.PictureExt,
+	)
+	return i, err
+}
+
 const findUserByEmail = `-- name: FindUserByEmail :one
 SELECT id, first_name, last_name, location, email, version, is_admin, is_staff, is_confirmed, password, created_at, updated_at FROM "users"
 WHERE "email" = $1 LIMIT 1

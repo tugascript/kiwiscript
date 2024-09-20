@@ -273,3 +273,21 @@ func (s *Services) DeleteUser(ctx context.Context, opts DeleteUserOptions) *exce
 	log.InfoContext(ctx, "Deleted user successfully")
 	return nil
 }
+
+func (s *Services) FindStaffUserWithProfileAndPicture(
+	ctx context.Context,
+	opts FindUserByIDOptions,
+) (*db.FindStaffUserByIdWithProfileAndPictureRow, *exceptions.ServiceError) {
+	log := s.buildLogger(opts.RequestID, usersLocation, "FindStaffUserWithProfileAndPicture").With(
+		"id", opts.ID,
+	)
+	log.InfoContext(ctx, "Finding staff user with profile and picture...")
+
+	user, err := s.database.FindStaffUserByIdWithProfileAndPicture(ctx, opts.ID)
+	if err != nil {
+		log.WarnContext(ctx, "Staff user not found")
+		return nil, exceptions.FromDBError(err)
+	}
+
+	return &user, nil
+}

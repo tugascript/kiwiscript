@@ -40,3 +40,14 @@ func (u *User) ToUserModel() *UserModel {
 		IsStaff:   u.IsStaff,
 	}
 }
+
+func (u *FindStaffUserByIdWithProfileAndPictureRow) ToUserModel() *UserModel {
+	return &UserModel{
+		ID:        u.ID,
+		FirstName: u.FirstName,
+		LastName:  u.LastName,
+		Location:  u.Location,
+		IsAdmin:   u.IsAdmin,
+		IsStaff:   u.IsStaff,
+	}
+}

@@ -44,12 +44,12 @@ type UserProfileResponse struct {
 	Links    UserProfileLinks `json:"_links"`
 }
 
-func NewUserProfileResponse(backendDomain string, profile *db.UserProfile) *UserProfileResponse {
+func NewUserProfileResponse(backendDomain string, profile *db.UserProfileModel) *UserProfileResponse {
 	return &UserProfileResponse{
 		ID:       profile.ID,
 		Bio:      profile.Bio,
-		GitHub:   profile.Github,
-		LinkedIn: profile.Linkedin,
+		GitHub:   profile.GitHub,
+		LinkedIn: profile.LinkedIn,
 		Website:  profile.Website,
 		Links: UserProfileLinks{
 			Self: LinkResponse{

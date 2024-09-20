@@ -38,3 +38,16 @@ func (up *UserPicture) ToUserPictureModel(url string) *UserPictureModel {
 		UserID: up.UserID,
 	}
 }
+
+func (u *FindStaffUserByIdWithProfileAndPictureRow) ToUserPictureModel(url string) *UserPictureModel {
+	if u.PictureID.Valid && u.PictureExt.Valid {
+		return &UserPictureModel{
+			ID:     u.PictureID.Bytes,
+			EXT:    u.PictureExt.String,
+			URL:    url,
+			UserID: u.ID,
+		}
+	}
+
+	return nil
+}

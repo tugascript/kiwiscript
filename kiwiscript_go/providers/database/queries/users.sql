@@ -77,6 +77,21 @@ WHERE "email" = $1 LIMIT 1;
 SELECT * FROM "users"
 WHERE "id" = $1 LIMIT 1;
 
+-- name: FindStaffUserByIdWithProfileAndPicture :one
+SELECT
+    "users".*,
+    "user_profiles"."id" AS "profile_id",
+    "user_profiles"."bio" AS "profile_bio",
+    "user_profiles"."github" AS "profile_github",
+    "user_profiles"."linkedin" AS "profile_linkedin",
+    "user_profiles"."website" AS "profile_website",
+    "user_pictures"."id" AS "picture_id",
+    "user_pictures"."ext" AS "picture_ext"
+FROM "users"
+LEFT JOIN "user_profiles" ON "users"."id" = "user_profiles"."user_id"
+LEFT JOIN "user_pictures" ON "users"."id" = "user_pictures"."user_id"
+WHERE "users"."id" = $1 AND "users"."is_staff" = true LIMIT 1;
+
 -- name: DeleteUserById :exec
 DELETE FROM "users"
 WHERE "id" = $1;

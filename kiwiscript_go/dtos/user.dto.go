@@ -19,6 +19,7 @@ package dtos
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/kiwiscript/kiwiscript_go/paths"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 )
@@ -37,6 +38,83 @@ type UpdateUserBody struct {
 	Location  string `json:"location" validate:"required,min=3,max=3"`
 }
 
+type UserPictureEmbedded struct {
+	ID    uuid.UUID        `json:"id"`
+	EXT   string           `json:"ext"`
+	URL   string           `json:"url"`
+	Links SelfLinkResponse `json:"_links"`
+}
+
+type UserProfileEmbedded struct {
+	Bio      string           `json:"bio"`
+	GitHub   string           `json:"github"`
+	LinkedIn string           `json:"linkedin"`
+	Website  string           `json:"website"`
+	Links    SelfLinkResponse `json:"_links"`
+}
+
+type UserEmbedded struct {
+	Picture *UserPictureEmbedded `json:"picture,omitempty"`
+	Profile *UserProfileEmbedded `json:"profile,omitempty"`
+}
+
+func newFullSeriesEmbedded(
+	backendDomain string,
+	userID int32,
+	profile *db.UserProfileModel,
+	picture *db.UserPictureModel,
+) *UserEmbedded {
+	if profile != nil && picture != nil {
+		return nil
+	}
+
+	var pictureEmbedded *UserPictureEmbedded
+	if picture != nil {
+		pictureEmbedded = &UserPictureEmbedded{
+			ID:  picture.ID,
+			EXT: picture.EXT,
+			URL: fmt.Sprintf("https://kiwiscript.com%s", picture.URL),
+			Links: SelfLinkResponse{
+				Self: LinkResponse{
+					Href: fmt.Sprintf(
+						"https://%s/api%s/%d%s",
+						backendDomain,
+						paths.UsersPathV1,
+						userID,
+						paths.PicturePath,
+					),
+				},
+			},
+		}
+	}
+
+	var profileEmbedded *UserProfileEmbedded
+	if profile != nil {
+		profileEmbedded = &UserProfileEmbedded{
+			Bio:      profile.Bio,
+			GitHub:   profile.GitHub,
+			LinkedIn: profile.LinkedIn,
+			Website:  profile.Website,
+			Links: SelfLinkResponse{
+				Self: LinkResponse{
+					Href: fmt.Sprintf(
+						"https://%s/api%s/%d%s",
+						backendDomain,
+						paths.UsersPathV1,
+						userID,
+						paths.ProfilePath,
+					),
+				},
+			},
+		}
+	}
+
+	return &UserEmbedded{
+		Picture: pictureEmbedded,
+		Profile: profileEmbedded,
+	}
+}
+
 type UserResponse struct {
 	ID        int32            `json:"id"`
 	FirstName string           `json:"firstName"`
@@ -45,6 +123,7 @@ type UserResponse struct {
 	IsAdmin   bool             `json:"isAdmin"`
 	IsStaff   bool             `json:"isStaff"`
 	Links     SelfLinkResponse `json:"_links"`
+	Embedded  *UserEmbedded    `json:"_embedded"`
 }
 
 func NewUserResponse(backendDomain string, user *db.UserModel) *UserResponse {
@@ -60,5 +139,27 @@ func NewUserResponse(backendDomain string, user *db.UserModel) *UserResponse {
 				Href: fmt.Sprintf("https://%s/api%s/%d", backendDomain, paths.UsersPathV1, user.ID),
 			},
 		},
+	}
+}
+
+func NewUserResponseWithEmbedded(
+	backendDomain string,
+	user *db.UserModel,
+	profile *db.UserProfileModel,
+	picture *db.UserPictureModel,
+) *UserResponse {
+	return &UserResponse{
+		ID:        user.ID,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		Location:  user.Location,
+		IsAdmin:   user.IsAdmin,
+		IsStaff:   user.IsStaff,
+		Links: SelfLinkResponse{
+			Self: LinkResponse{
+				Href: fmt.Sprintf("https://%s/api%s/%d", backendDomain, paths.UsersPathV1, user.ID),
+			},
+		},
+		Embedded: newFullSeriesEmbedded(backendDomain, user.ID, profile, picture),
 	}
 }

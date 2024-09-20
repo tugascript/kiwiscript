@@ -53,7 +53,7 @@ func (c *Controllers) GetUser(ctx *fiber.Ctx) error {
 			}}))
 	}
 
-	user, serviceErr := c.services.FindUserByID(userCtx, services.FindUserByIDOptions{
+	user, serviceErr := c.services.FindStaffUserWithProfileAndPicture(userCtx, services.FindUserByIDOptions{
 		RequestID: requestID,
 		ID:        int32(parsedUserID),
 	})
@@ -61,19 +61,35 @@ func (c *Controllers) GetUser(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	currentUser, serviceErr := c.GetUserClaims(ctx)
-	if serviceErr != nil {
-		if !user.IsStaff {
-			return c.serviceErrorResponse(exceptions.NewNotFoundError(), ctx)
+	if user.PictureID.Valid && user.PictureExt.Valid {
+		pictureUrl, pictureUrlErr := c.services.FindFileURL(userCtx, services.FindFileURLOptions{
+			RequestID: requestID,
+			UserID:    user.ID,
+			FileID:    user.PictureID.Bytes,
+			FileExt:   user.PictureExt.String,
+		})
+		if pictureUrlErr != nil {
+			return c.serviceErrorResponse(pictureUrlErr, ctx)
 		}
 
-		return ctx.JSON(dtos.NewUserResponse(c.backendDomain, user.ToUserModel()))
+		return ctx.JSON(
+			dtos.NewUserResponseWithEmbedded(
+				c.backendDomain,
+				user.ToUserModel(),
+				user.ToUserProfileModel(),
+				user.ToUserPictureModel(pictureUrl),
+			),
+		)
 	}
 
-	if user.ID != currentUser.ID || !user.IsStaff {
-		return c.serviceErrorResponse(exceptions.NewNotFoundError(), ctx)
-	}
-	return ctx.JSON(dtos.NewUserResponse(c.backendDomain, user.ToUserModel()))
+	return ctx.JSON(
+		dtos.NewUserResponseWithEmbedded(
+			c.backendDomain,
+			user.ToUserModel(),
+			user.ToUserProfileModel(),
+			nil,
+		),
+	)
 }
 
 func (c *Controllers) GetMe(ctx *fiber.Ctx) error {
@@ -93,6 +109,67 @@ func (c *Controllers) GetMe(ctx *fiber.Ctx) error {
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	if user.IsStaff {
+		profile, profileErr := c.services.FindUserProfile(userCtx, services.FindUserProfileOptions{
+			RequestID: requestID,
+			UserID:    user.ID,
+		})
+		if profileErr != nil && profileErr.Code != exceptions.CodeNotFound {
+			return c.serviceErrorResponse(profileErr, ctx)
+		}
+
+		picture, pictureErr := c.services.FindUserPicture(userCtx, services.FindUserPictureOptions{
+			RequestID: requestID,
+			UserID:    user.ID,
+		})
+		if pictureErr != nil && pictureErr.Code != exceptions.CodeNotFound {
+			return c.serviceErrorResponse(pictureErr, ctx)
+		}
+
+		if picture != nil {
+			pictureUrl, pictureUrlErr := c.services.FindFileURL(userCtx, services.FindFileURLOptions{
+				RequestID: requestID,
+				UserID:    user.ID,
+				FileID:    picture.ID,
+				FileExt:   picture.Ext,
+			})
+			if pictureUrlErr != nil {
+				return c.serviceErrorResponse(pictureUrlErr, ctx)
+			}
+
+			if profile != nil {
+				return ctx.JSON(
+					dtos.NewUserResponseWithEmbedded(
+						c.backendDomain,
+						user.ToUserModel(),
+						profile.ToUserProfileModel(),
+						picture.ToUserPictureModel(pictureUrl),
+					),
+				)
+			}
+
+			return ctx.JSON(
+				dtos.NewUserResponseWithEmbedded(
+					c.backendDomain,
+					user.ToUserModel(),
+					nil,
+					picture.ToUserPictureModel(pictureUrl),
+				),
+			)
+		}
+
+		if profile != nil {
+			return ctx.JSON(
+				dtos.NewUserResponseWithEmbedded(
+					c.backendDomain,
+					user.ToUserModel(),
+					profile.ToUserProfileModel(),
+					nil,
+				),
+			)
+		}
 	}
 
 	return ctx.JSON(dtos.NewUserResponse(c.backendDomain, user.ToUserModel()))

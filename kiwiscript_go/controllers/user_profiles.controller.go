@@ -61,7 +61,9 @@ func (c *Controllers) CreateUserProfile(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.Status(fiber.StatusCreated).JSON(dtos.NewUserProfileResponse(c.backendDomain, profile))
+	return ctx.Status(fiber.StatusCreated).JSON(
+		dtos.NewUserProfileResponse(c.backendDomain, profile.ToUserProfileModel()),
+	)
 }
 
 func (c *Controllers) UpdateUserProfile(ctx *fiber.Ctx) error {
@@ -98,7 +100,7 @@ func (c *Controllers) UpdateUserProfile(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(dtos.NewUserProfileResponse(c.backendDomain, profile))
+	return ctx.JSON(dtos.NewUserProfileResponse(c.backendDomain, profile.ToUserProfileModel()))
 }
 
 func (c *Controllers) DeleteUserProfile(ctx *fiber.Ctx) error {
@@ -159,7 +161,7 @@ func (c *Controllers) GetUserProfile(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(dtos.NewUserProfileResponse(c.backendDomain, profile))
+	return ctx.JSON(dtos.NewUserProfileResponse(c.backendDomain, profile.ToUserProfileModel()))
 }
 
 func (c *Controllers) GetMyProfile(ctx *fiber.Ctx) error {
@@ -184,5 +186,5 @@ func (c *Controllers) GetMyProfile(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(dtos.NewUserProfileResponse(c.backendDomain, profile))
+	return ctx.JSON(dtos.NewUserProfileResponse(c.backendDomain, profile.ToUserProfileModel()))
 }

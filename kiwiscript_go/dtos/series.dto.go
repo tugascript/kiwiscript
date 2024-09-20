@@ -136,7 +136,7 @@ type SeriesAuthorEmbedded struct {
 }
 
 type SeriesPictureEmbedded struct {
-	ID    uuid.UUID        `json:"ID"`
+	ID    uuid.UUID        `json:"id"`
 	EXT   string           `json:"ext"`
 	URL   string           `json:"url"`
 	Links SelfLinkResponse `json:"_links"`
