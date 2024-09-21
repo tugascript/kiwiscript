@@ -64,7 +64,7 @@ func newFullSeriesEmbedded(
 	profile *db.UserProfileModel,
 	picture *db.UserPictureModel,
 ) *UserEmbedded {
-	if profile != nil && picture != nil {
+	if profile == nil && picture == nil {
 		return nil
 	}
 
@@ -115,15 +115,21 @@ func newFullSeriesEmbedded(
 	}
 }
 
+type UserLinks struct {
+	Self    LinkResponse  `json:"self"`
+	Profile *LinkResponse `json:"profile,omitempty"`
+	Picture *LinkResponse `json:"picture,omitempty"`
+}
+
 type UserResponse struct {
-	ID        int32            `json:"id"`
-	FirstName string           `json:"firstName"`
-	LastName  string           `json:"lastName"`
-	Location  string           `json:"location"`
-	IsAdmin   bool             `json:"isAdmin"`
-	IsStaff   bool             `json:"isStaff"`
-	Links     SelfLinkResponse `json:"_links"`
-	Embedded  *UserEmbedded    `json:"_embedded"`
+	ID        int32         `json:"id"`
+	FirstName string        `json:"firstName"`
+	LastName  string        `json:"lastName"`
+	Location  string        `json:"location"`
+	IsAdmin   bool          `json:"isAdmin"`
+	IsStaff   bool          `json:"isStaff"`
+	Links     UserLinks     `json:"_links"`
+	Embedded  *UserEmbedded `json:"_embedded"`
 }
 
 func NewUserResponse(backendDomain string, user *db.UserModel) *UserResponse {
@@ -134,11 +140,50 @@ func NewUserResponse(backendDomain string, user *db.UserModel) *UserResponse {
 		Location:  user.Location,
 		IsAdmin:   user.IsAdmin,
 		IsStaff:   user.IsStaff,
-		Links: SelfLinkResponse{
+		Links: UserLinks{
 			Self: LinkResponse{
 				Href: fmt.Sprintf("https://%s/api%s/%d", backendDomain, paths.UsersPathV1, user.ID),
 			},
 		},
+	}
+}
+
+func newUserLinks(
+	backendDomain string,
+	userID int32,
+	profile *db.UserProfileModel,
+	picture *db.UserPictureModel,
+) UserLinks {
+	var profileLink, pictureLink *LinkResponse
+	if profile != nil {
+		profileLink = &LinkResponse{
+			Href: fmt.Sprintf(
+				"https://%s/api%s/%d%s",
+				backendDomain,
+				paths.UsersPathV1,
+				userID,
+				paths.ProfilePath,
+			),
+		}
+	}
+	if picture != nil {
+		pictureLink = &LinkResponse{
+			Href: fmt.Sprintf(
+				"https://%s/api%s/%d%s",
+				backendDomain,
+				paths.UsersPathV1,
+				userID,
+				paths.PicturePath,
+			),
+		}
+	}
+
+	return UserLinks{
+		Self: LinkResponse{
+			Href: fmt.Sprintf("https://%s/api%s/%d", backendDomain, paths.UsersPathV1, userID),
+		},
+		Profile: profileLink,
+		Picture: pictureLink,
 	}
 }
 
@@ -155,11 +200,7 @@ func NewUserResponseWithEmbedded(
 		Location:  user.Location,
 		IsAdmin:   user.IsAdmin,
 		IsStaff:   user.IsStaff,
-		Links: SelfLinkResponse{
-			Self: LinkResponse{
-				Href: fmt.Sprintf("https://%s/api%s/%d", backendDomain, paths.UsersPathV1, user.ID),
-			},
-		},
-		Embedded: newFullSeriesEmbedded(backendDomain, user.ID, profile, picture),
+		Links:     newUserLinks(backendDomain, user.ID, profile, picture),
+		Embedded:  newFullSeriesEmbedded(backendDomain, user.ID, profile, picture),
 	}
 }

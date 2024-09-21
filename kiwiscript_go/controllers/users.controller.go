@@ -92,10 +92,10 @@ func (c *Controllers) GetUser(ctx *fiber.Ctx) error {
 	)
 }
 
-func (c *Controllers) GetMe(ctx *fiber.Ctx) error {
+func (c *Controllers) GetCurrentAccount(ctx *fiber.Ctx) error {
 	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
-	log := c.buildLogger(ctx, requestID, usersLocation, "GetMe")
+	log := c.buildLogger(ctx, requestID, usersLocation, "GetCurrentAccount")
 	log.InfoContext(userCtx, "Getting me...")
 
 	currentUser, serviceErr := c.GetUserClaims(ctx)

@@ -164,10 +164,10 @@ func (c *Controllers) GetUserProfile(ctx *fiber.Ctx) error {
 	return ctx.JSON(dtos.NewUserProfileResponse(c.backendDomain, profile.ToUserProfileModel()))
 }
 
-func (c *Controllers) GetMyProfile(ctx *fiber.Ctx) error {
+func (c *Controllers) GetCurrentAccountProfile(ctx *fiber.Ctx) error {
 	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
-	log := c.buildLogger(ctx, requestID, userProfilesLocation, "GetMyProfile")
+	log := c.buildLogger(ctx, requestID, userProfilesLocation, "GetCurrentAccountProfile")
 	log.InfoContext(userCtx, "Getting current user profile...")
 
 	user, err := c.GetUserClaims(ctx)

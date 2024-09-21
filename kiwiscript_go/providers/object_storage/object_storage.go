@@ -11,6 +11,7 @@ import (
 	"io"
 	"log/slog"
 	"mime/multipart"
+	"net/http"
 	"time"
 )
 
@@ -40,6 +41,19 @@ func readMimeType(f multipart.File) (string, error) {
 		return "", err
 	}
 	return mtype.String(), nil
+}
+
+func readMagicNumber(f multipart.File) (string, error) {
+	buf := make([]byte, 512)
+	_, err := f.Read(buf)
+	if err != nil {
+		return "", err
+	}
+	_, err = f.Seek(0, 0)
+	if err != nil {
+		return "", err
+	}
+	return http.DetectContentType(buf), nil
 }
 
 func makeKey(userId int32, fileId uuid.UUID, fileExt string) string {

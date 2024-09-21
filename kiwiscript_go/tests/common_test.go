@@ -522,6 +522,53 @@ func FileUploadMock(t *testing.T) *multipart.FileHeader {
 	return fileHeader
 }
 
+func ImageUploadMock(t *testing.T) *multipart.FileHeader {
+	// Create a buffer to hold the file and form data
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+
+	// Add file to the form data
+	part, err := writer.CreateFormFile("file", "image.jpg")
+	if err != nil {
+		t.Fatalf("Failed to create form file: %v", err)
+	}
+
+	// Open a file to simulate file upload
+	file, err := os.Open("./fixtures/image.jpg")
+	if err != nil {
+		t.Fatal("Failed to open file", "error", err)
+	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Fatal("Failed to close file", "error", err)
+		}
+	}()
+
+	// Copy the file content to the multipart writer
+	_, err = io.Copy(part, file)
+	if err != nil {
+		t.Fatalf("Failed to copy file content: %v", err)
+	}
+
+	// Close the writer to finalize the multipart form data
+	err = writer.Close()
+	if err != nil {
+		t.Fatalf("Failed to close writer: %v", err)
+	}
+
+	// Now parse the multipart form from the buffer
+	reader := multipart.NewReader(body, writer.Boundary())
+	form, err := reader.ReadForm(10 << 20) // Limit to 10 MB
+	if err != nil {
+		t.Fatalf("Failed to parse multipart form: %v", err)
+	}
+
+	// Extract the file header
+	fileHeader := form.File["file"][0]
+
+	return fileHeader
+}
+
 type FormFileBody struct {
 	Body        *bytes.Buffer
 	ContentType string

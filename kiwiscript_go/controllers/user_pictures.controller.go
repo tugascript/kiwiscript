@@ -129,10 +129,10 @@ func (c *Controllers) GetUserPicture(ctx *fiber.Ctx) error {
 	)
 }
 
-func (c *Controllers) GetMyPicture(ctx *fiber.Ctx) error {
+func (c *Controllers) GetCurrentAccountPicture(ctx *fiber.Ctx) error {
 	requestID := c.requestID(ctx)
 	userCtx := ctx.UserContext()
-	log := c.buildLogger(ctx, requestID, userPicturesLocation, "GetMyPicture")
+	log := c.buildLogger(ctx, requestID, userPicturesLocation, "GetCurrentAccountPicture")
 	log.InfoContext(userCtx, "Getting current user picture...")
 
 	user, err := c.GetUserClaims(ctx)

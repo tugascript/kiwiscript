@@ -30,16 +30,16 @@ const (
 func (r *Router) UsersRoutes() {
 	users := r.router.Group(paths.UsersPathV1)
 
-	users.Get(paths.MePath, r.controllers.GetMe)
+	users.Get(paths.MePath, r.controllers.GetCurrentAccount)
 	users.Put(paths.MePath, r.controllers.UpdateCurrentAccount)
 	users.Delete(paths.MePath, r.controllers.DeleteCurrentAccount)
 
-	users.Get(myProfilePath, r.controllers.GetMyProfile)
+	users.Get(myProfilePath, r.controllers.GetCurrentAccountProfile)
 	users.Post(myProfilePath, r.controllers.CreateUserProfile)
 	users.Put(myProfilePath, r.controllers.UpdateUserProfile)
 	users.Delete(myProfilePath, r.controllers.DeleteUserProfile)
 
-	users.Get(myPicturePath, r.controllers.GetMyPicture)
+	users.Get(myPicturePath, r.controllers.GetCurrentAccountPicture)
 	users.Post(myPicturePath, r.controllers.UploadUserPicture)
 	users.Delete(myPicturePath, r.controllers.DeleteUserPicture)
 

@@ -103,5 +103,11 @@ UPDATE "users" SET
 WHERE "id" = $1
 RETURNING *;
 
+-- name: UpdateUserIsStaff :exec
+UPDATE "users" SET
+  "is_staff" = $1,
+  "version" = "version" + 1
+WHERE "id" = $2;
+
 -- name: DeleteAllUsers :exec
 DELETE FROM "users";

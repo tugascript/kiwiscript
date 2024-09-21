@@ -364,6 +364,23 @@ func (q *Queries) UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams
 	return i, err
 }
 
+const updateUserIsStaff = `-- name: UpdateUserIsStaff :exec
+UPDATE "users" SET
+  "is_staff" = $1,
+  "version" = "version" + 1
+WHERE "id" = $2
+`
+
+type UpdateUserIsStaffParams struct {
+	IsStaff bool
+	ID      int32
+}
+
+func (q *Queries) UpdateUserIsStaff(ctx context.Context, arg UpdateUserIsStaffParams) error {
+	_, err := q.db.Exec(ctx, updateUserIsStaff, arg.IsStaff, arg.ID)
+	return err
+}
+
 const updateUserPassword = `-- name: UpdateUserPassword :one
 UPDATE "users" SET
   "password" = $1,
