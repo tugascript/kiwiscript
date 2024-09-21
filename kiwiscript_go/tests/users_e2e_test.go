@@ -22,10 +22,13 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/kiwiscript/kiwiscript_go/dtos"
+	"github.com/kiwiscript/kiwiscript_go/exceptions"
 	"github.com/kiwiscript/kiwiscript_go/paths"
 	db "github.com/kiwiscript/kiwiscript_go/providers/database"
 	"github.com/kiwiscript/kiwiscript_go/services"
+	"github.com/kiwiscript/kiwiscript_go/utils"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -280,6 +283,153 @@ func TestGetMe(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
 			PerformTestRequestCase(t, http.MethodGet, mePath, tc)
+		})
+	}
+
+	t.Cleanup(userCleanUp(t))
+}
+
+func TestUpdateMe(t *testing.T) {
+	userCleanUp(t)()
+	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+
+	testCases := []TestRequestCase[dtos.UpdateUserBody]{
+		{
+			Name: "Should return 200 OK if it updated user successfully",
+			ReqFn: func(t *testing.T) (dtos.UpdateUserBody, string) {
+				userData := GenerateFakeUserData(t)
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateUserBody{
+					FirstName: userData.FirstName,
+					LastName:  userData.LastName,
+					Location:  userData.Location,
+				}, accessToken
+			},
+			ExpStatus: http.StatusOK,
+			AssertFn: func(t *testing.T, req dtos.UpdateUserBody, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.UserResponse{})
+				AssertEqual(t, resBody.ID, testUser.ID)
+				AssertEqual(t, resBody.FirstName, utils.Capitalized(req.FirstName))
+				AssertEqual(t, resBody.LastName, utils.Capitalized(req.LastName))
+				AssertEqual(t, resBody.Location, utils.Uppercased(req.Location))
+			},
+		},
+		{
+			Name: "Should return 400 BAD REQUEST if first name is too long, last name is empy and location is too short",
+			ReqFn: func(t *testing.T) (dtos.UpdateUserBody, string) {
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.UpdateUserBody{
+					FirstName: strings.Repeat("Some Name ", 50),
+					LastName:  "",
+					Location:  "B",
+				}, accessToken
+			},
+			ExpStatus: http.StatusBadRequest,
+			AssertFn: func(t *testing.T, _ dtos.UpdateUserBody, resp *http.Response) {
+				AssertValidationErrorResponse(t, resp, []ValidationErrorAssertion{
+					{Param: "firstName", Message: exceptions.StrFieldErrMessageMax},
+					{Param: "lastName", Message: exceptions.FieldErrMessageRequired},
+					{Param: "location", Message: exceptions.StrFieldErrMessageMin},
+				})
+			},
+		},
+		{
+			Name: "Should return 401 UNAUTHORIZED if the user is not logged in",
+			ReqFn: func(t *testing.T) (dtos.UpdateUserBody, string) {
+				userData := GenerateFakeUserData(t)
+				return dtos.UpdateUserBody{
+					FirstName: userData.FirstName,
+					LastName:  userData.LastName,
+					Location:  userData.Location,
+				}, ""
+			},
+			ExpStatus: http.StatusUnauthorized,
+			AssertFn: func(t *testing.T, _ dtos.UpdateUserBody, resp *http.Response) {
+				AssertUnauthorizedResponse(t, resp)
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			PerformTestRequestCase(t, http.MethodPut, mePath, tc)
+		})
+	}
+
+	t.Cleanup(userCleanUp(t))
+}
+
+func TestDeleteMe(t *testing.T) {
+	userCleanUp(t)()
+
+	var testUser *db.User
+	var password string
+	beforeEach := func(t *testing.T) {
+		userData := GenerateFakeUserData(t)
+		password = userData.Password
+		testUser = confirmTestUser(t, CreateTestUser(t, &userData).ID)
+	}
+	afterEach := func(t *testing.T) {
+		userCleanUp(t)()
+	}
+
+	testCases := []TestRequestCase[dtos.DeleteUserBody]{
+		{
+			Name: "Should return 204 NO CONTENT when the user is not staff",
+			ReqFn: func(t *testing.T) (dtos.DeleteUserBody, string) {
+				beforeEach(t)
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.DeleteUserBody{Password: password}, accessToken
+			},
+			ExpStatus: http.StatusNoContent,
+			AssertFn: func(t *testing.T, _ dtos.DeleteUserBody, _ *http.Response) {
+				afterEach(t)
+			},
+		},
+		{
+			Name: "Should return 400 BAD REQUEST if the password is invalid",
+			ReqFn: func(t *testing.T) (dtos.DeleteUserBody, string) {
+				beforeEach(t)
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.DeleteUserBody{Password: "Wrong Password"}, accessToken
+			},
+			ExpStatus: http.StatusBadRequest,
+			AssertFn: func(t *testing.T, _ dtos.DeleteUserBody, resp *http.Response) {
+				AssertValidationErrorWithoutFieldsResponse(t, resp, "'password' does not match")
+				afterEach(t)
+			},
+		},
+		{
+			Name: "Should return 409 FORBIDDEN if the user is staff",
+			ReqFn: func(t *testing.T) (dtos.DeleteUserBody, string) {
+				beforeEach(t)
+				testUser.IsStaff = true
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return dtos.DeleteUserBody{Password: "Wrong Password"}, accessToken
+			},
+			ExpStatus: http.StatusForbidden,
+			AssertFn: func(t *testing.T, _ dtos.DeleteUserBody, resp *http.Response) {
+				AssertForbiddenResponse(t, resp)
+				afterEach(t)
+			},
+		},
+		{
+			Name: "Should return 401 UNAUTHORIZED if the user is not logged in",
+			ReqFn: func(t *testing.T) (dtos.DeleteUserBody, string) {
+				beforeEach(t)
+				return dtos.DeleteUserBody{Password: password}, ""
+			},
+			ExpStatus: http.StatusUnauthorized,
+			AssertFn: func(t *testing.T, _ dtos.DeleteUserBody, resp *http.Response) {
+				AssertUnauthorizedResponse(t, resp)
+				afterEach(t)
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			PerformTestRequestCase(t, http.MethodDelete, mePath, tc)
 		})
 	}
 
