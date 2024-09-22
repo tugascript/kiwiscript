@@ -43,7 +43,7 @@ func readMimeType(f multipart.File) (string, error) {
 	return mtype.String(), nil
 }
 
-func readMagicNumber(f multipart.File) (string, error) {
+func readMagicBytes(f multipart.File) (string, error) {
 	buf := make([]byte, 512)
 	_, err := f.Read(buf)
 	if err != nil {

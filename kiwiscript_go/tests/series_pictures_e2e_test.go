@@ -73,7 +73,7 @@ func TestUploadSeriesPicture(t *testing.T) {
 
 	testCases := []TestRequestCase[FormFileBody]{
 		{
-			Name: "Should return 200 OK and convert PNG to JPEG",
+			Name: "Should return 201 CREATED and convert PNG to JPEG",
 			ReqFn: func(t *testing.T) (FormFileBody, string) {
 				beforeEach(t)
 				testUser.IsStaff = true
@@ -89,7 +89,7 @@ func TestUploadSeriesPicture(t *testing.T) {
 			Path: baseLanguagesPath + "/rust/series/existing-series/picture",
 		},
 		{
-			Name: "Should return 200 OK and compress JPEG",
+			Name: "Should return 201 CREATED and compress JPEG",
 			ReqFn: func(t *testing.T) (FormFileBody, string) {
 				beforeEach(t)
 				testUser.IsStaff = true

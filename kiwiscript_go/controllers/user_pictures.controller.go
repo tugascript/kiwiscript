@@ -36,7 +36,7 @@ func (c *Controllers) UploadUserPicture(ctx *fiber.Ctx) error {
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil {
 		log.ErrorContext(userCtx, "User is not logged in, should not have reached here")
-		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
+		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
 	}
 	if !user.IsStaff {
 		log.ErrorContext(userCtx, "User is not staff, should not have reached here")

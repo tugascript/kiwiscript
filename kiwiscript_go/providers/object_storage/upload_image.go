@@ -69,7 +69,7 @@ func (o *ObjectStorage) UploadImage(ctx context.Context, opts UploadImageOptions
 	}
 	defer o.closeFile(f)
 
-	if mimeType, err := readMagicNumber(f); err != nil || !valImgMime(mimeType) {
+	if mimeType, err := readMagicBytes(f); err != nil || !valImgMime(mimeType) {
 		return uuid.UUID{}, "", fmt.Errorf("mime type not supported")
 	}
 

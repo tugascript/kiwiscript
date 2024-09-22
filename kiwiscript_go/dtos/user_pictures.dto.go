@@ -25,9 +25,8 @@ import (
 )
 
 type UserPictureLinks struct {
-	Self    LinkResponse `json:"self"`
-	User    LinkResponse `json:"user"`
-	Profile LinkResponse `json:"profile"`
+	Self LinkResponse `json:"self"`
+	User LinkResponse `json:"user"`
 }
 
 func newUserPictureLinks(
@@ -50,15 +49,6 @@ func newUserPictureLinks(
 				backendDomain,
 				paths.UsersPathV1,
 				userID,
-			),
-		},
-		Profile: LinkResponse{
-			Href: fmt.Sprintf(
-				"https://%s/api%s/%d%s",
-				backendDomain,
-				paths.UsersPathV1,
-				userID,
-				paths.ProfilePath,
 			),
 		},
 	}
