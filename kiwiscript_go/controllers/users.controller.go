@@ -53,9 +53,23 @@ func (c *Controllers) GetUser(ctx *fiber.Ctx) error {
 			}}))
 	}
 
+	userIDi32 := int32(parsedUserID)
+	currentUser, serviceErr := c.GetUserClaims(ctx)
+	if serviceErr == nil && currentUser.ID == userIDi32 && !currentUser.IsStaff {
+		user, serviceErr := c.services.FindUserByID(userCtx, services.FindUserByIDOptions{
+			RequestID: requestID,
+			ID:        userIDi32,
+		})
+		if serviceErr != nil {
+			return c.serviceErrorResponse(serviceErr, ctx)
+		}
+
+		return ctx.JSON(dtos.NewUserResponse(c.backendDomain, user.ToUserModel()))
+	}
+
 	user, serviceErr := c.services.FindStaffUserWithProfileAndPicture(userCtx, services.FindUserByIDOptions{
 		RequestID: requestID,
-		ID:        int32(parsedUserID),
+		ID:        userIDi32,
 	})
 	if serviceErr != nil {
 		return c.serviceErrorResponse(serviceErr, ctx)

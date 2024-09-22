@@ -1279,3 +1279,487 @@ func TestDeleteMyPicture(t *testing.T) {
 
 	t.Cleanup(userCleanUp(t))
 }
+
+func TestGetUser(t *testing.T) {
+	userCleanUp(t)()
+	staffUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+
+	func() {
+		testDb := GetTestDatabase(t)
+		ctx := context.Background()
+
+		staffPrms := db.UpdateUserIsStaffParams{
+			IsStaff: true,
+			ID:      staffUser.ID,
+		}
+		if err := testDb.UpdateUserIsStaff(ctx, staffPrms); err != nil {
+			t.Fatal("Failed to update user is staff", "error", err)
+		}
+
+		staffUser.IsStaff = true
+	}()
+
+	beforeEach := func(t *testing.T) {
+		testServices := GetTestServices(t)
+		ctx := context.Background()
+		requestID := uuid.NewString()
+
+		delProfOpts := services.DeleteUserProfileOptions{
+			RequestID: requestID,
+			UserID:    staffUser.ID,
+		}
+		if serviceErr := testServices.DeleteUserProfile(ctx, delProfOpts); serviceErr != nil {
+			t.Log("Failed to delete staff user profile", "serviceError", serviceErr)
+		}
+
+		delPicOpts := services.DeleteUserPictureOptions{
+			RequestID: requestID,
+			UserID:    staffUser.ID,
+		}
+		if serviceErr := testServices.DeleteUserPicture(ctx, delPicOpts); serviceErr != nil {
+			t.Log("Failed to delete staff user picture", "serviceError", serviceErr)
+		}
+	}
+
+	testCases := []TestRequestCase[string]{
+		{
+			Name: "Should return 200 OK with only user data if the user is staff",
+			ReqFn: func(t *testing.T) (string, string) {
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: http.StatusOK,
+			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.UserResponse{})
+				AssertEqual(t, resBody.ID, staffUser.ID)
+				AssertEqual(t, resBody.FirstName, staffUser.FirstName)
+				AssertEqual(t, resBody.LastName, staffUser.LastName)
+				AssertEqual(t, resBody.Location, staffUser.Location)
+				AssertEqual(t, resBody.IsAdmin, staffUser.IsAdmin)
+				AssertEqual(t, resBody.IsStaff, true)
+				AssertEqual(t, resBody.Embedded, nil)
+				AssertStringContains(t, resBody.Links.Self.Href, fmt.Sprintf("%s/%d", userPath, staffUser.ID))
+			},
+			Path: fmt.Sprintf("%s/%d", userPath, staffUser.ID),
+		},
+		{
+			Name: "Should return 200 OK when the user is not staff and its ID",
+			ReqFn: func(t *testing.T) (string, string) {
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: http.StatusOK,
+			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.UserResponse{})
+				AssertEqual(t, resBody.ID, testUser.ID)
+				AssertEqual(t, resBody.FirstName, testUser.FirstName)
+				AssertEqual(t, resBody.LastName, testUser.LastName)
+				AssertEqual(t, resBody.Location, testUser.Location)
+				AssertEqual(t, resBody.IsAdmin, testUser.IsAdmin)
+				AssertEqual(t, resBody.IsStaff, false)
+				AssertEqual(t, resBody.Embedded, nil)
+				AssertStringContains(t, resBody.Links.Self.Href, fmt.Sprintf("%s/%d", userPath, testUser.ID))
+			},
+			Path: fmt.Sprintf("%s/%d", userPath, testUser.ID),
+		},
+		{
+			Name: "Should return 200 OK with user and profile if the user is staff",
+			ReqFn: func(t *testing.T) (string, string) {
+				testServices := GetTestServices(t)
+				ctx := context.Background()
+				requestID := uuid.NewString()
+
+				profOpts := services.UserProfileOptions{
+					RequestID: requestID,
+					UserID:    staffUser.ID,
+					Bio:       "Lorem ipsum",
+					GitHub:    "https://github.com/johndoe",
+					LinkedIn:  "https://www.linkedin.com/in/john-doe",
+					Website:   "https://johndoe.com",
+				}
+				if _, serviceErr := testServices.CreateUserProfile(ctx, profOpts); serviceErr != nil {
+					t.Fatal("Failed to create user profile", "serviceError", serviceErr)
+				}
+
+				return "", ""
+			},
+			ExpStatus: http.StatusOK,
+			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.UserResponse{})
+				AssertEqual(t, resBody.ID, staffUser.ID)
+				AssertEqual(t, resBody.FirstName, staffUser.FirstName)
+				AssertEqual(t, resBody.LastName, staffUser.LastName)
+				AssertEqual(t, resBody.Location, staffUser.Location)
+				AssertStringContains(t, resBody.Links.Self.Href, fmt.Sprintf("%s/%d", userPath, staffUser.ID))
+				AssertStringContains(t,
+					resBody.Links.Profile.Href,
+					fmt.Sprintf("%s/%d/profile", userPath, staffUser.ID),
+				)
+				AssertEqual(t, resBody.Links.Picture, nil)
+				AssertEqual(t, resBody.Embedded.Profile.Bio, "Lorem ipsum")
+				AssertEqual(t, resBody.Embedded.Profile.GitHub, "https://github.com/johndoe")
+				AssertEqual(t, resBody.Embedded.Profile.LinkedIn, "https://www.linkedin.com/in/john-doe")
+				AssertEqual(t, resBody.Embedded.Profile.Website, "https://johndoe.com")
+				AssertEqual(t,
+					resBody.Embedded.Profile.Links.Self.Href,
+					fmt.Sprintf("https://api.kiwiscript.com%s/%d/profile", userPath, staffUser.ID),
+				)
+				AssertEqual(t, resBody.Embedded.Picture, nil)
+			},
+			Path: fmt.Sprintf("%s/%d", userPath, staffUser.ID),
+		},
+		{
+			Name: "Should return 200 OK with user and picture if the user is staff",
+			ReqFn: func(t *testing.T) (string, string) {
+				beforeEach(t)
+				testServices := GetTestServices(t)
+				ctx := context.Background()
+				requestID := uuid.NewString()
+
+				picOpts := services.UploadUserPictureOptions{
+					RequestID:  requestID,
+					UserID:     staffUser.ID,
+					FileHeader: ImageUploadMock(t),
+				}
+				if _, serviceErr := testServices.UploadUserPicture(ctx, picOpts); serviceErr != nil {
+					t.Fatal("Failed to upload user picture", "serviceError", serviceErr)
+				}
+
+				accessToken, _ := GenerateTestAuthTokens(t, staffUser)
+				return "", accessToken
+			},
+			ExpStatus: http.StatusOK,
+			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.UserResponse{})
+				AssertEqual(t, resBody.ID, staffUser.ID)
+				AssertEqual(t, resBody.FirstName, staffUser.FirstName)
+				AssertEqual(t, resBody.LastName, staffUser.LastName)
+				AssertEqual(t, resBody.Location, staffUser.Location)
+				AssertStringContains(t, resBody.Links.Self.Href, fmt.Sprintf("%s/%d", userPath, staffUser.ID))
+				AssertStringContains(t,
+					resBody.Links.Picture.Href,
+					fmt.Sprintf("%s/%d/picture", userPath, staffUser.ID),
+				)
+				AssertEqual(t, resBody.Links.Profile, nil)
+				AssertNotEmpty(t, resBody.Embedded.Picture.EXT)
+				AssertNotEmpty(t, resBody.Embedded.Picture.URL)
+				AssertEqual(t,
+					resBody.Embedded.Picture.Links.Self.Href,
+					fmt.Sprintf("https://api.kiwiscript.com%s/%d/picture", userPath, staffUser.ID),
+				)
+				AssertEqual(t, resBody.Embedded.Profile, nil)
+			},
+			Path: fmt.Sprintf("%s/%d", userPath, staffUser.ID),
+		},
+		{
+			Name: "Should return 200 OK with user, profile and picture if the user is staff",
+			ReqFn: func(t *testing.T) (string, string) {
+				beforeEach(t)
+				testServices := GetTestServices(t)
+				ctx := context.Background()
+				requestID := uuid.NewString()
+
+				profOpts := services.UserProfileOptions{
+					RequestID: requestID,
+					UserID:    staffUser.ID,
+					Bio:       "Lorem ipsum",
+					GitHub:    "https://github.com/johndoe",
+					LinkedIn:  "https://www.linkedin.com/in/john-doe",
+					Website:   "https://johndoe.com",
+				}
+				if _, serviceErr := testServices.CreateUserProfile(ctx, profOpts); serviceErr != nil {
+					t.Fatal("Failed to create user profile", "serviceError", serviceErr)
+				}
+
+				picOpts := services.UploadUserPictureOptions{
+					RequestID:  requestID,
+					UserID:     staffUser.ID,
+					FileHeader: ImageUploadMock(t),
+				}
+				if _, serviceErr := testServices.UploadUserPicture(ctx, picOpts); serviceErr != nil {
+					t.Fatal("Failed to upload user picture", "serviceError", serviceErr)
+				}
+
+				return "", ""
+			},
+			ExpStatus: http.StatusOK,
+			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.UserResponse{})
+				AssertEqual(t, resBody.ID, staffUser.ID)
+				AssertEqual(t, resBody.FirstName, staffUser.FirstName)
+				AssertEqual(t, resBody.LastName, staffUser.LastName)
+				AssertEqual(t, resBody.Location, staffUser.Location)
+				AssertStringContains(t, resBody.Links.Self.Href, fmt.Sprintf("%s/%d", userPath, staffUser.ID))
+				AssertStringContains(t,
+					resBody.Links.Profile.Href,
+					fmt.Sprintf("%s/%d/profile", userPath, staffUser.ID),
+				)
+				AssertStringContains(t,
+					resBody.Links.Picture.Href,
+					fmt.Sprintf("%s/%d/picture", userPath, staffUser.ID),
+				)
+				AssertEqual(t, resBody.Embedded.Profile.Bio, "Lorem ipsum")
+				AssertEqual(t, resBody.Embedded.Profile.GitHub, "https://github.com/johndoe")
+				AssertEqual(t, resBody.Embedded.Profile.LinkedIn, "https://www.linkedin.com/in/john-doe")
+				AssertEqual(t, resBody.Embedded.Profile.Website, "https://johndoe.com")
+				AssertEqual(t,
+					resBody.Embedded.Profile.Links.Self.Href,
+					fmt.Sprintf("https://api.kiwiscript.com%s/%d/profile", userPath, staffUser.ID),
+				)
+				AssertNotEmpty(t, resBody.Embedded.Picture.EXT)
+				AssertNotEmpty(t, resBody.Embedded.Picture.URL)
+			},
+			Path: fmt.Sprintf("%s/%d", userPath, staffUser.ID),
+		},
+		{
+			Name: "Should return 404 NOT FOUND if the user is not staff",
+			ReqFn: func(t *testing.T) (string, string) {
+				return "", ""
+			},
+			ExpStatus: http.StatusNotFound,
+			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+			},
+			Path: fmt.Sprintf("%s/%d", userPath, testUser.ID),
+		},
+		{
+			Name: "Should return 404 NOT FOUND if the user is not found",
+			ReqFn: func(t *testing.T) (string, string) {
+				return "", ""
+			},
+			ExpStatus: http.StatusNotFound,
+			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+			},
+			Path: fmt.Sprintf("%s/%d", userPath, 987654321),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			PerformTestRequestCase(t, http.MethodGet, tc.Path, tc)
+		})
+	}
+
+	t.Cleanup(userCleanUp(t))
+}
+
+func TestGetUserProfile(t *testing.T) {
+	userCleanUp(t)()
+	staffUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+
+	func() {
+		testDb := GetTestDatabase(t)
+		testServices := GetTestServices(t)
+		ctx := context.Background()
+		requestID := uuid.NewString()
+
+		staffPrms := db.UpdateUserIsStaffParams{
+			IsStaff: true,
+			ID:      staffUser.ID,
+		}
+		if err := testDb.UpdateUserIsStaff(ctx, staffPrms); err != nil {
+			t.Fatal("Failed to update user is staff", "error", err)
+		}
+
+		profOpts := services.UserProfileOptions{
+			RequestID: requestID,
+			UserID:    staffUser.ID,
+			Bio:       "Lorem ipsum",
+			GitHub:    "https://github.com/johndoe",
+			LinkedIn:  "https://www.linkedin.com/in/john-doe",
+			Website:   "https://johndoe.com",
+		}
+		if _, serviceErr := testServices.CreateUserProfile(ctx, profOpts); serviceErr != nil {
+			t.Fatal("Failed to create user profile", "serviceError", serviceErr)
+		}
+
+		staffUser.IsStaff = true
+	}()
+
+	testCases := []TestRequestCase[string]{
+		{
+			Name: "Should return 200 OK when the user is staff and has a profile",
+			ReqFn: func(t *testing.T) (string, string) {
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: http.StatusOK,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.UserProfileResponse{})
+				AssertGreaterThan(t, resBody.ID, 0)
+				AssertEqual(t, resBody.Bio, "Lorem ipsum")
+				AssertEqual(t, resBody.Website, "https://johndoe.com")
+				AssertEqual(t, resBody.LinkedIn, "https://www.linkedin.com/in/john-doe")
+				AssertEqual(t, resBody.GitHub, "https://github.com/johndoe")
+				AssertStringContains(t,
+					resBody.Links.Self.Href,
+					fmt.Sprintf("/api%s/%d%s", paths.UsersPathV1, staffUser.ID, paths.ProfilePath),
+				)
+				AssertStringContains(t,
+					resBody.Links.User.Href,
+					fmt.Sprintf("/api%s/%d", paths.UsersPathV1, staffUser.ID),
+				)
+			},
+			Path: fmt.Sprintf("%s/%d%s", userPath, staffUser.ID, paths.ProfilePath),
+		},
+		{
+			Name: "Should return 404 when the user is staff and does not have profile",
+			ReqFn: func(t *testing.T) (string, string) {
+				testServices := GetTestServices(t)
+				ctx := context.Background()
+				requestID := uuid.NewString()
+
+				delOpts := services.DeleteUserProfileOptions{
+					RequestID: requestID,
+					UserID:    staffUser.ID,
+				}
+				if serviceErr := testServices.DeleteUserProfile(ctx, delOpts); serviceErr != nil {
+					t.Log("Failed to delete staff user profile", "serviceError", serviceErr)
+				}
+
+				return "", ""
+			},
+			ExpStatus: http.StatusNotFound,
+			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+			},
+			Path: fmt.Sprintf("%s/%d%s", userPath, staffUser.ID, paths.ProfilePath),
+		},
+		{
+			Name: "Should return 404 when the user is not staff and does not have profile",
+			ReqFn: func(t *testing.T) (string, string) {
+				accessToken, _ := GenerateTestAuthTokens(t, staffUser)
+				return "", accessToken
+			},
+			ExpStatus: http.StatusNotFound,
+			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+			},
+			Path: fmt.Sprintf("%s/%d%s", userPath, testUser.ID, paths.ProfilePath),
+		},
+		{
+			Name: "Should return 404 when the user does not exist",
+			ReqFn: func(t *testing.T) (string, string) {
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: http.StatusNotFound,
+			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+			},
+			Path: fmt.Sprintf("%s/%d%s", userPath, 987654321, paths.ProfilePath),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			PerformTestRequestCase(t, http.MethodGet, tc.Path, tc)
+		})
+	}
+
+	t.Cleanup(userCleanUp(t))
+}
+
+func TestGetUserPicture(t *testing.T) {
+	userCleanUp(t)()
+	staffUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+	testUser := confirmTestUser(t, CreateTestUser(t, nil).ID)
+
+	func() {
+		testServices := GetTestServices(t)
+		ctx := context.Background()
+		requestID := uuid.NewString()
+
+		picOpts := services.UploadUserPictureOptions{
+			RequestID:  requestID,
+			UserID:     staffUser.ID,
+			FileHeader: ImageUploadMock(t),
+		}
+		if _, serviceErr := testServices.UploadUserPicture(ctx, picOpts); serviceErr != nil {
+			t.Fatal("Failed to upload user picture", "serviceError", serviceErr)
+		}
+	}()
+
+	testCases := []TestRequestCase[string]{
+		{
+			Name: "Should return 200 OK with picture if the user is staff and has picture",
+			ReqFn: func(t *testing.T) (string, string) {
+				accessToken, _ := GenerateTestAuthTokens(t, testUser)
+				return "", accessToken
+			},
+			ExpStatus: http.StatusOK,
+			AssertFn: func(t *testing.T, req string, resp *http.Response) {
+				resBody := AssertTestResponseBody(t, resp, dtos.UserPictureResponse{})
+				AssertNotEmpty(t, resBody.URL)
+				AssertStringContains(t, resBody.URL, ".jpeg")
+				AssertEqual(t, resBody.EXT, "jpeg")
+				AssertStringContains(t,
+					resBody.Links.Self.Href,
+					fmt.Sprintf("/api%s/%d%s", paths.UsersPathV1, staffUser.ID, paths.PicturePath),
+				)
+				AssertStringContains(t,
+					resBody.Links.User.Href,
+					fmt.Sprintf("/api%s/%d", paths.UsersPathV1, staffUser.ID),
+				)
+			},
+			Path: fmt.Sprintf("%s/%d%s", userPath, staffUser.ID, paths.PicturePath),
+		},
+		{
+			Name: "Should return 404 NOT FOUND if the user is staff but does not have a picture",
+			ReqFn: func(t *testing.T) (string, string) {
+				testServices := GetTestServices(t)
+				ctx := context.Background()
+				requestID := uuid.NewString()
+
+				delPicOpts := services.DeleteUserPictureOptions{
+					RequestID: requestID,
+					UserID:    staffUser.ID,
+				}
+				if serviceErr := testServices.DeleteUserPicture(ctx, delPicOpts); serviceErr != nil {
+					t.Log("Failed to delete user picture", "serviceError", serviceErr)
+				}
+
+				return "", ""
+			},
+			ExpStatus: http.StatusNotFound,
+			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+			},
+			Path: fmt.Sprintf("%s/%d%s", userPath, staffUser.ID, paths.PicturePath),
+		},
+		{
+			Name: "Should return 404 when the user is not staff and does not have picture",
+			ReqFn: func(t *testing.T) (string, string) {
+				accessToken, _ := GenerateTestAuthTokens(t, staffUser)
+				return "", accessToken
+			},
+			ExpStatus: http.StatusNotFound,
+			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+			},
+			Path: fmt.Sprintf("%s/%d%s", userPath, testUser.ID, paths.PicturePath),
+		},
+		{
+			Name: "Should return 404 when the user does not exist",
+			ReqFn: func(t *testing.T) (string, string) {
+				return "", ""
+			},
+			ExpStatus: http.StatusNotFound,
+			AssertFn: func(t *testing.T, _ string, resp *http.Response) {
+				AssertNotFoundResponse(t, resp)
+			},
+			Path: fmt.Sprintf("%s/%d%s", userPath, 987654321, paths.PicturePath),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.Name, func(t *testing.T) {
+			PerformTestRequestCase(t, http.MethodGet, tc.Path, tc)
+		})
+	}
+
+	t.Cleanup(userCleanUp(t))
+}
