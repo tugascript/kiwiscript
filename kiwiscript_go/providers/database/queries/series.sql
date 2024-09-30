@@ -143,6 +143,23 @@ WHERE
     "language_slug" = $1 AND
     "is_published" = true;
 
+-- name: CountAllPublishedSeries :one
+SELECT COUNT("id") AS "count" FROM "series"
+WHERE "is_published" = true
+LIMIT 1;
+
+-- name: CountAllFilteredPublishedSeries :one
+SELECT COUNT("series"."id") AS "count" FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+WHERE
+    "series"."is_published" = true AND
+    (
+        "series"."title" ILIKE $1 OR
+        "users"."first_name" ILIKE $1 OR
+        "users"."last_name" ILIKE $1
+    )
+LIMIT 1;
+
 -- name: CountFilteredSeries :one
 SELECT COUNT("series"."id") FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
@@ -246,6 +263,7 @@ SELECT
   "series_progress"."completed_sections" AS "series_progress_completed_sections",
   "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
   "series_progress"."viewed_at" AS "series_progress_viewed_at",
+  "series_progress"."completed_at" AS "series_progress_completed_at",
   "series_pictures"."id" AS "picture_id",
   "series_pictures"."ext" AS "picture_ext"
 FROM "series"
@@ -270,6 +288,7 @@ SELECT
   "series_progress"."completed_sections" AS "series_progress_completed_sections",
   "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
   "series_progress"."viewed_at" AS "series_progress_viewed_at",
+  "series_progress"."completed_at" AS "series_progress_completed_at",
   "series_pictures"."id" AS "picture_id",
   "series_pictures"."ext" AS "picture_ext"
 FROM "series"
@@ -294,6 +313,7 @@ SELECT
   "series_progress"."completed_sections" AS "series_progress_completed_sections",
   "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
   "series_progress"."viewed_at" AS "series_progress_viewed_at",
+  "series_progress"."completed_at" AS "series_progress_completed_at",
   "series_pictures"."id" AS "picture_id",
   "series_pictures"."ext" AS "picture_ext"
 FROM "series"
@@ -323,6 +343,7 @@ SELECT
   "series_progress"."completed_sections" AS "series_progress_completed_sections",
   "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
   "series_progress"."viewed_at" AS "series_progress_viewed_at",
+  "series_progress"."completed_at" AS "series_progress_completed_at",
   "series_pictures"."id" AS "picture_id",
   "series_pictures"."ext" AS "picture_ext"
 FROM "series"
@@ -342,6 +363,42 @@ WHERE
   )
 ORDER BY "series"."slug" ASC
 LIMIT $4 OFFSET $5;
+
+-- name: FindPaginatedPublishedSeriesWithAuthorAndInnerProgress :many
+SELECT
+  "series".*,
+  "users"."first_name" AS "author_first_name",
+  "users"."last_name" AS "author_last_name",
+  "series_progress"."id" AS "series_progress_id",
+  "series_progress"."completed_sections" AS "series_progress_completed_sections",
+  "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+  "series_progress"."viewed_at" AS "series_progress_viewed_at",
+  "series_progress"."completed_at" AS "series_progress_completed_at",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+INNER JOIN "series_progress" ON (
+    "series"."slug" = "series_progress"."series_slug" AND
+    "series_progress"."user_id" = $1
+)
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
+WHERE
+  "series"."language_slug" = $2 AND
+  "series"."is_published" = true
+ORDER BY "series_progress"."viewed_at" DESC
+LIMIT $3 OFFSET $4;
+
+-- name: CountPublishedSeriesWithInnerProgress :one
+SELECT COUNT("series"."id") AS "count" FROM "series"
+INNER JOIN "series_progress" ON (
+    "series"."slug" = "series_progress"."series_slug" AND
+    "series_progress"."user_id" = $1
+)
+WHERE
+    "series"."language_slug" = $2 AND
+    "series"."is_published" = true
+LIMIT 1;
 
 -- name: AddSeriesSectionsCount :exec
 UPDATE "series" SET
@@ -434,6 +491,7 @@ SELECT
     "series_progress"."completed_sections" AS "series_progress_completed_sections",
     "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
     "series_progress"."viewed_at" AS "series_progress_viewed_at",
+    "series_progress"."completed_at" AS "series_progress_completed_at",
     "series_pictures"."id" AS "picture_id",
     "series_pictures"."ext" AS "picture_ext"
 FROM "series"
@@ -499,6 +557,7 @@ SELECT
     "series_progress"."completed_sections" AS "series_progress_completed_sections",
     "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
     "series_progress"."viewed_at" AS "series_progress_viewed_at",
+    "series_progress"."completed_at" AS "series_progress_completed_at",
     "series_pictures"."id" AS "picture_id",
     "series_pictures"."ext" AS "picture_ext",
     "languages"."name" AS "language_name",
@@ -525,6 +584,7 @@ SELECT
     "series_progress"."completed_sections" AS "series_progress_completed_sections",
     "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
     "series_progress"."viewed_at" AS "series_progress_viewed_at",
+    "series_progress"."completed_at" AS "series_progress_completed_at",
     "series_pictures"."id" AS "picture_id",
     "series_pictures"."ext" AS "picture_ext",
     "languages"."name" AS "language_name",
@@ -550,3 +610,4 @@ LIMIT $1 OFFSET $2;
 -- name: DeleteAllLanguageSeries :exec
 DELETE FROM "series"
 WHERE "language_slug" = $1;
+

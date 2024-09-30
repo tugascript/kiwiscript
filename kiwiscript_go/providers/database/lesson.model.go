@@ -134,3 +134,19 @@ func (l *FindLessonBySlugsAndIDsWithArticleAndVideoRow) ToLessonModel() *LessonM
 		IsCompleted:      false,
 	}
 }
+
+func (l *FindCurrentLessonRow) ToLessonModel() *LessonModel {
+	return &LessonModel{
+		ID:               l.ID,
+		Title:            l.Title,
+		Position:         l.Position,
+		WatchTimeSeconds: l.WatchTimeSeconds,
+		ReadTimeSeconds:  l.ReadTimeSeconds,
+		LanguageSlug:     l.LanguageSlug,
+		SeriesSlug:       l.SeriesSlug,
+		SectionID:        l.SectionID,
+		IsPublished:      l.IsPublished,
+		IsCompleted:      l.LessonProgressCompletedAt.Valid,
+		ViewedAt:         l.LessonProgressViewedAt.Time.Format(time.RFC3339),
+	}
+}

@@ -94,10 +94,34 @@ SELECT
     "language_progress"."completed_series" AS "language_progress_completed_series",
     "language_progress"."viewed_at" AS "language_progress_viewed_at"
 FROM "languages"
-LEFT JOIN "language_progress" ON "languages"."slug" = "language_progress"."language_slug"
-WHERE "language_progress"."user_id" = $1 AND "languages"."name" ILIKE $2
+LEFT JOIN "language_progress" ON (
+    "languages"."slug" = "language_progress"."language_slug" AND
+    "language_progress"."user_id" = $1
+)
+WHERE "languages"."name" ILIKE $2
 ORDER BY "languages"."slug" ASC
 LIMIT $3 OFFSET $4;
+
+-- name: FindPaginatedLanguagesWithInnerProgress :many
+SELECT
+    "languages".*,
+    "language_progress"."completed_series" AS "language_progress_completed_series",
+    "language_progress"."viewed_at" AS "language_progress_viewed_at"
+FROM "languages"
+INNER JOIN "language_progress" ON (
+    "languages"."slug" = "language_progress"."language_slug" AND
+    "language_progress"."user_id" = $1
+)
+ORDER BY "language_progress"."viewed_at" DESC
+LIMIT $2 OFFSET $3;
+
+-- name: CountLanguagesWithInnerProgress :one
+SELECT COUNT("languages"."id") AS "count" FROM "languages"
+INNER JOIN "language_progress" ON (
+    "languages"."slug" = "language_progress"."language_slug" AND
+    "language_progress"."user_id" = $1
+)
+LIMIT 1;
 
 -- name: CountFilteredLanguages :one
 SELECT COUNT("id") FROM "languages"

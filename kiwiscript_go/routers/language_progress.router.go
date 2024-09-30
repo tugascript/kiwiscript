@@ -29,6 +29,7 @@ func (r *Router) LanguageProgressPrivateRoutes() {
 		r.controllers.UserMiddleware,
 	)
 
+	languageProgress.Get("/", r.controllers.GetViewedLanguages)
 	languageProgress.Post("/", r.controllers.CreateOrUpdateLanguageProgress)
 	languageProgress.Delete("/", r.controllers.ResetLanguageProgress)
 }

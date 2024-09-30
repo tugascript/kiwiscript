@@ -192,3 +192,27 @@ LIMIT 1;
 -- name: DeleteLessonByID :exec
 DELETE FROM "lessons"
 WHERE "id" = $1;
+
+-- name: FindCurrentLesson :one
+SELECT
+    "lessons".*,
+    "lesson_progress"."completed_at" AS "lesson_progress_completed_at",
+    "lesson_progress"."viewed_at" AS "lesson_progress_viewed_at",
+    "lesson_articles"."id" AS "lesson_acticle_id",
+    "lesson_articles"."content" AS "lesson_article_content",
+    "lesson_videos"."id" AS "lesson_video_id",
+    "lesson_videos"."url" AS "lesson_video_url"
+FROM "lessons"
+INNER JOIN "lesson_progress" ON (
+    "lessons"."id" = "lesson_progress"."lesson_id" AND
+    "lesson_progress"."user_id" = $1
+)
+LEFT JOIN "lesson_articles" ON "lessons"."id" = "lesson_articles"."lesson_id"
+LEFT JOIN "lesson_videos" ON "lessons"."id" = "lesson_videos"."lesson_id"
+WHERE
+    "lessons"."language_slug" = $2 AND
+    "lessons"."series_slug" = $3 AND
+    "lessons"."section_id" = $4 AND
+    "lessons"."is_published" = true
+ORDER BY "lesson_progress"."viewed_at" DESC
+LIMIT 1;

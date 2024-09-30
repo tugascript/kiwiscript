@@ -139,6 +139,90 @@ func (q *Queries) DeleteLessonByID(ctx context.Context, id int32) error {
 	return err
 }
 
+const findCurrentLesson = `-- name: FindCurrentLesson :one
+SELECT
+    lessons.id, lessons.title, lessons.position, lessons.is_published, lessons.watch_time_seconds, lessons.read_time_seconds, lessons.author_id, lessons.language_slug, lessons.series_slug, lessons.section_id, lessons.created_at, lessons.updated_at,
+    "lesson_progress"."completed_at" AS "lesson_progress_completed_at",
+    "lesson_progress"."viewed_at" AS "lesson_progress_viewed_at",
+    "lesson_articles"."id" AS "lesson_acticle_id",
+    "lesson_articles"."content" AS "lesson_article_content",
+    "lesson_videos"."id" AS "lesson_video_id",
+    "lesson_videos"."url" AS "lesson_video_url"
+FROM "lessons"
+INNER JOIN "lesson_progress" ON (
+    "lessons"."id" = "lesson_progress"."lesson_id" AND
+    "lesson_progress"."user_id" = $1
+)
+LEFT JOIN "lesson_articles" ON "lessons"."id" = "lesson_articles"."lesson_id"
+LEFT JOIN "lesson_videos" ON "lessons"."id" = "lesson_videos"."lesson_id"
+WHERE
+    "lessons"."language_slug" = $2 AND
+    "lessons"."series_slug" = $3 AND
+    "lessons"."section_id" = $4 AND
+    "lessons"."is_published" = true
+ORDER BY "lesson_progress"."viewed_at" DESC
+LIMIT 1
+`
+
+type FindCurrentLessonParams struct {
+	UserID       int32
+	LanguageSlug string
+	SeriesSlug   string
+	SectionID    int32
+}
+
+type FindCurrentLessonRow struct {
+	ID                        int32
+	Title                     string
+	Position                  int16
+	IsPublished               bool
+	WatchTimeSeconds          int32
+	ReadTimeSeconds           int32
+	AuthorID                  int32
+	LanguageSlug              string
+	SeriesSlug                string
+	SectionID                 int32
+	CreatedAt                 pgtype.Timestamp
+	UpdatedAt                 pgtype.Timestamp
+	LessonProgressCompletedAt pgtype.Timestamp
+	LessonProgressViewedAt    pgtype.Timestamp
+	LessonActicleID           pgtype.Int4
+	LessonArticleContent      pgtype.Text
+	LessonVideoID             pgtype.Int4
+	LessonVideoUrl            pgtype.Text
+}
+
+func (q *Queries) FindCurrentLesson(ctx context.Context, arg FindCurrentLessonParams) (FindCurrentLessonRow, error) {
+	row := q.db.QueryRow(ctx, findCurrentLesson,
+		arg.UserID,
+		arg.LanguageSlug,
+		arg.SeriesSlug,
+		arg.SectionID,
+	)
+	var i FindCurrentLessonRow
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Position,
+		&i.IsPublished,
+		&i.WatchTimeSeconds,
+		&i.ReadTimeSeconds,
+		&i.AuthorID,
+		&i.LanguageSlug,
+		&i.SeriesSlug,
+		&i.SectionID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LessonProgressCompletedAt,
+		&i.LessonProgressViewedAt,
+		&i.LessonActicleID,
+		&i.LessonArticleContent,
+		&i.LessonVideoID,
+		&i.LessonVideoUrl,
+	)
+	return i, err
+}
+
 const findLessonBySlugsAndIDs = `-- name: FindLessonBySlugsAndIDs :one
 SELECT id, title, position, is_published, watch_time_seconds, read_time_seconds, author_id, language_slug, series_slug, section_id, created_at, updated_at FROM "lessons"
 WHERE

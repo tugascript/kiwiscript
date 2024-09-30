@@ -192,6 +192,74 @@ func (q *Queries) DeleteSectionById(ctx context.Context, id int32) error {
 	return err
 }
 
+const findCurrentSection = `-- name: FindCurrentSection :one
+SELECT
+    sections.id, sections.title, sections.language_slug, sections.series_slug, sections.description, sections.position, sections.lessons_count, sections.watch_time_seconds, sections.read_time_seconds, sections.is_published, sections.author_id, sections.created_at, sections.updated_at,
+    "section_progress"."completed_lessons" AS "section_progress_completed_lessons",
+    "section_progress"."completed_at" AS "section_progress_completed_at",
+    "section_progress"."viewed_at" AS "section_progress_viewed_at"
+FROM "sections"
+INNER JOIN "section_progress" ON (
+    "sections"."id" = "section_progress"."section_id" AND
+    "section_progress"."user_id" = $1
+)
+WHERE
+    "sections"."language_slug" = $2 AND
+    "sections"."series_slug" = $3 AND
+    "sections"."is_published" = true
+ORDER BY "section_progress"."viewed_at" DESC
+LIMIT 1
+`
+
+type FindCurrentSectionParams struct {
+	UserID       int32
+	LanguageSlug string
+	SeriesSlug   string
+}
+
+type FindCurrentSectionRow struct {
+	ID                              int32
+	Title                           string
+	LanguageSlug                    string
+	SeriesSlug                      string
+	Description                     string
+	Position                        int16
+	LessonsCount                    int16
+	WatchTimeSeconds                int32
+	ReadTimeSeconds                 int32
+	IsPublished                     bool
+	AuthorID                        int32
+	CreatedAt                       pgtype.Timestamp
+	UpdatedAt                       pgtype.Timestamp
+	SectionProgressCompletedLessons int16
+	SectionProgressCompletedAt      pgtype.Timestamp
+	SectionProgressViewedAt         pgtype.Timestamp
+}
+
+func (q *Queries) FindCurrentSection(ctx context.Context, arg FindCurrentSectionParams) (FindCurrentSectionRow, error) {
+	row := q.db.QueryRow(ctx, findCurrentSection, arg.UserID, arg.LanguageSlug, arg.SeriesSlug)
+	var i FindCurrentSectionRow
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.LanguageSlug,
+		&i.SeriesSlug,
+		&i.Description,
+		&i.Position,
+		&i.LessonsCount,
+		&i.WatchTimeSeconds,
+		&i.ReadTimeSeconds,
+		&i.IsPublished,
+		&i.AuthorID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SectionProgressCompletedLessons,
+		&i.SectionProgressCompletedAt,
+		&i.SectionProgressViewedAt,
+	)
+	return i, err
+}
+
 const findPaginatedPublishedSectionsBySlugs = `-- name: FindPaginatedPublishedSectionsBySlugs :many
 SELECT id, title, language_slug, series_slug, description, position, lessons_count, watch_time_seconds, read_time_seconds, is_published, author_id, created_at, updated_at FROM "sections"
 WHERE

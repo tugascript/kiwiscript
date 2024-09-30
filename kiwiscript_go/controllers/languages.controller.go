@@ -254,3 +254,50 @@ func (c *Controllers) DeleteLanguage(ctx *fiber.Ctx) error {
 
 	return ctx.SendStatus(fiber.StatusNoContent)
 }
+
+func (c *Controllers) GetViewedLanguages(ctx *fiber.Ctx) error {
+	requestID := c.requestID(ctx)
+	userCtx := ctx.UserContext()
+	log := c.buildLogger(ctx, requestID, languagesLocation, "GetViewedLanguages")
+	log.InfoContext(userCtx, "Getting viewed languages...")
+
+	user, err := c.GetUserClaims(ctx)
+	if err != nil {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
+	}
+	if user.IsStaff || user.IsAdmin {
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
+	}
+
+	queryParams := dtos.PaginationQueryParams{
+		Offset: int32(ctx.QueryInt("offset", dtos.OffsetDefault)),
+		Limit:  int32(ctx.QueryInt("limit", dtos.LimitDefault)),
+	}
+	if err := c.validate.StructCtx(userCtx, queryParams); err != nil {
+		return c.validateQueryErrorResponse(log, userCtx, err, ctx)
+	}
+
+	languages, count, serviceErr := c.services.FindPaginatedViewedLanguagesWithProgress(
+		userCtx,
+		services.FindPaginatedLanguagesWithProgressOptions{
+			RequestID: requestID,
+			UserID:    user.ID,
+			Offset:    queryParams.Offset,
+			Limit:     queryParams.Limit,
+		},
+	)
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	return ctx.JSON(dtos.NewPaginatedResponse(
+		c.backendDomain,
+		paths.LanguagePathV1,
+		&queryParams,
+		count,
+		languages,
+		func(l *db.FindPaginatedLanguagesWithInnerProgressRow) *dtos.LanguageResponse {
+			return dtos.NewLanguageResponse(c.backendDomain, l.ToLanguageModel())
+		},
+	))
+}

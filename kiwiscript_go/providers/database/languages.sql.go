@@ -34,6 +34,22 @@ func (q *Queries) CountLanguages(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countLanguagesWithInnerProgress = `-- name: CountLanguagesWithInnerProgress :one
+SELECT COUNT("languages"."id") AS "count" FROM "languages"
+INNER JOIN "language_progress" ON (
+    "languages"."slug" = "language_progress"."language_slug" AND
+    "language_progress"."user_id" = $1
+)
+LIMIT 1
+`
+
+func (q *Queries) CountLanguagesWithInnerProgress(ctx context.Context, userID int32) (int64, error) {
+	row := q.db.QueryRow(ctx, countLanguagesWithInnerProgress, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createLanguage = `-- name: CreateLanguage :one
 
 INSERT INTO "languages" (
@@ -205,8 +221,11 @@ SELECT
     "language_progress"."completed_series" AS "language_progress_completed_series",
     "language_progress"."viewed_at" AS "language_progress_viewed_at"
 FROM "languages"
-LEFT JOIN "language_progress" ON "languages"."slug" = "language_progress"."language_slug"
-WHERE "language_progress"."user_id" = $1 AND "languages"."name" ILIKE $2
+LEFT JOIN "language_progress" ON (
+    "languages"."slug" = "language_progress"."language_slug" AND
+    "language_progress"."user_id" = $1
+)
+WHERE "languages"."name" ILIKE $2
 ORDER BY "languages"."slug" ASC
 LIMIT $3 OFFSET $4
 `
@@ -388,6 +407,70 @@ func (q *Queries) FindPaginatedLanguages(ctx context.Context, arg FindPaginatedL
 			&i.AuthorID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const findPaginatedLanguagesWithInnerProgress = `-- name: FindPaginatedLanguagesWithInnerProgress :many
+SELECT
+    languages.id, languages.name, languages.slug, languages.icon, languages.series_count, languages.author_id, languages.created_at, languages.updated_at,
+    "language_progress"."completed_series" AS "language_progress_completed_series",
+    "language_progress"."viewed_at" AS "language_progress_viewed_at"
+FROM "languages"
+INNER JOIN "language_progress" ON (
+    "languages"."slug" = "language_progress"."language_slug" AND
+    "language_progress"."user_id" = $1
+)
+ORDER BY "language_progress"."viewed_at" DESC
+LIMIT $2 OFFSET $3
+`
+
+type FindPaginatedLanguagesWithInnerProgressParams struct {
+	UserID int32
+	Limit  int32
+	Offset int32
+}
+
+type FindPaginatedLanguagesWithInnerProgressRow struct {
+	ID                              int32
+	Name                            string
+	Slug                            string
+	Icon                            string
+	SeriesCount                     int16
+	AuthorID                        int32
+	CreatedAt                       pgtype.Timestamp
+	UpdatedAt                       pgtype.Timestamp
+	LanguageProgressCompletedSeries int16
+	LanguageProgressViewedAt        pgtype.Timestamp
+}
+
+func (q *Queries) FindPaginatedLanguagesWithInnerProgress(ctx context.Context, arg FindPaginatedLanguagesWithInnerProgressParams) ([]FindPaginatedLanguagesWithInnerProgressRow, error) {
+	rows, err := q.db.Query(ctx, findPaginatedLanguagesWithInnerProgress, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FindPaginatedLanguagesWithInnerProgressRow{}
+	for rows.Next() {
+		var i FindPaginatedLanguagesWithInnerProgressRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.Icon,
+			&i.SeriesCount,
+			&i.AuthorID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.LanguageProgressCompletedSeries,
+			&i.LanguageProgressViewedAt,
 		); err != nil {
 			return nil, err
 		}

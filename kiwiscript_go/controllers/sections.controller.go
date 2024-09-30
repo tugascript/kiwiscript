@@ -77,7 +77,7 @@ func (c *Controllers) CreateSection(ctx *fiber.Ctx) error {
 	}
 
 	return ctx.Status(fiber.StatusCreated).JSON(
-		dtos.NewSectionResponse(c.backendDomain, section.ToSectionModel(), nil),
+		dtos.NewSectionResponse(c.backendDomain, section.ToSectionModel()),
 	)
 }
 
@@ -127,10 +127,10 @@ func (c *Controllers) GetSection(ctx *fiber.Ctx) error {
 				return c.serviceErrorResponse(serviceErr, ctx)
 			}
 
-			return ctx.JSON(dtos.NewSectionResponse(c.backendDomain, section.ToSectionModel(), nil))
+			return ctx.JSON(dtos.NewSectionResponse(c.backendDomain, section.ToSectionModel()))
 		}
 
-		servicePart, serviceErr := c.services.FindPublishedSectionBySlugsAndIDWithProgress(
+		section, serviceErr := c.services.FindPublishedSectionBySlugsAndIDWithProgress(
 			userCtx,
 			services.FindPublishedSectionBySlugsAndIDWithProgressOptions{
 				RequestID:    requestID,
@@ -144,7 +144,7 @@ func (c *Controllers) GetSection(ctx *fiber.Ctx) error {
 			return c.serviceErrorResponse(serviceErr, ctx)
 		}
 
-		return ctx.JSON(dtos.NewSectionResponse(c.backendDomain, servicePart.ToSectionModel(), nil))
+		return ctx.JSON(dtos.NewSectionResponse(c.backendDomain, section.ToSectionModel()))
 	}
 
 	section, serviceErr := c.services.FindPublishedSectionBySlugsAndID(userCtx, services.FindSectionBySlugsAndIDOptions{
@@ -157,7 +157,7 @@ func (c *Controllers) GetSection(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(dtos.NewSectionResponse(c.backendDomain, section.ToSectionModel(), nil))
+	return ctx.JSON(dtos.NewSectionResponse(c.backendDomain, section.ToSectionModel()))
 }
 
 func (c *Controllers) GetSections(ctx *fiber.Ctx) error {
@@ -218,7 +218,7 @@ func (c *Controllers) GetSections(ctx *fiber.Ctx) error {
 					count,
 					sections,
 					func(s *db.Section) *dtos.SectionResponse {
-						return dtos.NewSectionResponse(c.backendDomain, s.ToSectionModel(), nil)
+						return dtos.NewSectionResponse(c.backendDomain, s.ToSectionModel())
 					},
 				),
 			)
@@ -254,7 +254,7 @@ func (c *Controllers) GetSections(ctx *fiber.Ctx) error {
 				count,
 				sections,
 				func(s *db.FindPaginatedPublishedSectionsBySlugsWithProgressRow) *dtos.SectionResponse {
-					return dtos.NewSectionResponse(c.backendDomain, s.ToSectionModel(), nil)
+					return dtos.NewSectionResponse(c.backendDomain, s.ToSectionModel())
 				},
 			),
 		)
@@ -289,7 +289,7 @@ func (c *Controllers) GetSections(ctx *fiber.Ctx) error {
 			count,
 			sections,
 			func(s *db.Section) *dtos.SectionResponse {
-				return dtos.NewSectionResponse(c.backendDomain, s.ToSectionModel(), nil)
+				return dtos.NewSectionResponse(c.backendDomain, s.ToSectionModel())
 			},
 		),
 	)
@@ -356,7 +356,7 @@ func (c *Controllers) UpdateSection(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(dtos.NewSectionResponse(c.backendDomain, section.ToSectionModel(), nil))
+	return ctx.JSON(dtos.NewSectionResponse(c.backendDomain, section.ToSectionModel()))
 }
 
 func (c *Controllers) UpdateSectionIsPublished(ctx *fiber.Ctx) error {
@@ -418,7 +418,7 @@ func (c *Controllers) UpdateSectionIsPublished(ctx *fiber.Ctx) error {
 		return c.serviceErrorResponse(serviceErr, ctx)
 	}
 
-	return ctx.JSON(dtos.NewSectionResponse(c.backendDomain, section.ToSectionModel(), nil))
+	return ctx.JSON(dtos.NewSectionResponse(c.backendDomain, section.ToSectionModel()))
 }
 
 func (c *Controllers) DeleteSection(ctx *fiber.Ctx) error {
@@ -432,7 +432,7 @@ func (c *Controllers) DeleteSection(ctx *fiber.Ctx) error {
 		"seriesSlug", seriesSlug,
 		"sectionID", sectionID,
 	)
-	log.InfoContext(userCtx, "Updating series part...")
+	log.InfoContext(userCtx, "Updating section...")
 
 	user, serviceErr := c.GetUserClaims(ctx)
 	if serviceErr != nil || !user.IsStaff {
@@ -472,4 +472,44 @@ func (c *Controllers) DeleteSection(ctx *fiber.Ctx) error {
 	}
 
 	return ctx.SendStatus(fiber.StatusNoContent)
+}
+
+func (c *Controllers) GetCurrentSection(ctx *fiber.Ctx) error {
+	requestID := c.requestID(ctx)
+	userCtx := ctx.UserContext()
+	languageSlug := ctx.Params("languageSlug")
+	seriesSlug := ctx.Params("seriesSlug")
+	log := c.buildLogger(ctx, requestID, sectionsLocation, "DeleteSection").With(
+		"languageSlug", languageSlug,
+		"seriesSlug", seriesSlug,
+	)
+	log.InfoContext(userCtx, "Finding current section")
+
+	user, err := c.GetUserClaims(ctx)
+	if err != nil {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
+	}
+	if user.IsStaff || user.IsAdmin {
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
+	}
+
+	params := dtos.SeriesPathParams{
+		LanguageSlug: languageSlug,
+		SeriesSlug:   seriesSlug,
+	}
+	if err := c.validate.StructCtx(userCtx, params); err != nil {
+		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
+	}
+
+	section, serviceErr := c.services.FindCurrentSection(userCtx, services.FindCurrentSectionOptions{
+		RequestID:    requestID,
+		UserID:       user.ID,
+		LanguageSlug: params.LanguageSlug,
+		SeriesSlug:   params.SeriesSlug,
+	})
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	return ctx.JSON(dtos.NewSectionResponse(c.backendDomain, section.ToSectionModel()))
 }

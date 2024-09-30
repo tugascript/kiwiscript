@@ -99,62 +99,22 @@ type SectionLesson struct {
 	Links            SelfLinkResponse `json:"_links"`
 }
 
-type SectionEmbedded struct {
-	Lessons []SectionLesson `json:"lessons"`
-}
-
-func newSectionEmbedded(backendDomain string, lessons []db.Lesson) *SectionEmbedded {
-	if lessons == nil {
-		return nil
-	}
-
-	sectionLessons := make([]SectionLesson, 0, len(lessons))
-	for _, l := range lessons {
-		sectionLessons = append(sectionLessons, SectionLesson{
-			ID:               l.ID,
-			Title:            l.Title,
-			Position:         l.Position,
-			WatchTimeSeconds: l.WatchTimeSeconds,
-			ReadTimeSeconds:  l.ReadTimeSeconds,
-			Links: SelfLinkResponse{
-				Self: LinkResponse{
-					Href: fmt.Sprintf(
-						"https://%s/api%s/%s%s/%s%s/%d%s/%d",
-						backendDomain,
-						paths.LanguagePathV1,
-						l.LanguageSlug,
-						paths.SeriesPath,
-						l.SeriesSlug,
-						paths.SectionsPath,
-						l.SectionID,
-						paths.LessonsPath,
-						l.ID,
-					),
-				},
-			},
-		})
-	}
-
-	return &SectionEmbedded{Lessons: sectionLessons}
-}
-
 type SectionResponse struct {
-	ID               int32            `json:"id"`
-	Title            string           `json:"title"`
-	Description      string           `json:"description"`
-	Position         int16            `json:"position"`
-	CompletedLessons int16            `json:"completedLessons"`
-	TotalLessons     int16            `json:"totalLessons"`
-	IsCompleted      bool             `json:"isCompleted"`
-	ReadTime         int32            `json:"readTime"`
-	WatchTime        int32            `json:"watchTime"`
-	IsPublished      bool             `json:"isPublished"`
-	ViewedAt         string           `json:"viewedAt,omitempty"`
-	Links            SectionLinks     `json:"_links"`
-	Embedded         *SectionEmbedded `json:"_embedded,omitempty"`
+	ID               int32        `json:"id"`
+	Title            string       `json:"title"`
+	Description      string       `json:"description"`
+	Position         int16        `json:"position"`
+	CompletedLessons int16        `json:"completedLessons"`
+	TotalLessons     int16        `json:"totalLessons"`
+	IsCompleted      bool         `json:"isCompleted"`
+	ReadTime         int32        `json:"readTime"`
+	WatchTime        int32        `json:"watchTime"`
+	IsPublished      bool         `json:"isPublished"`
+	ViewedAt         string       `json:"viewedAt,omitempty"`
+	Links            SectionLinks `json:"_links"`
 }
 
-func NewSectionResponse(backendDomain string, section *db.SectionModel, lessons []db.Lesson) *SectionResponse {
+func NewSectionResponse(backendDomain string, section *db.SectionModel) *SectionResponse {
 	return &SectionResponse{
 		ID:               section.ID,
 		Title:            section.Title,
@@ -168,6 +128,5 @@ func NewSectionResponse(backendDomain string, section *db.SectionModel, lessons 
 		IsPublished:      section.IsPublished,
 		ViewedAt:         section.ViewedAt,
 		Links:            newSectionLinks(backendDomain, section.LanguageSlug, section.SeriesSlug, section.ID),
-		Embedded:         newSectionEmbedded(backendDomain, lessons),
 	}
 }

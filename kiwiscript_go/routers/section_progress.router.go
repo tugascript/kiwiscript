@@ -33,6 +33,7 @@ func (r *Router) SectionProgressPrivateRoutes() {
 		r.controllers.UserMiddleware,
 	)
 
+	sectionProgress.Get("/", r.controllers.GetCurrentSection)
 	sectionProgress.Post("/", r.controllers.CreateOrUpdateSectionProgress)
 	sectionProgress.Delete("/", r.controllers.ResetSectionProgress)
 }

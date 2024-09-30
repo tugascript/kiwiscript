@@ -771,3 +771,74 @@ func (c *Controllers) DeleteLesson(ctx *fiber.Ctx) error {
 
 	return ctx.SendStatus(fiber.StatusNoContent)
 }
+
+func (c *Controllers) GetCurrentLesson(ctx *fiber.Ctx) error {
+	requestID := c.requestID(ctx)
+	userCtx := ctx.UserContext()
+	languageSlug := ctx.Params("languageSlug")
+	seriesSlug := ctx.Params("seriesSlug")
+	sectionID := ctx.Params("sectionID")
+	log := c.buildLogger(ctx, requestID, lessonLocation, "GetCurrentLesson").With(
+		"languageSlug", languageSlug,
+		"seriesSlug", seriesSlug,
+		"sectionId", sectionID,
+	)
+	log.InfoContext(userCtx, "Getting current lesson...")
+
+	user, serviceErr := c.GetUserClaims(ctx)
+	if serviceErr != nil {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
+	}
+	if user.IsStaff || user.IsAdmin {
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
+	}
+
+	params := dtos.SectionPathParams{
+		LanguageSlug: languageSlug,
+		SeriesSlug:   seriesSlug,
+		SectionID:    sectionID,
+	}
+	if err := c.validate.StructCtx(userCtx, params); err != nil {
+		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
+	}
+
+	parsedSectionID, err := strconv.Atoi(params.SectionID)
+	if err != nil {
+		return ctx.
+			Status(fiber.StatusBadRequest).
+			JSON(exceptions.NewRequestValidationError(exceptions.RequestValidationLocationParams, []exceptions.FieldError{{
+				Param:   "sectionId",
+				Message: exceptions.StrFieldErrMessageNumber,
+				Value:   params.SectionID,
+			}}))
+	}
+
+	lesson, serviceErr := c.services.FindCurrentLesson(userCtx, services.FindCurrentLessonOptions{
+		RequestID:    requestID,
+		UserID:       user.ID,
+		LanguageSlug: params.LanguageSlug,
+		SeriesSlug:   params.SeriesSlug,
+		SectionID:    int32(parsedSectionID),
+	})
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	files, fileUrls, serviceErr := c.findLessonFiles(userCtx, lesson.ID)
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	return ctx.JSON(
+		dtos.NewLessonResponseWithEmbeddedOptions(
+			c.backendDomain,
+			lesson.ToLessonModel(),
+			lesson.LessonActicleID,
+			lesson.LessonVideoID,
+			lesson.LessonArticleContent.String,
+			lesson.LessonVideoUrl.String,
+			files,
+			fileUrls,
+		),
+	)
+}

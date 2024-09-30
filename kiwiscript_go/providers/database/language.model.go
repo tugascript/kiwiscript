@@ -116,3 +116,15 @@ func (l *FindLanguageBySlugWithLanguageProgressRow) ToLanguageModel() *LanguageM
 		ViewedAt:        viewedAt,
 	}
 }
+
+func (l *FindPaginatedLanguagesWithInnerProgressRow) ToLanguageModel() *LanguageModel {
+	return &LanguageModel{
+		ID:              l.ID,
+		Name:            l.Name,
+		Slug:            l.Slug,
+		Icon:            l.Icon,
+		CompletedSeries: l.LanguageProgressCompletedSeries,
+		TotalSeries:     l.SeriesCount,
+		ViewedAt:        l.LanguageProgressViewedAt.Time.Format(time.RFC3339),
+	}
+}

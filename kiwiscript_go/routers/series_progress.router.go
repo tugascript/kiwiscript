@@ -31,6 +31,7 @@ func (r *Router) SeriesProgressPrivateRoutes() {
 		r.controllers.UserMiddleware,
 	)
 
+	seriesProgress.Get("/", r.controllers.GetPaginatedViewedSeries)
 	seriesProgress.Post("/", r.controllers.CreateOrUpdateSeriesProgress)
 	seriesProgress.Delete("/", r.controllers.ResetSeriesProgress)
 }

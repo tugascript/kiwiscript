@@ -661,3 +661,34 @@ func (s *Services) DeleteSection(ctx context.Context, opts DeleteSectionOptions)
 	log.InfoContext(ctx, "Series part deleted", "id", section.ID)
 	return nil
 }
+
+type FindCurrentSectionOptions struct {
+	RequestID    string
+	UserID       int32
+	LanguageSlug string
+	SeriesSlug   string
+}
+
+func (s *Services) FindCurrentSection(
+	ctx context.Context,
+	opts FindCurrentSectionOptions,
+) (*db.FindCurrentSectionRow, *exceptions.ServiceError) {
+	log := s.buildLogger(opts.RequestID, sectionsLocation, "FindCurrentSection").With(
+		"userId", opts.UserID,
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+	)
+	log.InfoContext(ctx, "Finding current section...")
+
+	section, err := s.database.FindCurrentSection(ctx, db.FindCurrentSectionParams{
+		UserID:       opts.UserID,
+		LanguageSlug: opts.LanguageSlug,
+		SeriesSlug:   opts.SeriesSlug,
+	})
+	if err != nil {
+		log.WarnContext(ctx, "Current section not found", "error", err)
+		return nil, exceptions.FromDBError(err)
+	}
+
+	return &section, nil
+}

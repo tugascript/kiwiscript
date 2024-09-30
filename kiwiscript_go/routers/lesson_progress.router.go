@@ -35,6 +35,7 @@ func (r *Router) LessonProgressPrivateRoutes() {
 		r.controllers.UserMiddleware,
 	)
 
+	lessonProgress.Get("/", r.controllers.GetCurrentLesson)
 	lessonProgress.Post("/", r.controllers.CreateOrUpdateLessonProgress)
 	lessonProgress.Delete("/", r.controllers.ResetLessonProgress)
 	lessonProgress.Post("/complete", r.controllers.CompleteLessonProgress)

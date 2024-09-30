@@ -129,3 +129,21 @@ func (sp *FindPaginatedPublishedSectionsBySlugsWithProgressRow) ToSectionModel()
 		IsPublished:      sp.IsPublished,
 	}
 }
+
+func (sec *FindCurrentSectionRow) ToSectionModel() *SectionModel {
+	return &SectionModel{
+		ID:               sec.ID,
+		Title:            sec.Title,
+		LanguageSlug:     sec.LanguageSlug,
+		SeriesSlug:       sec.SeriesSlug,
+		Description:      sec.Description,
+		Position:         sec.Position,
+		CompletedLessons: sec.SectionProgressCompletedLessons,
+		TotalLessons:     sec.LessonsCount,
+		IsCompleted:      sec.SectionProgressCompletedAt.Valid,
+		ViewedAt:         sec.SectionProgressViewedAt.Time.Format(time.RFC3339),
+		WatchTimeSeconds: sec.WatchTimeSeconds,
+		ReadTimeSeconds:  sec.ReadTimeSeconds,
+		IsPublished:      sec.IsPublished,
+	}
+}

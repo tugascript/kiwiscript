@@ -203,6 +203,7 @@ type SeriesResponse struct {
 	WatchTime         int32          `json:"watchTime"`
 	ReadTime          int32          `json:"readTime"`
 	ViewedAt          string         `json:"viewedAt,omitempty"`
+	CompletedAt       string         `json:"completedAt,omitempty"`
 	IsPublished       bool           `json:"isPublished"`
 	Embedded          SeriesEmbedded `json:"_embedded"`
 	Links             SeriesLinks    `json:"_links"`
@@ -222,6 +223,7 @@ func NewSeriesResponse(backendDomain string, model *db.SeriesModel, pictureURL s
 		WatchTime:         model.WatchTime,
 		ReadTime:          model.ReadTime,
 		ViewedAt:          model.ViewedAt,
+		CompletedAt:       model.CompletedAt,
 		Embedded: newSeriesEmbedded(
 			backendDomain,
 			&model.Author,

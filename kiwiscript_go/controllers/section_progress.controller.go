@@ -88,11 +88,11 @@ func (c *Controllers) CreateOrUpdateSectionProgress(ctx *fiber.Ctx) error {
 
 	if created {
 		return ctx.Status(fiber.StatusCreated).JSON(
-			dtos.NewSectionResponse(c.backendDomain, section.ToSectionModelWithProgress(progress), nil),
+			dtos.NewSectionResponse(c.backendDomain, section.ToSectionModelWithProgress(progress)),
 		)
 	}
 
-	return ctx.JSON(dtos.NewSectionResponse(c.backendDomain, section.ToSectionModelWithProgress(progress), nil))
+	return ctx.JSON(dtos.NewSectionResponse(c.backendDomain, section.ToSectionModelWithProgress(progress)))
 }
 
 func (c *Controllers) ResetSectionProgress(ctx *fiber.Ctx) error {

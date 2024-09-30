@@ -178,3 +178,21 @@ WHERE "series_slug" = $1 AND "is_published" = true LIMIT 1;
 -- name: DeleteSectionById :exec
 DELETE FROM "sections"
 WHERE "id" = $1;
+
+-- name: FindCurrentSection :one
+SELECT
+    "sections".*,
+    "section_progress"."completed_lessons" AS "section_progress_completed_lessons",
+    "section_progress"."completed_at" AS "section_progress_completed_at",
+    "section_progress"."viewed_at" AS "section_progress_viewed_at"
+FROM "sections"
+INNER JOIN "section_progress" ON (
+    "sections"."id" = "section_progress"."section_id" AND
+    "section_progress"."user_id" = $1
+)
+WHERE
+    "sections"."language_slug" = $2 AND
+    "sections"."series_slug" = $3 AND
+    "sections"."is_published" = true
+ORDER BY "section_progress"."viewed_at" DESC
+LIMIT 1;

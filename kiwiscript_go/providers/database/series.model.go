@@ -46,6 +46,7 @@ type SeriesModel struct {
 	WatchTime         int32
 	ReadTime          int32
 	ViewedAt          string
+	CompletedAt       string
 	IsPublished       bool
 	Author            SeriesAuthor
 	Picture           *SeriesPictureIDAndEXT
@@ -93,17 +94,16 @@ func (s *Series) ToSeriesModelWithAuthorAndPicture(
 	pictureEXT string,
 ) *SeriesModel {
 	return &SeriesModel{
-		ID:               s.ID,
-		Title:            s.Title,
-		Slug:             s.Slug,
-		LanguageSlug:     s.LanguageSlug,
-		Description:      s.Description,
-		TotalSections:    s.SectionsCount,
-		WatchTime:        s.WatchTimeSeconds,
-		ReadTime:         s.ReadTimeSeconds,
-		CompletedLessons: 0,
-		TotalLessons:     s.LessonsCount,
-		IsPublished:      s.IsPublished,
+		ID:            s.ID,
+		Title:         s.Title,
+		Slug:          s.Slug,
+		LanguageSlug:  s.LanguageSlug,
+		Description:   s.Description,
+		TotalSections: s.SectionsCount,
+		WatchTime:     s.WatchTimeSeconds,
+		ReadTime:      s.ReadTimeSeconds,
+		TotalLessons:  s.LessonsCount,
+		IsPublished:   s.IsPublished,
 		Author: SeriesAuthor{
 			ID:        authorID,
 			FirstName: firstName,
@@ -126,17 +126,16 @@ func (s *FindSeriesBySlugWithAuthorRow) ToSeriesModel() *SeriesModel {
 	}
 
 	return &SeriesModel{
-		ID:               s.ID,
-		Title:            s.Title,
-		Slug:             s.Slug,
-		LanguageSlug:     s.LanguageSlug,
-		Description:      s.Description,
-		TotalSections:    s.SectionsCount,
-		CompletedLessons: 0,
-		TotalLessons:     s.LessonsCount,
-		IsPublished:      s.IsPublished,
-		WatchTime:        s.WatchTimeSeconds,
-		ReadTime:         s.ReadTimeSeconds,
+		ID:            s.ID,
+		Title:         s.Title,
+		Slug:          s.Slug,
+		LanguageSlug:  s.LanguageSlug,
+		Description:   s.Description,
+		TotalSections: s.SectionsCount,
+		TotalLessons:  s.LessonsCount,
+		IsPublished:   s.IsPublished,
+		WatchTime:     s.WatchTimeSeconds,
+		ReadTime:      s.ReadTimeSeconds,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,
@@ -160,6 +159,11 @@ func (s *FindPublishedSeriesBySlugWithAuthorAndProgressRow) ToSeriesModel() *Ser
 		viewedAt = s.SeriesProgressViewedAt.Time.Format(time.RFC3339)
 	}
 
+	var completedAt string
+	if s.SeriesProgressCompletedAt.Valid {
+		completedAt = s.SeriesProgressCompletedAt.Time.Format(time.RFC3339)
+	}
+
 	return &SeriesModel{
 		ID:                s.ID,
 		Title:             s.Title,
@@ -174,6 +178,7 @@ func (s *FindPublishedSeriesBySlugWithAuthorAndProgressRow) ToSeriesModel() *Ser
 		WatchTime:         s.WatchTimeSeconds,
 		ReadTime:          s.ReadTimeSeconds,
 		ViewedAt:          viewedAt,
+		CompletedAt:       completedAt,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,
@@ -193,17 +198,16 @@ func (s *FindPaginatedSeriesWithAuthorSortByIDRow) ToSeriesModel() *SeriesModel 
 	}
 
 	return &SeriesModel{
-		ID:               s.ID,
-		Title:            s.Title,
-		Slug:             s.Slug,
-		LanguageSlug:     s.LanguageSlug,
-		Description:      s.Description,
-		TotalSections:    s.SectionsCount,
-		CompletedLessons: 0,
-		TotalLessons:     s.LessonsCount,
-		IsPublished:      s.IsPublished,
-		WatchTime:        s.WatchTimeSeconds,
-		ReadTime:         s.ReadTimeSeconds,
+		ID:            s.ID,
+		Title:         s.Title,
+		Slug:          s.Slug,
+		LanguageSlug:  s.LanguageSlug,
+		Description:   s.Description,
+		TotalSections: s.SectionsCount,
+		TotalLessons:  s.LessonsCount,
+		IsPublished:   s.IsPublished,
+		WatchTime:     s.WatchTimeSeconds,
+		ReadTime:      s.ReadTimeSeconds,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,
@@ -223,17 +227,16 @@ func (s *FindPaginatedPublishedSeriesWithAuthorSortByIDRow) ToSeriesModel() *Ser
 	}
 
 	return &SeriesModel{
-		ID:               s.ID,
-		Title:            s.Title,
-		Slug:             s.Slug,
-		LanguageSlug:     s.LanguageSlug,
-		Description:      s.Description,
-		TotalSections:    s.SectionsCount,
-		CompletedLessons: 0,
-		TotalLessons:     s.LessonsCount,
-		IsPublished:      s.IsPublished,
-		WatchTime:        s.WatchTimeSeconds,
-		ReadTime:         s.ReadTimeSeconds,
+		ID:            s.ID,
+		Title:         s.Title,
+		Slug:          s.Slug,
+		LanguageSlug:  s.LanguageSlug,
+		Description:   s.Description,
+		TotalSections: s.SectionsCount,
+		TotalLessons:  s.LessonsCount,
+		IsPublished:   s.IsPublished,
+		WatchTime:     s.WatchTimeSeconds,
+		ReadTime:      s.ReadTimeSeconds,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,
@@ -253,17 +256,16 @@ func (s *FindFilteredPublishedSeriesWithAuthorSortByIDRow) ToSeriesModel() *Seri
 	}
 
 	return &SeriesModel{
-		ID:               s.ID,
-		Title:            s.Title,
-		Slug:             s.Slug,
-		LanguageSlug:     s.LanguageSlug,
-		Description:      s.Description,
-		TotalSections:    s.SectionsCount,
-		CompletedLessons: 0,
-		TotalLessons:     s.LessonsCount,
-		IsPublished:      s.IsPublished,
-		WatchTime:        s.WatchTimeSeconds,
-		ReadTime:         s.ReadTimeSeconds,
+		ID:            s.ID,
+		Title:         s.Title,
+		Slug:          s.Slug,
+		LanguageSlug:  s.LanguageSlug,
+		Description:   s.Description,
+		TotalSections: s.SectionsCount,
+		TotalLessons:  s.LessonsCount,
+		IsPublished:   s.IsPublished,
+		WatchTime:     s.WatchTimeSeconds,
+		ReadTime:      s.ReadTimeSeconds,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,
@@ -283,17 +285,16 @@ func (s *FindPaginatedSeriesWithAuthorSortBySlugRow) ToSeriesModel() *SeriesMode
 	}
 
 	return &SeriesModel{
-		ID:               s.ID,
-		Title:            s.Title,
-		Slug:             s.Slug,
-		LanguageSlug:     s.LanguageSlug,
-		Description:      s.Description,
-		TotalSections:    s.SectionsCount,
-		CompletedLessons: 0,
-		TotalLessons:     s.LessonsCount,
-		IsPublished:      s.IsPublished,
-		WatchTime:        s.WatchTimeSeconds,
-		ReadTime:         s.ReadTimeSeconds,
+		ID:            s.ID,
+		Title:         s.Title,
+		Slug:          s.Slug,
+		LanguageSlug:  s.LanguageSlug,
+		Description:   s.Description,
+		TotalSections: s.SectionsCount,
+		TotalLessons:  s.LessonsCount,
+		IsPublished:   s.IsPublished,
+		WatchTime:     s.WatchTimeSeconds,
+		ReadTime:      s.ReadTimeSeconds,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,
@@ -343,17 +344,16 @@ func (s *FindFilteredPublishedSeriesWithAuthorSortBySlugRow) ToSeriesModel() *Se
 	}
 
 	return &SeriesModel{
-		ID:               s.ID,
-		Title:            s.Title,
-		Slug:             s.Slug,
-		LanguageSlug:     s.LanguageSlug,
-		Description:      s.Description,
-		TotalSections:    s.SectionsCount,
-		CompletedLessons: 0,
-		TotalLessons:     s.LessonsCount,
-		IsPublished:      s.IsPublished,
-		WatchTime:        s.WatchTimeSeconds,
-		ReadTime:         s.ReadTimeSeconds,
+		ID:            s.ID,
+		Title:         s.Title,
+		Slug:          s.Slug,
+		LanguageSlug:  s.LanguageSlug,
+		Description:   s.Description,
+		TotalSections: s.SectionsCount,
+		TotalLessons:  s.LessonsCount,
+		IsPublished:   s.IsPublished,
+		WatchTime:     s.WatchTimeSeconds,
+		ReadTime:      s.ReadTimeSeconds,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,
@@ -373,17 +373,16 @@ func (s *FindFilteredSeriesWithAuthorSortBySlugRow) ToSeriesModel() *SeriesModel
 	}
 
 	return &SeriesModel{
-		ID:               s.ID,
-		Title:            s.Title,
-		Slug:             s.Slug,
-		LanguageSlug:     s.LanguageSlug,
-		Description:      s.Description,
-		TotalSections:    s.SectionsCount,
-		CompletedLessons: 0,
-		TotalLessons:     s.LessonsCount,
-		IsPublished:      s.IsPublished,
-		WatchTime:        s.WatchTimeSeconds,
-		ReadTime:         s.ReadTimeSeconds,
+		ID:            s.ID,
+		Title:         s.Title,
+		Slug:          s.Slug,
+		LanguageSlug:  s.LanguageSlug,
+		Description:   s.Description,
+		TotalSections: s.SectionsCount,
+		TotalLessons:  s.LessonsCount,
+		IsPublished:   s.IsPublished,
+		WatchTime:     s.WatchTimeSeconds,
+		ReadTime:      s.ReadTimeSeconds,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,
@@ -403,17 +402,16 @@ func (s *FindFilteredSeriesWithAuthorSortByIDRow) ToSeriesModel() *SeriesModel {
 	}
 
 	return &SeriesModel{
-		ID:               s.ID,
-		Title:            s.Title,
-		Slug:             s.Slug,
-		LanguageSlug:     s.LanguageSlug,
-		Description:      s.Description,
-		TotalSections:    s.SectionsCount,
-		CompletedLessons: 0,
-		TotalLessons:     s.LessonsCount,
-		IsPublished:      s.IsPublished,
-		WatchTime:        s.WatchTimeSeconds,
-		ReadTime:         s.ReadTimeSeconds,
+		ID:            s.ID,
+		Title:         s.Title,
+		Slug:          s.Slug,
+		LanguageSlug:  s.LanguageSlug,
+		Description:   s.Description,
+		TotalSections: s.SectionsCount,
+		TotalLessons:  s.LessonsCount,
+		IsPublished:   s.IsPublished,
+		WatchTime:     s.WatchTimeSeconds,
+		ReadTime:      s.ReadTimeSeconds,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,
@@ -437,6 +435,11 @@ func (s *FindPaginatedPublishedSeriesWithAuthorAndProgressSortByIDRow) ToSeriesM
 		viewedAt = s.SeriesProgressViewedAt.Time.Format(time.RFC3339)
 	}
 
+	var completedAt string
+	if s.SeriesProgressCompletedAt.Valid {
+		completedAt = s.SeriesProgressCompletedAt.Time.Format(time.RFC3339)
+	}
+
 	return &SeriesModel{
 		ID:                s.ID,
 		Title:             s.Title,
@@ -451,6 +454,7 @@ func (s *FindPaginatedPublishedSeriesWithAuthorAndProgressSortByIDRow) ToSeriesM
 		WatchTime:         s.WatchTimeSeconds,
 		ReadTime:          s.ReadTimeSeconds,
 		ViewedAt:          viewedAt,
+		CompletedAt:       completedAt,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,
@@ -474,6 +478,11 @@ func (s *FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlugRow) ToSerie
 		viewedAt = s.SeriesProgressViewedAt.Time.Format(time.RFC3339)
 	}
 
+	var completedAt string
+	if s.SeriesProgressCompletedAt.Valid {
+		completedAt = s.SeriesProgressCompletedAt.Time.Format(time.RFC3339)
+	}
+
 	return &SeriesModel{
 		ID:                s.ID,
 		Title:             s.Title,
@@ -488,6 +497,7 @@ func (s *FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlugRow) ToSerie
 		WatchTime:         s.WatchTimeSeconds,
 		ReadTime:          s.ReadTimeSeconds,
 		ViewedAt:          viewedAt,
+		CompletedAt:       completedAt,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,
@@ -511,6 +521,11 @@ func (s *FindFilteredPublishedSeriesWithAuthorAndProgressSortByIDRow) ToSeriesMo
 		viewedAt = s.SeriesProgressViewedAt.Time.Format(time.RFC3339)
 	}
 
+	var completedAt string
+	if s.SeriesProgressCompletedAt.Valid {
+		completedAt = s.SeriesProgressCompletedAt.Time.Format(time.RFC3339)
+	}
+
 	return &SeriesModel{
 		ID:                s.ID,
 		Title:             s.Title,
@@ -525,6 +540,7 @@ func (s *FindFilteredPublishedSeriesWithAuthorAndProgressSortByIDRow) ToSeriesMo
 		WatchTime:         s.WatchTimeSeconds,
 		ReadTime:          s.ReadTimeSeconds,
 		ViewedAt:          viewedAt,
+		CompletedAt:       completedAt,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,
@@ -548,6 +564,11 @@ func (s *FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlugRow) ToSeries
 		viewedAt = s.SeriesProgressViewedAt.Time.Format(time.RFC3339)
 	}
 
+	var completedAt string
+	if s.SeriesProgressCompletedAt.Valid {
+		completedAt = s.SeriesProgressCompletedAt.Time.Format(time.RFC3339)
+	}
+
 	return &SeriesModel{
 		ID:                s.ID,
 		Title:             s.Title,
@@ -562,6 +583,7 @@ func (s *FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlugRow) ToSeries
 		WatchTime:         s.WatchTimeSeconds,
 		ReadTime:          s.ReadTimeSeconds,
 		ViewedAt:          viewedAt,
+		CompletedAt:       completedAt,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,
@@ -585,6 +607,11 @@ func (s *FindPublishedSeriesBySlugsWithAuthorRow) ToSeriesModelWithProgress(prog
 		viewedAt = progress.ViewedAt.Time.Format(time.RFC3339)
 	}
 
+	var completedAt string
+	if progress.CompletedAt.Valid {
+		completedAt = progress.CompletedAt.Time.Format(time.RFC3339)
+	}
+
 	return &SeriesModel{
 		ID:                s.ID,
 		Title:             s.Title,
@@ -599,6 +626,7 @@ func (s *FindPublishedSeriesBySlugsWithAuthorRow) ToSeriesModelWithProgress(prog
 		WatchTime:         s.WatchTimeSeconds,
 		ReadTime:          s.ReadTimeSeconds,
 		ViewedAt:          viewedAt,
+		CompletedAt:       completedAt,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,
@@ -618,17 +646,54 @@ func (s *FindPublishedSeriesBySlugsWithAuthorRow) ToSeriesModel() *SeriesModel {
 	}
 
 	return &SeriesModel{
-		ID:               s.ID,
-		Title:            s.Title,
-		Slug:             s.Slug,
-		LanguageSlug:     s.LanguageSlug,
-		Description:      s.Description,
-		TotalSections:    s.SectionsCount,
-		CompletedLessons: 0,
-		TotalLessons:     s.LessonsCount,
-		IsPublished:      s.IsPublished,
-		WatchTime:        s.WatchTimeSeconds,
-		ReadTime:         s.ReadTimeSeconds,
+		ID:            s.ID,
+		Title:         s.Title,
+		Slug:          s.Slug,
+		LanguageSlug:  s.LanguageSlug,
+		Description:   s.Description,
+		TotalSections: s.SectionsCount,
+		TotalLessons:  s.LessonsCount,
+		IsPublished:   s.IsPublished,
+		WatchTime:     s.WatchTimeSeconds,
+		ReadTime:      s.ReadTimeSeconds,
+		Author: SeriesAuthor{
+			ID:        s.AuthorID,
+			FirstName: s.AuthorFirstName,
+			LastName:  s.AuthorLastName,
+		},
+		Picture: picture,
+	}
+}
+
+func (s *FindPaginatedPublishedSeriesWithAuthorAndInnerProgressRow) ToSeriesModel() *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
+	var completedAt string
+	if s.SeriesProgressCompletedAt.Valid {
+		completedAt = s.SeriesProgressCompletedAt.Time.Format(time.RFC3339)
+	}
+
+	return &SeriesModel{
+		ID:                s.ID,
+		Title:             s.Title,
+		Slug:              s.Slug,
+		LanguageSlug:      s.LanguageSlug,
+		Description:       s.Description,
+		CompletedSections: s.SeriesProgressCompletedSections,
+		TotalSections:     s.SectionsCount,
+		CompletedLessons:  s.SeriesProgressCompletedLessons,
+		TotalLessons:      s.LessonsCount,
+		IsPublished:       s.IsPublished,
+		WatchTime:         s.WatchTimeSeconds,
+		ReadTime:          s.ReadTimeSeconds,
+		ViewedAt:          s.SeriesProgressViewedAt.Time.Format(time.RFC3339),
+		CompletedAt:       completedAt,
 		Author: SeriesAuthor{
 			ID:        s.AuthorID,
 			FirstName: s.AuthorFirstName,

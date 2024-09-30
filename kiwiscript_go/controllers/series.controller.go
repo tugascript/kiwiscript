@@ -691,3 +691,82 @@ func (c *Controllers) DeleteSeries(ctx *fiber.Ctx) error {
 
 	return ctx.SendStatus(fiber.StatusNoContent)
 }
+
+func (c *Controllers) GetPaginatedViewedSeries(ctx *fiber.Ctx) error {
+	requestID := c.requestID(ctx)
+	userCtx := ctx.UserContext()
+	languageSlug := ctx.Params("languageSlug")
+	log := c.buildLogger(ctx, requestID, seriesLocation, "GetPaginatedViewedSeries").With(
+		"languageSlug", languageSlug,
+	)
+	log.InfoContext(userCtx, "Deleting series...")
+
+	user, err := c.GetUserClaims(ctx)
+	if err != nil {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(exceptions.NewRequestError(exceptions.NewUnauthorizedError()))
+	}
+	if user.IsStaff || user.IsAdmin {
+		return ctx.Status(fiber.StatusForbidden).JSON(exceptions.NewRequestError(exceptions.NewForbiddenError()))
+	}
+
+	params := dtos.LanguagePathParams{LanguageSlug: languageSlug}
+	if err := c.validate.StructCtx(userCtx, params); err != nil {
+		return c.validateParamsErrorResponse(log, userCtx, err, ctx)
+	}
+
+	queryParams := dtos.PaginationQueryParams{
+		Offset: int32(ctx.QueryInt("offset", dtos.OffsetDefault)),
+		Limit:  int32(ctx.QueryInt("limit", dtos.LimitDefault)),
+	}
+	if err := c.validate.StructCtx(userCtx, queryParams); err != nil {
+		return c.validateQueryErrorResponse(log, userCtx, err, ctx)
+	}
+
+	seriesModels, count, serviceErr := c.services.FindPaginatedViewedSeriesWithProgress(
+		userCtx,
+		services.FindPaginatedViewedSeriesWithProgressOptions{
+			RequestID:    requestID,
+			UserID:       user.ID,
+			LanguageSlug: params.LanguageSlug,
+			Offset:       queryParams.Offset,
+			Limit:        queryParams.Limit,
+		},
+	)
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	fileURLs, serviceErr := c.findSeriesPictureURLs(userCtx, seriesModels)
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	paginationPath := fmt.Sprintf("%s/%s%s%s", paths.LanguagePathV1, languageSlug, paths.SeriesPath, paths.ProgressPath)
+	if fileURLs == nil {
+		return ctx.JSON(
+			dtos.NewPaginatedResponse(
+				c.backendDomain,
+				paginationPath,
+				&queryParams,
+				count,
+				seriesModels,
+				func(dto *db.SeriesModel) *dtos.SeriesResponse {
+					return dtos.NewSeriesResponse(c.backendDomain, dto, "")
+				},
+			),
+		)
+	}
+
+	return ctx.JSON(
+		dtos.NewPaginatedResponse(
+			c.backendDomain,
+			paginationPath,
+			&queryParams,
+			count,
+			seriesModels,
+			func(model *db.SeriesModel) *dtos.SeriesResponse {
+				return mapSeriesResponse(c.backendDomain, model, fileURLs)
+			},
+		),
+	)
+}

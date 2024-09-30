@@ -764,3 +764,37 @@ func (s *Services) UpdateLessonIsPublished(
 
 	return lesson, nil
 }
+
+type FindCurrentLessonOptions struct {
+	RequestID    string
+	UserID       int32
+	LanguageSlug string
+	SeriesSlug   string
+	SectionID    int32
+}
+
+func (s *Services) FindCurrentLesson(
+	ctx context.Context,
+	opts FindCurrentLessonOptions,
+) (*db.FindCurrentLessonRow, *exceptions.ServiceError) {
+	log := s.buildLogger(opts.RequestID, lessonsLocation, "FindCurrentLesson").With(
+		"userId", opts.UserID,
+		"languageSlug", opts.LanguageSlug,
+		"seriesSlug", opts.SeriesSlug,
+		"sectionId", opts.SectionID,
+	)
+	log.InfoContext(ctx, "Finding current lesson...")
+
+	lesson, err := s.database.FindCurrentLesson(ctx, db.FindCurrentLessonParams{
+		UserID:       opts.UserID,
+		LanguageSlug: opts.LanguageSlug,
+		SeriesSlug:   opts.SeriesSlug,
+		SectionID:    opts.SectionID,
+	})
+	if err != nil {
+		log.WarnContext(ctx, "Current lesson not found", "error", err)
+		return nil, exceptions.FromDBError(err)
+	}
+
+	return &lesson, nil
+}

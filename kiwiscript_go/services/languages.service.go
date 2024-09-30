@@ -347,3 +347,41 @@ func (s *Services) FindFilteredPaginatedLanguagesWithProgress(
 
 	return languages, count, nil
 }
+
+func (s *Services) FindPaginatedViewedLanguagesWithProgress(
+	ctx context.Context,
+	opts FindPaginatedLanguagesWithProgressOptions,
+) ([]db.FindPaginatedLanguagesWithInnerProgressRow, int64, *exceptions.ServiceError) {
+	log := s.buildLogger(opts.RequestID, languagesLocation, "FindPaginatedViewedLanguagesWithProgress").With(
+		"userId", opts.UserID,
+		"offset", opts.Offset,
+		"limit", opts.Limit,
+	)
+	log.InfoContext(ctx, "Finding filtered paginated languages with progress...")
+
+	count, err := s.database.CountLanguagesWithInnerProgress(ctx, opts.UserID)
+	if err != nil {
+		log.ErrorContext(ctx, "Failed to count viewed languages")
+		return nil, 0, exceptions.FromDBError(err)
+	}
+
+	if count == 0 {
+		log.DebugContext(ctx, "No viewed languages found", "count", count)
+		return make([]db.FindPaginatedLanguagesWithInnerProgressRow, 0), 0, nil
+	}
+
+	languages, err := s.database.FindPaginatedLanguagesWithInnerProgress(
+		ctx,
+		db.FindPaginatedLanguagesWithInnerProgressParams{
+			UserID: opts.UserID,
+			Limit:  opts.Limit,
+			Offset: opts.Offset,
+		},
+	)
+	if err != nil {
+		log.ErrorContext(ctx, "Failed to find viewed languages", "error", err)
+		return nil, 0, exceptions.FromDBError(err)
+	}
+
+	return languages, count, nil
+}
