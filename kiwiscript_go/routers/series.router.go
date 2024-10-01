@@ -11,6 +11,12 @@ func (r *Router) SeriesPublicRoutes() {
 	series.Get("/:seriesSlug", r.controllers.GetSingleSeries)
 }
 
+func (r *Router) SeriesDiscoveryRoutes() {
+	series := r.router.Group(paths.DiscoverV1)
+
+	series.Get("/", r.controllers.GetDiscoverySeries)
+}
+
 func (r *Router) SeriesStaffRoutes() {
 	series := r.router.Group(
 		seriesPath,

@@ -75,12 +75,14 @@ func (q *Queries) AddSeriesWatchTime(ctx context.Context, arg AddSeriesWatchTime
 const countAllFilteredPublishedSeries = `-- name: CountAllFilteredPublishedSeries :one
 SELECT COUNT("series"."id") AS "count" FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
+INNER JOIN "languages" ON "series"."language_slug" = "language"."slug"
 WHERE
     "series"."is_published" = true AND
     (
         "series"."title" ILIKE $1 OR
         "users"."first_name" ILIKE $1 OR
-        "users"."last_name" ILIKE $1
+        "users"."last_name" ILIKE $1 OR
+        "languages"."name" ILIKE $1
     )
 LIMIT 1
 `
@@ -339,15 +341,13 @@ func (q *Queries) DeleteSeriesById(ctx context.Context, id int32) error {
 	return err
 }
 
-const findFilteredPublishedSeriesWithAuthorAndLanguage = `-- name: FindFilteredPublishedSeriesWithAuthorAndLanguage :many
+const findFilteredDiscoverySeriesWithAuthor = `-- name: FindFilteredDiscoverySeriesWithAuthor :many
 SELECT
   series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
   "users"."first_name" AS "author_first_name",
   "users"."last_name" AS "author_last_name",
   "series_pictures"."id" AS "picture_id",
-  "series_pictures"."ext" AS "picture_ext",
-  "languages"."name" AS "language_name",
-  "languages"."icon" AS "language_icon"
+  "series_pictures"."ext" AS "picture_ext"
 FROM "series"
 INNER JOIN "users" ON "series"."author_id" = "users"."id"
 INNER JOIN "languages" ON "series"."language_slug" = "languages"."slug"
@@ -357,19 +357,20 @@ WHERE
     (
         "series"."title" ILIKE $3 OR
         "users"."first_name" ILIKE $3 OR
-        "users"."last_name" ILIKE $3
+        "users"."last_name" ILIKE $3 OR
+        "languages"."name" ILIKE $3
     )
 ORDER BY "series"."slug" ASC
 LIMIT $1 OFFSET $2
 `
 
-type FindFilteredPublishedSeriesWithAuthorAndLanguageParams struct {
+type FindFilteredDiscoverySeriesWithAuthorParams struct {
 	Limit  int32
 	Offset int32
 	Title  string
 }
 
-type FindFilteredPublishedSeriesWithAuthorAndLanguageRow struct {
+type FindFilteredDiscoverySeriesWithAuthorRow struct {
 	ID               int32
 	Title            string
 	Slug             string
@@ -387,19 +388,17 @@ type FindFilteredPublishedSeriesWithAuthorAndLanguageRow struct {
 	AuthorLastName   string
 	PictureID        pgtype.UUID
 	PictureExt       pgtype.Text
-	LanguageName     string
-	LanguageIcon     string
 }
 
-func (q *Queries) FindFilteredPublishedSeriesWithAuthorAndLanguage(ctx context.Context, arg FindFilteredPublishedSeriesWithAuthorAndLanguageParams) ([]FindFilteredPublishedSeriesWithAuthorAndLanguageRow, error) {
-	rows, err := q.db.Query(ctx, findFilteredPublishedSeriesWithAuthorAndLanguage, arg.Limit, arg.Offset, arg.Title)
+func (q *Queries) FindFilteredDiscoverySeriesWithAuthor(ctx context.Context, arg FindFilteredDiscoverySeriesWithAuthorParams) ([]FindFilteredDiscoverySeriesWithAuthorRow, error) {
+	rows, err := q.db.Query(ctx, findFilteredDiscoverySeriesWithAuthor, arg.Limit, arg.Offset, arg.Title)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []FindFilteredPublishedSeriesWithAuthorAndLanguageRow{}
+	items := []FindFilteredDiscoverySeriesWithAuthorRow{}
 	for rows.Next() {
-		var i FindFilteredPublishedSeriesWithAuthorAndLanguageRow
+		var i FindFilteredDiscoverySeriesWithAuthorRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,
@@ -418,8 +417,118 @@ func (q *Queries) FindFilteredPublishedSeriesWithAuthorAndLanguage(ctx context.C
 			&i.AuthorLastName,
 			&i.PictureID,
 			&i.PictureExt,
-			&i.LanguageName,
-			&i.LanguageIcon,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const findFilteredDiscoverySeriesWithAuthorAndProgress = `-- name: FindFilteredDiscoverySeriesWithAuthorAndProgress :many
+SELECT
+    series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
+    "users"."first_name" AS "author_first_name",
+    "users"."last_name" AS "author_last_name",
+    "series_progress"."id" AS "series_progress_id",
+    "series_progress"."completed_sections" AS "series_progress_completed_sections",
+    "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+    "series_progress"."viewed_at" AS "series_progress_viewed_at",
+    "series_progress"."completed_at" AS "series_progress_completed_at",
+    "series_pictures"."id" AS "picture_id",
+    "series_pictures"."ext" AS "picture_ext"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+INNER JOIN "languages" ON "series"."language_slug" = "languages"."slug"
+LEFT JOIN "series_progress" ON (
+    "series"."slug" = "series_progress"."series_slug" AND
+    "series_progress"."user_id" = $4
+)
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
+WHERE
+    "series"."is_published" = true AND
+    (
+        "series"."title" ILIKE $3 OR
+        "users"."first_name" ILIKE $3 OR
+        "users"."last_name" ILIKE $3 OR
+        "languages"."name" ILIKE $3
+    )
+ORDER BY "series"."slug" ASC
+LIMIT $1 OFFSET $2
+`
+
+type FindFilteredDiscoverySeriesWithAuthorAndProgressParams struct {
+	Limit  int32
+	Offset int32
+	Title  string
+	UserID int32
+}
+
+type FindFilteredDiscoverySeriesWithAuthorAndProgressRow struct {
+	ID                              int32
+	Title                           string
+	Slug                            string
+	Description                     string
+	SectionsCount                   int16
+	LessonsCount                    int16
+	WatchTimeSeconds                int32
+	ReadTimeSeconds                 int32
+	IsPublished                     bool
+	LanguageSlug                    string
+	AuthorID                        int32
+	CreatedAt                       pgtype.Timestamp
+	UpdatedAt                       pgtype.Timestamp
+	AuthorFirstName                 string
+	AuthorLastName                  string
+	SeriesProgressID                pgtype.Int4
+	SeriesProgressCompletedSections pgtype.Int2
+	SeriesProgressCompletedLessons  pgtype.Int2
+	SeriesProgressViewedAt          pgtype.Timestamp
+	SeriesProgressCompletedAt       pgtype.Timestamp
+	PictureID                       pgtype.UUID
+	PictureExt                      pgtype.Text
+}
+
+func (q *Queries) FindFilteredDiscoverySeriesWithAuthorAndProgress(ctx context.Context, arg FindFilteredDiscoverySeriesWithAuthorAndProgressParams) ([]FindFilteredDiscoverySeriesWithAuthorAndProgressRow, error) {
+	rows, err := q.db.Query(ctx, findFilteredDiscoverySeriesWithAuthorAndProgress,
+		arg.Limit,
+		arg.Offset,
+		arg.Title,
+		arg.UserID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FindFilteredDiscoverySeriesWithAuthorAndProgressRow{}
+	for rows.Next() {
+		var i FindFilteredDiscoverySeriesWithAuthorAndProgressRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Slug,
+			&i.Description,
+			&i.SectionsCount,
+			&i.LessonsCount,
+			&i.WatchTimeSeconds,
+			&i.ReadTimeSeconds,
+			&i.IsPublished,
+			&i.LanguageSlug,
+			&i.AuthorID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.AuthorFirstName,
+			&i.AuthorLastName,
+			&i.SeriesProgressID,
+			&i.SeriesProgressCompletedSections,
+			&i.SeriesProgressCompletedLessons,
+			&i.SeriesProgressViewedAt,
+			&i.SeriesProgressCompletedAt,
+			&i.PictureID,
+			&i.PictureExt,
 		); err != nil {
 			return nil, err
 		}
@@ -646,123 +755,6 @@ func (q *Queries) FindFilteredPublishedSeriesWithAuthorAndProgressSortBySlug(ctx
 			&i.SeriesProgressCompletedAt,
 			&i.PictureID,
 			&i.PictureExt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const findFilteredPublishedSeriesWithAuthorLanguageAndProgress = `-- name: FindFilteredPublishedSeriesWithAuthorLanguageAndProgress :many
-SELECT
-    series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
-    "users"."first_name" AS "author_first_name",
-    "users"."last_name" AS "author_last_name",
-    "series_progress"."id" AS "series_progress_id",
-    "series_progress"."completed_sections" AS "series_progress_completed_sections",
-    "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
-    "series_progress"."viewed_at" AS "series_progress_viewed_at",
-    "series_progress"."completed_at" AS "series_progress_completed_at",
-    "series_pictures"."id" AS "picture_id",
-    "series_pictures"."ext" AS "picture_ext",
-    "languages"."name" AS "language_name",
-    "languages"."icon" AS "language_icon"
-FROM "series"
-INNER JOIN "users" ON "series"."author_id" = "users"."id"
-INNER JOIN "languages" ON "series"."language_slug" = "languages"."slug"
-LEFT JOIN "series_progress" ON (
-    "series"."slug" = "series_progress"."series_slug" AND
-    "series_progress"."user_id" = $4
-)
-LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
-WHERE
-    "series"."is_published" = true AND
-    (
-        "series"."title" ILIKE $3 OR
-        "users"."first_name" ILIKE $3 OR
-        "users"."last_name" ILIKE $3
-    )
-ORDER BY "series"."slug" ASC
-LIMIT $1 OFFSET $2
-`
-
-type FindFilteredPublishedSeriesWithAuthorLanguageAndProgressParams struct {
-	Limit  int32
-	Offset int32
-	Title  string
-	UserID int32
-}
-
-type FindFilteredPublishedSeriesWithAuthorLanguageAndProgressRow struct {
-	ID                              int32
-	Title                           string
-	Slug                            string
-	Description                     string
-	SectionsCount                   int16
-	LessonsCount                    int16
-	WatchTimeSeconds                int32
-	ReadTimeSeconds                 int32
-	IsPublished                     bool
-	LanguageSlug                    string
-	AuthorID                        int32
-	CreatedAt                       pgtype.Timestamp
-	UpdatedAt                       pgtype.Timestamp
-	AuthorFirstName                 string
-	AuthorLastName                  string
-	SeriesProgressID                pgtype.Int4
-	SeriesProgressCompletedSections pgtype.Int2
-	SeriesProgressCompletedLessons  pgtype.Int2
-	SeriesProgressViewedAt          pgtype.Timestamp
-	SeriesProgressCompletedAt       pgtype.Timestamp
-	PictureID                       pgtype.UUID
-	PictureExt                      pgtype.Text
-	LanguageName                    string
-	LanguageIcon                    string
-}
-
-func (q *Queries) FindFilteredPublishedSeriesWithAuthorLanguageAndProgress(ctx context.Context, arg FindFilteredPublishedSeriesWithAuthorLanguageAndProgressParams) ([]FindFilteredPublishedSeriesWithAuthorLanguageAndProgressRow, error) {
-	rows, err := q.db.Query(ctx, findFilteredPublishedSeriesWithAuthorLanguageAndProgress,
-		arg.Limit,
-		arg.Offset,
-		arg.Title,
-		arg.UserID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []FindFilteredPublishedSeriesWithAuthorLanguageAndProgressRow{}
-	for rows.Next() {
-		var i FindFilteredPublishedSeriesWithAuthorLanguageAndProgressRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Slug,
-			&i.Description,
-			&i.SectionsCount,
-			&i.LessonsCount,
-			&i.WatchTimeSeconds,
-			&i.ReadTimeSeconds,
-			&i.IsPublished,
-			&i.LanguageSlug,
-			&i.AuthorID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.AuthorFirstName,
-			&i.AuthorLastName,
-			&i.SeriesProgressID,
-			&i.SeriesProgressCompletedSections,
-			&i.SeriesProgressCompletedLessons,
-			&i.SeriesProgressViewedAt,
-			&i.SeriesProgressCompletedAt,
-			&i.PictureID,
-			&i.PictureExt,
-			&i.LanguageName,
-			&i.LanguageIcon,
 		); err != nil {
 			return nil, err
 		}
@@ -1140,6 +1132,183 @@ func (q *Queries) FindFilteredSeriesWithAuthorSortBySlug(ctx context.Context, ar
 	return items, nil
 }
 
+const findPaginatedDiscoverySeriesWithAuthor = `-- name: FindPaginatedDiscoverySeriesWithAuthor :many
+SELECT
+  series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
+  "users"."first_name" AS "author_first_name",
+  "users"."last_name" AS "author_last_name",
+  "series_pictures"."id" AS "picture_id",
+  "series_pictures"."ext" AS "picture_ext"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
+WHERE "series"."is_published" = true
+ORDER BY "series"."slug" ASC
+LIMIT $1 OFFSET $2
+`
+
+type FindPaginatedDiscoverySeriesWithAuthorParams struct {
+	Limit  int32
+	Offset int32
+}
+
+type FindPaginatedDiscoverySeriesWithAuthorRow struct {
+	ID               int32
+	Title            string
+	Slug             string
+	Description      string
+	SectionsCount    int16
+	LessonsCount     int16
+	WatchTimeSeconds int32
+	ReadTimeSeconds  int32
+	IsPublished      bool
+	LanguageSlug     string
+	AuthorID         int32
+	CreatedAt        pgtype.Timestamp
+	UpdatedAt        pgtype.Timestamp
+	AuthorFirstName  string
+	AuthorLastName   string
+	PictureID        pgtype.UUID
+	PictureExt       pgtype.Text
+}
+
+func (q *Queries) FindPaginatedDiscoverySeriesWithAuthor(ctx context.Context, arg FindPaginatedDiscoverySeriesWithAuthorParams) ([]FindPaginatedDiscoverySeriesWithAuthorRow, error) {
+	rows, err := q.db.Query(ctx, findPaginatedDiscoverySeriesWithAuthor, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FindPaginatedDiscoverySeriesWithAuthorRow{}
+	for rows.Next() {
+		var i FindPaginatedDiscoverySeriesWithAuthorRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Slug,
+			&i.Description,
+			&i.SectionsCount,
+			&i.LessonsCount,
+			&i.WatchTimeSeconds,
+			&i.ReadTimeSeconds,
+			&i.IsPublished,
+			&i.LanguageSlug,
+			&i.AuthorID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.AuthorFirstName,
+			&i.AuthorLastName,
+			&i.PictureID,
+			&i.PictureExt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const findPaginatedDiscoverySeriesWithAuthorAndProgress = `-- name: FindPaginatedDiscoverySeriesWithAuthorAndProgress :many
+SELECT
+    series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
+    "users"."first_name" AS "author_first_name",
+    "users"."last_name" AS "author_last_name",
+    "series_progress"."id" AS "series_progress_id",
+    "series_progress"."completed_sections" AS "series_progress_completed_sections",
+    "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
+    "series_progress"."viewed_at" AS "series_progress_viewed_at",
+    "series_progress"."completed_at" AS "series_progress_completed_at",
+    "series_pictures"."id" AS "picture_id",
+    "series_pictures"."ext" AS "picture_ext"
+FROM "series"
+INNER JOIN "users" ON "series"."author_id" = "users"."id"
+LEFT JOIN "series_progress" ON (
+    "series"."slug" = "series_progress"."series_slug" AND
+    "series_progress"."user_id" = $1
+)
+LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
+WHERE
+    "series"."is_published" = true
+ORDER BY "series"."slug" ASC
+LIMIT $2 OFFSET $3
+`
+
+type FindPaginatedDiscoverySeriesWithAuthorAndProgressParams struct {
+	UserID int32
+	Limit  int32
+	Offset int32
+}
+
+type FindPaginatedDiscoverySeriesWithAuthorAndProgressRow struct {
+	ID                              int32
+	Title                           string
+	Slug                            string
+	Description                     string
+	SectionsCount                   int16
+	LessonsCount                    int16
+	WatchTimeSeconds                int32
+	ReadTimeSeconds                 int32
+	IsPublished                     bool
+	LanguageSlug                    string
+	AuthorID                        int32
+	CreatedAt                       pgtype.Timestamp
+	UpdatedAt                       pgtype.Timestamp
+	AuthorFirstName                 string
+	AuthorLastName                  string
+	SeriesProgressID                pgtype.Int4
+	SeriesProgressCompletedSections pgtype.Int2
+	SeriesProgressCompletedLessons  pgtype.Int2
+	SeriesProgressViewedAt          pgtype.Timestamp
+	SeriesProgressCompletedAt       pgtype.Timestamp
+	PictureID                       pgtype.UUID
+	PictureExt                      pgtype.Text
+}
+
+func (q *Queries) FindPaginatedDiscoverySeriesWithAuthorAndProgress(ctx context.Context, arg FindPaginatedDiscoverySeriesWithAuthorAndProgressParams) ([]FindPaginatedDiscoverySeriesWithAuthorAndProgressRow, error) {
+	rows, err := q.db.Query(ctx, findPaginatedDiscoverySeriesWithAuthorAndProgress, arg.UserID, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []FindPaginatedDiscoverySeriesWithAuthorAndProgressRow{}
+	for rows.Next() {
+		var i FindPaginatedDiscoverySeriesWithAuthorAndProgressRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Slug,
+			&i.Description,
+			&i.SectionsCount,
+			&i.LessonsCount,
+			&i.WatchTimeSeconds,
+			&i.ReadTimeSeconds,
+			&i.IsPublished,
+			&i.LanguageSlug,
+			&i.AuthorID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.AuthorFirstName,
+			&i.AuthorLastName,
+			&i.SeriesProgressID,
+			&i.SeriesProgressCompletedSections,
+			&i.SeriesProgressCompletedLessons,
+			&i.SeriesProgressViewedAt,
+			&i.SeriesProgressCompletedAt,
+			&i.PictureID,
+			&i.PictureExt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const findPaginatedPublishedSeriesWithAuthorAndInnerProgress = `-- name: FindPaginatedPublishedSeriesWithAuthorAndInnerProgress :many
 SELECT
   series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
@@ -1235,92 +1404,6 @@ func (q *Queries) FindPaginatedPublishedSeriesWithAuthorAndInnerProgress(ctx con
 			&i.SeriesProgressCompletedAt,
 			&i.PictureID,
 			&i.PictureExt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const findPaginatedPublishedSeriesWithAuthorAndLanguage = `-- name: FindPaginatedPublishedSeriesWithAuthorAndLanguage :many
-SELECT
-  series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
-  "users"."first_name" AS "author_first_name",
-  "users"."last_name" AS "author_last_name",
-  "series_pictures"."id" AS "picture_id",
-  "series_pictures"."ext" AS "picture_ext",
-  "languages"."name" AS "language_name",
-  "languages"."icon" AS "language_icon"
-FROM "series"
-INNER JOIN "users" ON "series"."author_id" = "users"."id"
-INNER JOIN "languages" ON "series"."language_slug" = "languages"."slug"
-LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
-WHERE
-    "series"."is_published" = true
-ORDER BY "series"."slug" ASC
-LIMIT $1 OFFSET $2
-`
-
-type FindPaginatedPublishedSeriesWithAuthorAndLanguageParams struct {
-	Limit  int32
-	Offset int32
-}
-
-type FindPaginatedPublishedSeriesWithAuthorAndLanguageRow struct {
-	ID               int32
-	Title            string
-	Slug             string
-	Description      string
-	SectionsCount    int16
-	LessonsCount     int16
-	WatchTimeSeconds int32
-	ReadTimeSeconds  int32
-	IsPublished      bool
-	LanguageSlug     string
-	AuthorID         int32
-	CreatedAt        pgtype.Timestamp
-	UpdatedAt        pgtype.Timestamp
-	AuthorFirstName  string
-	AuthorLastName   string
-	PictureID        pgtype.UUID
-	PictureExt       pgtype.Text
-	LanguageName     string
-	LanguageIcon     string
-}
-
-func (q *Queries) FindPaginatedPublishedSeriesWithAuthorAndLanguage(ctx context.Context, arg FindPaginatedPublishedSeriesWithAuthorAndLanguageParams) ([]FindPaginatedPublishedSeriesWithAuthorAndLanguageRow, error) {
-	rows, err := q.db.Query(ctx, findPaginatedPublishedSeriesWithAuthorAndLanguage, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []FindPaginatedPublishedSeriesWithAuthorAndLanguageRow{}
-	for rows.Next() {
-		var i FindPaginatedPublishedSeriesWithAuthorAndLanguageRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Slug,
-			&i.Description,
-			&i.SectionsCount,
-			&i.LessonsCount,
-			&i.WatchTimeSeconds,
-			&i.ReadTimeSeconds,
-			&i.IsPublished,
-			&i.LanguageSlug,
-			&i.AuthorID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.AuthorFirstName,
-			&i.AuthorLastName,
-			&i.PictureID,
-			&i.PictureExt,
-			&i.LanguageName,
-			&i.LanguageIcon,
 		); err != nil {
 			return nil, err
 		}
@@ -1533,112 +1616,6 @@ func (q *Queries) FindPaginatedPublishedSeriesWithAuthorAndProgressSortBySlug(ct
 			&i.SeriesProgressCompletedAt,
 			&i.PictureID,
 			&i.PictureExt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const findPaginatedPublishedSeriesWithAuthorLanguageAndProgress = `-- name: FindPaginatedPublishedSeriesWithAuthorLanguageAndProgress :many
-SELECT
-    series.id, series.title, series.slug, series.description, series.sections_count, series.lessons_count, series.watch_time_seconds, series.read_time_seconds, series.is_published, series.language_slug, series.author_id, series.created_at, series.updated_at,
-    "users"."first_name" AS "author_first_name",
-    "users"."last_name" AS "author_last_name",
-    "series_progress"."id" AS "series_progress_id",
-    "series_progress"."completed_sections" AS "series_progress_completed_sections",
-    "series_progress"."completed_lessons" AS "series_progress_completed_lessons",
-    "series_progress"."viewed_at" AS "series_progress_viewed_at",
-    "series_progress"."completed_at" AS "series_progress_completed_at",
-    "series_pictures"."id" AS "picture_id",
-    "series_pictures"."ext" AS "picture_ext",
-    "languages"."name" AS "language_name",
-    "languages"."icon" AS "language_icon"
-FROM "series"
-INNER JOIN "users" ON "series"."author_id" = "users"."id"
-INNER JOIN "languages" ON "series"."language_slug" = "languages"."slug"
-LEFT JOIN "series_progress" ON (
-    "series"."slug" = "series_progress"."series_slug" AND
-    "series_progress"."user_id" = $1
-)
-LEFT JOIN "series_pictures" ON "series"."id" = "series_pictures"."series_id"
-WHERE
-    "series"."is_published" = true
-ORDER BY "series"."slug" ASC
-LIMIT $2 OFFSET $3
-`
-
-type FindPaginatedPublishedSeriesWithAuthorLanguageAndProgressParams struct {
-	UserID int32
-	Limit  int32
-	Offset int32
-}
-
-type FindPaginatedPublishedSeriesWithAuthorLanguageAndProgressRow struct {
-	ID                              int32
-	Title                           string
-	Slug                            string
-	Description                     string
-	SectionsCount                   int16
-	LessonsCount                    int16
-	WatchTimeSeconds                int32
-	ReadTimeSeconds                 int32
-	IsPublished                     bool
-	LanguageSlug                    string
-	AuthorID                        int32
-	CreatedAt                       pgtype.Timestamp
-	UpdatedAt                       pgtype.Timestamp
-	AuthorFirstName                 string
-	AuthorLastName                  string
-	SeriesProgressID                pgtype.Int4
-	SeriesProgressCompletedSections pgtype.Int2
-	SeriesProgressCompletedLessons  pgtype.Int2
-	SeriesProgressViewedAt          pgtype.Timestamp
-	SeriesProgressCompletedAt       pgtype.Timestamp
-	PictureID                       pgtype.UUID
-	PictureExt                      pgtype.Text
-	LanguageName                    string
-	LanguageIcon                    string
-}
-
-func (q *Queries) FindPaginatedPublishedSeriesWithAuthorLanguageAndProgress(ctx context.Context, arg FindPaginatedPublishedSeriesWithAuthorLanguageAndProgressParams) ([]FindPaginatedPublishedSeriesWithAuthorLanguageAndProgressRow, error) {
-	rows, err := q.db.Query(ctx, findPaginatedPublishedSeriesWithAuthorLanguageAndProgress, arg.UserID, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []FindPaginatedPublishedSeriesWithAuthorLanguageAndProgressRow{}
-	for rows.Next() {
-		var i FindPaginatedPublishedSeriesWithAuthorLanguageAndProgressRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Slug,
-			&i.Description,
-			&i.SectionsCount,
-			&i.LessonsCount,
-			&i.WatchTimeSeconds,
-			&i.ReadTimeSeconds,
-			&i.IsPublished,
-			&i.LanguageSlug,
-			&i.AuthorID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.AuthorFirstName,
-			&i.AuthorLastName,
-			&i.SeriesProgressID,
-			&i.SeriesProgressCompletedSections,
-			&i.SeriesProgressCompletedLessons,
-			&i.SeriesProgressViewedAt,
-			&i.SeriesProgressCompletedAt,
-			&i.PictureID,
-			&i.PictureExt,
-			&i.LanguageName,
-			&i.LanguageIcon,
 		); err != nil {
 			return nil, err
 		}

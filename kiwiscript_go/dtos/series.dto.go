@@ -53,7 +53,7 @@ type SeriesQueryParams struct {
 	SortBy string `validate:"omitempty,oneof=slug date"`
 }
 
-func (p SeriesQueryParams) ToQueryString() string {
+func (p *SeriesQueryParams) ToQueryString() string {
 	params := make(url.Values)
 
 	if p.Search != "" {
@@ -65,10 +65,32 @@ func (p SeriesQueryParams) ToQueryString() string {
 
 	return params.Encode()
 }
-func (p SeriesQueryParams) GetLimit() int32 {
+func (p *SeriesQueryParams) GetLimit() int32 {
 	return p.Limit
 }
-func (p SeriesQueryParams) GetOffset() int32 {
+func (p *SeriesQueryParams) GetOffset() int32 {
+	return p.Offset
+}
+
+type DiscoverySeriesQueryParams struct {
+	Search string `validate:"omitempty,min=1,max=100"`
+	Limit  int32  `validate:"omitempty,gte=1,lte=100"`
+	Offset int32  `validate:"omitempty,gte=0"`
+}
+
+func (p *DiscoverySeriesQueryParams) ToQueryString() string {
+	params := make(url.Values)
+
+	if p.Search != "" {
+		params.Add("search", p.Search)
+	}
+
+	return params.Encode()
+}
+func (p *DiscoverySeriesQueryParams) GetLimit() int32 {
+	return p.Limit
+}
+func (p *DiscoverySeriesQueryParams) GetOffset() int32 {
 	return p.Offset
 }
 

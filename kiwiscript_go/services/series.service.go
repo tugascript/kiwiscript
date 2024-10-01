@@ -951,64 +951,69 @@ func (s *Services) findAllFilteredPublishedSeriesCount(
 	return count, nil
 }
 
-type FindPaginatedPublishedSeriesWithLanguageOptions struct {
+type FindPaginatedDiscoverySeriesOptions struct {
 	RequestID string
 	Offset    int32
 	Limit     int32
 }
 
-func (s *Services) FindPaginatedPublishedSeriesWithLanguage(
+func (s *Services) FindPaginatedDiscoverySeries(
 	ctx context.Context,
-	opts FindPaginatedPublishedSeriesWithLanguageOptions,
-) ([]db.FindPaginatedPublishedSeriesWithAuthorAndLanguageRow, int64, *exceptions.ServiceError) {
-	log := s.buildLogger(opts.RequestID, seriesLocation, "FindPaginatedPublishedSeriesWithLanguage").With(
+	opts FindPaginatedDiscoverySeriesOptions,
+) ([]db.SeriesModel, int64, *exceptions.ServiceError) {
+	log := s.buildLogger(opts.RequestID, seriesLocation, "FindPaginatedDiscoverySeries").With(
 		"offset", opts.Offset,
 		"limit", opts.Limit,
 	)
-	log.InfoContext(ctx, "Finding published series with language...")
+	log.InfoContext(ctx, "Finding published series for discovery...")
 
 	count, serviceErr := s.findAllPublishedSeriesCount(ctx, log)
 	if serviceErr != nil {
 		return nil, 0, serviceErr
 	}
 
+	seriesModels := make([]db.SeriesModel, 0)
 	if count == 0 {
-		log.DebugContext(ctx, "No series found with language", "count", count)
-		return make([]db.FindPaginatedPublishedSeriesWithAuthorAndLanguageRow, 0), 0, nil
+		log.DebugContext(ctx, "No published series found", "count", count)
+		return seriesModels, 0, nil
 	}
 
-	series, err := s.database.FindPaginatedPublishedSeriesWithAuthorAndLanguage(
+	series, err := s.database.FindPaginatedDiscoverySeriesWithAuthor(
 		ctx,
-		db.FindPaginatedPublishedSeriesWithAuthorAndLanguageParams{
+		db.FindPaginatedDiscoverySeriesWithAuthorParams{
 			Limit:  opts.Limit,
 			Offset: opts.Offset,
 		},
 	)
 	if err != nil {
-		log.ErrorContext(ctx, "Failed to find published series with language", "error", err)
+		log.ErrorContext(ctx, "Failed to find published series", "error", err)
 		return nil, 0, exceptions.FromDBError(err)
 	}
 
-	return series, count, nil
+	for _, ss := range series {
+		seriesModels = append(seriesModels, *ss.ToSeriesModel())
+	}
+
+	return seriesModels, count, nil
 }
 
-type FindFilteredPublishedSeriesWithLanguageOptions struct {
+type FindFilteredDiscoverySeriesOptions struct {
 	RequestID string
 	Search    string
 	Offset    int32
 	Limit     int32
 }
 
-func (s *Services) FindFilteredPublishedSeriesWithLanguage(
+func (s *Services) FindFilteredDiscoverySeries(
 	ctx context.Context,
-	opts FindFilteredPublishedSeriesWithLanguageOptions,
-) ([]db.FindFilteredPublishedSeriesWithAuthorAndLanguageRow, int64, *exceptions.ServiceError) {
-	log := s.buildLogger(opts.RequestID, seriesLocation, "FindFilteredPublishedSeriesWithLanguage").With(
+	opts FindFilteredDiscoverySeriesOptions,
+) ([]db.SeriesModel, int64, *exceptions.ServiceError) {
+	log := s.buildLogger(opts.RequestID, seriesLocation, "FindFilteredDiscoverySeries").With(
 		"search", opts.Search,
 		"offset", opts.Offset,
 		"limit", opts.Limit,
 	)
-	log.InfoContext(ctx, "Finding filtered published series with language...")
+	log.InfoContext(ctx, "Finding filtered published series for discovery...")
 
 	dbSearch := utils.DbSearch(opts.Search)
 	count, serviceErr := s.findAllFilteredPublishedSeriesCount(ctx, log, opts.Search)
@@ -1016,72 +1021,82 @@ func (s *Services) FindFilteredPublishedSeriesWithLanguage(
 		return nil, 0, serviceErr
 	}
 
+	seriesModels := make([]db.SeriesModel, 0)
 	if count == 0 {
-		log.DebugContext(ctx, "No series found with language", "count", count)
-		return make([]db.FindFilteredPublishedSeriesWithAuthorAndLanguageRow, 0), 0, nil
+		log.DebugContext(ctx, "No published series found", "count", count)
+		return seriesModels, 0, nil
 	}
 
-	series, err := s.database.FindFilteredPublishedSeriesWithAuthorAndLanguage(
+	series, err := s.database.FindFilteredDiscoverySeriesWithAuthor(
 		ctx,
-		db.FindFilteredPublishedSeriesWithAuthorAndLanguageParams{
+		db.FindFilteredDiscoverySeriesWithAuthorParams{
 			Title:  dbSearch,
 			Limit:  opts.Limit,
 			Offset: opts.Offset,
 		},
 	)
 	if err != nil {
-		log.ErrorContext(ctx, "Failed to find published series with language", "error", err)
+		log.ErrorContext(ctx, "Failed to find published series", "error", err)
 		return nil, 0, exceptions.FromDBError(err)
 	}
 
-	return series, count, nil
+	for _, ss := range series {
+		seriesModels = append(seriesModels, *ss.ToSeriesModel())
+	}
+
+	return seriesModels, count, nil
 }
 
-type FindPaginatedPublishedSeriesWithLanguageAndProgressOptions struct {
+type FindPaginatedDiscoverySeriesWithProgressOptions struct {
 	RequestID string
 	UserID    int32
 	Offset    int32
 	Limit     int32
 }
 
-func (s *Services) FindPaginatedPublishedSeriesWithLanguageAndProgress(
+func (s *Services) FindPaginatedDiscoverySeriesWithProgress(
 	ctx context.Context,
-	opts FindPaginatedLanguagesWithProgressOptions,
-) ([]db.FindPaginatedPublishedSeriesWithAuthorLanguageAndProgressRow, int64, *exceptions.ServiceError) {
+	opts FindPaginatedDiscoverySeriesWithProgressOptions,
+) ([]db.SeriesModel, int64, *exceptions.ServiceError) {
 	log := s.buildLogger(
 		opts.RequestID,
 		seriesLocation,
-		"FindPaginatedPublishedSeriesWithLanguageAndProgress",
-	).With("offset", opts.Offset, "limit", opts.Limit)
-	log.InfoContext(ctx, "Finding published series with language and progress...")
+		"FindPaginatedDiscoverySeriesWithProgress",
+	).With("userId", opts.UserID, "offset", opts.Offset, "limit", opts.Limit)
+	log.InfoContext(ctx, "Finding published series with progress for discovery...")
 
 	count, serviceErr := s.findAllPublishedSeriesCount(ctx, log)
 	if serviceErr != nil {
 		return nil, 0, serviceErr
 	}
 
+	seriesModels := make([]db.SeriesModel, 0)
 	if count == 0 {
-		log.DebugContext(ctx, "No series found with language and progress", "count", count)
-		return make([]db.FindPaginatedPublishedSeriesWithAuthorLanguageAndProgressRow, 0), 0, nil
+		log.DebugContext(ctx, "No published series with progress found", "count", count)
+		return seriesModels, 0, nil
 	}
 
-	series, err := s.database.FindPaginatedPublishedSeriesWithAuthorLanguageAndProgress(
+	series, err := s.database.FindPaginatedDiscoverySeriesWithAuthorAndProgress(
 		ctx,
-		db.FindPaginatedPublishedSeriesWithAuthorLanguageAndProgressParams{
+		db.FindPaginatedDiscoverySeriesWithAuthorAndProgressParams{
 			UserID: opts.UserID,
 			Limit:  opts.Limit,
 			Offset: opts.Offset,
 		},
 	)
 	if err != nil {
-		log.ErrorContext(ctx, "Failed to find published series with language and progress", "error", err)
+		log.ErrorContext(ctx, "Failed to find published series with progress", "error", err)
 		return nil, 0, exceptions.FromDBError(err)
 	}
 
-	return series, count, nil
+	for _, ss := range series {
+		seriesModels = append(seriesModels, *ss.ToSeriesModel())
+	}
+
+	return seriesModels, count, nil
 }
 
-type FindFilteredPublishedSeriesWithLanguageAndProgressOptions struct {
+type FindFilteredDiscoverySeriesWithProgressOptions struct {
 	RequestID string
 	UserID    int32
 	Search    string
@@ -1089,16 +1104,16 @@ type FindFilteredPublishedSeriesWithLanguageAndProgressOptions struct {
 	Limit     int32
 }
 
-func (s *Services) FindFilteredPublishedSeriesWithLanguageAndProgress(
+func (s *Services) FindFilteredDiscoverySeriesWithProgress(
 	ctx context.Context,
-	opts FindFilteredPublishedSeriesWithLanguageAndProgressOptions,
-) ([]db.FindFilteredPublishedSeriesWithAuthorLanguageAndProgressRow, int64, *exceptions.ServiceError) {
+	opts FindFilteredDiscoverySeriesWithProgressOptions,
+) ([]db.SeriesModel, int64, *exceptions.ServiceError) {
 	log := s.buildLogger(
 		opts.RequestID,
 		seriesLocation,
-		"FindFilteredPublishedSeriesWithLanguageAndProgress",
-	).With("userId", opts.UserID, "offset", opts.Offset, "limit", opts.Limit)
-	log.InfoContext(ctx, "Finding filtered published series with language and progress...")
+		"FindFilteredDiscoverySeriesWithProgress",
+	).With("userId", opts.UserID, "search", opts.Search, "offset", opts.Offset, "limit", opts.Limit)
+	log.InfoContext(ctx, "Finding filtered published series with progress for discovery...")
 
 	dbSearch := utils.DbSearch(opts.Search)
 	count, serviceErr := s.findAllFilteredPublishedSeriesCount(ctx, log, opts.Search)
@@ -1106,14 +1121,15 @@ func (s *Services) FindFilteredPublishedSeriesWithLanguageAndProgress(
 		return nil, 0, serviceErr
 	}
 
+	seriesModels := make([]db.SeriesModel, 0)
 	if count == 0 {
-		log.DebugContext(ctx, "No series found with language and progress", "count", count)
-		return make([]db.FindFilteredPublishedSeriesWithAuthorLanguageAndProgressRow, 0), 0, nil
+		log.DebugContext(ctx, "No published series found with progress", "count", count)
+		return seriesModels, 0, nil
 	}
 
-	series, err := s.database.FindFilteredPublishedSeriesWithAuthorLanguageAndProgress(
+	series, err := s.database.FindFilteredDiscoverySeriesWithAuthorAndProgress(
 		ctx,
-		db.FindFilteredPublishedSeriesWithAuthorLanguageAndProgressParams{
+		db.FindFilteredDiscoverySeriesWithAuthorAndProgressParams{
 			Limit:  opts.Limit,
 			Offset: opts.Offset,
 			Title:  dbSearch,
@@ -1121,9 +1137,13 @@ func (s *Services) FindFilteredPublishedSeriesWithLanguageAndProgress(
 		},
 	)
 	if err != nil {
-		log.ErrorContext(ctx, "Failed to find published series with language and progress", "error", err)
+		log.ErrorContext(ctx, "Failed to find published series with progress", "error", err)
 		return nil, 0, exceptions.FromDBError(err)
 	}
 
-	return series, count, nil
+	for _, ss := range series {
+		seriesModels = append(seriesModels, *ss.ToSeriesModel())
+	}
+
+	return seriesModels, count, nil
 }

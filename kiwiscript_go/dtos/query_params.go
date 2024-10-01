@@ -33,12 +33,12 @@ type PaginationQueryParams struct {
 	Offset int32 `validate:"omitempty,gte=0"`
 }
 
-func (p PaginationQueryParams) ToQueryString() string {
+func (p *PaginationQueryParams) ToQueryString() string {
 	return ""
 }
-func (p PaginationQueryParams) GetLimit() int32 {
+func (p *PaginationQueryParams) GetLimit() int32 {
 	return p.Limit
 }
-func (p PaginationQueryParams) GetOffset() int32 {
+func (p *PaginationQueryParams) GetOffset() int32 {
 	return p.Offset
 }

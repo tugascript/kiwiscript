@@ -165,6 +165,7 @@ func CreateApp(
 	rtr.OAuthPublicRoutes()
 	rtr.LanguagePublicRoutes()
 	rtr.SeriesPublicRoutes()
+	rtr.SeriesDiscoveryRoutes()
 	rtr.SeriesPicturesPublicRoutes()
 	rtr.SectionPublicRoutes()
 	rtr.LessonsPublicRoutes()

@@ -45,7 +45,7 @@ type GetLanguagesQueryParams struct {
 	Search string `validate:"omitempty,min=1,max=50,extalphanum"`
 }
 
-func (p GetLanguagesQueryParams) ToQueryString() string {
+func (p *GetLanguagesQueryParams) ToQueryString() string {
 	params := make(url.Values)
 
 	if p.Search != "" {
@@ -54,10 +54,10 @@ func (p GetLanguagesQueryParams) ToQueryString() string {
 
 	return params.Encode()
 }
-func (p GetLanguagesQueryParams) GetLimit() int32 {
+func (p *GetLanguagesQueryParams) GetLimit() int32 {
 	return p.Limit
 }
-func (p GetLanguagesQueryParams) GetOffset() int32 {
+func (p *GetLanguagesQueryParams) GetOffset() int32 {
 	return p.Offset
 }
 

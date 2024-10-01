@@ -702,3 +702,147 @@ func (s *FindPaginatedPublishedSeriesWithAuthorAndInnerProgressRow) ToSeriesMode
 		Picture: picture,
 	}
 }
+
+func (s *FindPaginatedDiscoverySeriesWithAuthorRow) ToSeriesModel() *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
+	return &SeriesModel{
+		ID:            s.ID,
+		Title:         s.Title,
+		Slug:          s.Slug,
+		LanguageSlug:  s.LanguageSlug,
+		Description:   s.Description,
+		TotalSections: s.SectionsCount,
+		TotalLessons:  s.LessonsCount,
+		IsPublished:   s.IsPublished,
+		WatchTime:     s.WatchTimeSeconds,
+		ReadTime:      s.ReadTimeSeconds,
+		Author: SeriesAuthor{
+			ID:        s.AuthorID,
+			FirstName: s.AuthorFirstName,
+			LastName:  s.AuthorLastName,
+		},
+		Picture: picture,
+	}
+}
+
+func (s *FindFilteredDiscoverySeriesWithAuthorRow) ToSeriesModel() *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
+	return &SeriesModel{
+		ID:            s.ID,
+		Title:         s.Title,
+		Slug:          s.Slug,
+		LanguageSlug:  s.LanguageSlug,
+		Description:   s.Description,
+		TotalSections: s.SectionsCount,
+		TotalLessons:  s.LessonsCount,
+		IsPublished:   s.IsPublished,
+		WatchTime:     s.WatchTimeSeconds,
+		ReadTime:      s.ReadTimeSeconds,
+		Author: SeriesAuthor{
+			ID:        s.AuthorID,
+			FirstName: s.AuthorFirstName,
+			LastName:  s.AuthorLastName,
+		},
+		Picture: picture,
+	}
+}
+
+func (s *FindPaginatedDiscoverySeriesWithAuthorAndProgressRow) ToSeriesModel() *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
+	var viewedAt string
+	if s.SeriesProgressViewedAt.Valid {
+		viewedAt = s.SeriesProgressViewedAt.Time.Format(time.RFC3339)
+	}
+
+	var completedAt string
+	if s.SeriesProgressCompletedAt.Valid {
+		completedAt = s.SeriesProgressCompletedAt.Time.Format(time.RFC3339)
+	}
+
+	return &SeriesModel{
+		ID:                s.ID,
+		Title:             s.Title,
+		Slug:              s.Slug,
+		LanguageSlug:      s.LanguageSlug,
+		Description:       s.Description,
+		CompletedSections: s.SeriesProgressCompletedSections.Int16,
+		TotalSections:     s.SectionsCount,
+		CompletedLessons:  s.SeriesProgressCompletedLessons.Int16,
+		TotalLessons:      s.LessonsCount,
+		IsPublished:       s.IsPublished,
+		WatchTime:         s.WatchTimeSeconds,
+		ReadTime:          s.ReadTimeSeconds,
+		ViewedAt:          viewedAt,
+		CompletedAt:       completedAt,
+		Author: SeriesAuthor{
+			ID:        s.AuthorID,
+			FirstName: s.AuthorFirstName,
+			LastName:  s.AuthorLastName,
+		},
+		Picture: picture,
+	}
+}
+
+func (s *FindFilteredDiscoverySeriesWithAuthorAndProgressRow) ToSeriesModel() *SeriesModel {
+	var picture *SeriesPictureIDAndEXT
+	if s.PictureID.Valid && s.PictureExt.Valid {
+		picture = &SeriesPictureIDAndEXT{
+			ID:  s.PictureID.Bytes,
+			EXT: s.PictureExt.String,
+		}
+	}
+
+	var viewedAt string
+	if s.SeriesProgressViewedAt.Valid {
+		viewedAt = s.SeriesProgressViewedAt.Time.Format(time.RFC3339)
+	}
+
+	var completedAt string
+	if s.SeriesProgressCompletedAt.Valid {
+		completedAt = s.SeriesProgressCompletedAt.Time.Format(time.RFC3339)
+	}
+
+	return &SeriesModel{
+		ID:                s.ID,
+		Title:             s.Title,
+		Slug:              s.Slug,
+		LanguageSlug:      s.LanguageSlug,
+		Description:       s.Description,
+		CompletedSections: s.SeriesProgressCompletedSections.Int16,
+		TotalSections:     s.SectionsCount,
+		CompletedLessons:  s.SeriesProgressCompletedLessons.Int16,
+		TotalLessons:      s.LessonsCount,
+		IsPublished:       s.IsPublished,
+		WatchTime:         s.WatchTimeSeconds,
+		ReadTime:          s.ReadTimeSeconds,
+		ViewedAt:          viewedAt,
+		CompletedAt:       completedAt,
+		Author: SeriesAuthor{
+			ID:        s.AuthorID,
+			FirstName: s.AuthorFirstName,
+			LastName:  s.AuthorLastName,
+		},
+		Picture: picture,
+	}
+}

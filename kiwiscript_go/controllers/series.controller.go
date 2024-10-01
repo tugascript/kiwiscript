@@ -699,7 +699,7 @@ func (c *Controllers) GetPaginatedViewedSeries(ctx *fiber.Ctx) error {
 	log := c.buildLogger(ctx, requestID, seriesLocation, "GetPaginatedViewedSeries").With(
 		"languageSlug", languageSlug,
 	)
-	log.InfoContext(userCtx, "Deleting series...")
+	log.InfoContext(userCtx, "Getting paginated viewed series...")
 
 	user, err := c.GetUserClaims(ctx)
 	if err != nil {
@@ -761,6 +761,108 @@ func (c *Controllers) GetPaginatedViewedSeries(ctx *fiber.Ctx) error {
 		dtos.NewPaginatedResponse(
 			c.backendDomain,
 			paginationPath,
+			&queryParams,
+			count,
+			seriesModels,
+			func(model *db.SeriesModel) *dtos.SeriesResponse {
+				return mapSeriesResponse(c.backendDomain, model, fileURLs)
+			},
+		),
+	)
+}
+
+func (c *Controllers) GetDiscoverySeries(ctx *fiber.Ctx) error {
+	requestID := c.requestID(ctx)
+	userCtx := ctx.UserContext()
+	log := c.buildLogger(ctx, requestID, seriesLocation, "GetDiscoverySeries")
+	log.InfoContext(userCtx, "Getting paginated published series for discovery...")
+
+	queryParams := dtos.DiscoverySeriesQueryParams{
+		Search: ctx.Query("search"),
+		Offset: int32(ctx.QueryInt("offset", dtos.OffsetDefault)),
+		Limit:  int32(ctx.QueryInt("limit", dtos.LimitDefault)),
+	}
+	if err := c.validate.StructCtx(userCtx, queryParams); err != nil {
+		return c.validateQueryErrorResponse(log, userCtx, err, ctx)
+	}
+
+	var seriesModels []db.SeriesModel
+	var count int64
+	var serviceErr *exceptions.ServiceError
+
+	if user, err := c.GetUserClaims(ctx); err == nil && !user.IsStaff {
+		if queryParams.Search != "" {
+			seriesModels, count, serviceErr = c.services.FindFilteredDiscoverySeriesWithProgress(
+				userCtx,
+				services.FindFilteredDiscoverySeriesWithProgressOptions{
+					RequestID: requestID,
+					UserID:    user.ID,
+					Search:    queryParams.Search,
+					Offset:    queryParams.Offset,
+					Limit:     queryParams.Limit,
+				},
+			)
+		} else {
+			seriesModels, count, serviceErr = c.services.FindPaginatedDiscoverySeriesWithProgress(
+				userCtx,
+				services.FindPaginatedDiscoverySeriesWithProgressOptions{
+					RequestID: requestID,
+					UserID:    user.ID,
+					Offset:    queryParams.Offset,
+					Limit:     queryParams.Limit,
+				},
+			)
+		}
+	} else {
+		if queryParams.Search != "" {
+			seriesModels, count, serviceErr = c.services.FindFilteredDiscoverySeries(
+				userCtx,
+				services.FindFilteredDiscoverySeriesOptions{
+					RequestID: requestID,
+					Search:    queryParams.Search,
+					Offset:    queryParams.Offset,
+					Limit:     queryParams.Limit,
+				},
+			)
+		} else {
+			seriesModels, count, serviceErr = c.services.FindPaginatedDiscoverySeries(
+				userCtx,
+				services.FindPaginatedDiscoverySeriesOptions{
+					RequestID: requestID,
+					Offset:    queryParams.Offset,
+					Limit:     queryParams.Limit,
+				},
+			)
+		}
+	}
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	fileURLs, serviceErr := c.findSeriesPictureURLs(userCtx, seriesModels)
+	if serviceErr != nil {
+		return c.serviceErrorResponse(serviceErr, ctx)
+	}
+
+	if fileURLs == nil {
+		return ctx.JSON(
+			dtos.NewPaginatedResponse(
+				c.backendDomain,
+				paths.DiscoverV1,
+				&queryParams,
+				count,
+				seriesModels,
+				func(dto *db.SeriesModel) *dtos.SeriesResponse {
+					return dtos.NewSeriesResponse(c.backendDomain, dto, "")
+				},
+			),
+		)
+	}
+
+	return ctx.JSON(
+		dtos.NewPaginatedResponse(
+			c.backendDomain,
+			paths.DiscoverV1,
 			&queryParams,
 			count,
 			seriesModels,

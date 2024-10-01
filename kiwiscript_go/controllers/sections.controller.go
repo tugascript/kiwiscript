@@ -214,7 +214,7 @@ func (c *Controllers) GetSections(ctx *fiber.Ctx) error {
 						seriesSlug,
 						paths.SectionsPath,
 					),
-					queryParams,
+					&queryParams,
 					count,
 					sections,
 					func(s *db.Section) *dtos.SectionResponse {
@@ -250,7 +250,7 @@ func (c *Controllers) GetSections(ctx *fiber.Ctx) error {
 					seriesSlug,
 					paths.SectionsPath,
 				),
-				queryParams,
+				&queryParams,
 				count,
 				sections,
 				func(s *db.FindPaginatedPublishedSectionsBySlugsWithProgressRow) *dtos.SectionResponse {
@@ -285,7 +285,7 @@ func (c *Controllers) GetSections(ctx *fiber.Ctx) error {
 				seriesSlug,
 				paths.SectionsPath,
 			),
-			queryParams,
+			&queryParams,
 			count,
 			sections,
 			func(s *db.Section) *dtos.SectionResponse {
