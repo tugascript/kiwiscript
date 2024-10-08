@@ -2,25 +2,27 @@ use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 
+use super::components::{auth, shared};
+use super::screens::auth::SignUpScreen;
+
 #[component]
 pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
 
     view! {
-        // injects a stylesheet into the document <head>
-        // id=leptos means cargo-leptos will hot-reload this stylesheet
-        <Stylesheet id="leptos" href="/pkg/kiwiscript-rust.css"/>
+        <Stylesheet id="leptos" href="/pkg/kiwiscript-rust.css" />
 
         // sets the document title
-        <Title text="Welcome to Leptos"/>
+        <Title text="Welcome to Leptos" />
 
         // content for this welcome page
         <Router>
             <main>
                 <Routes>
-                    <Route path="" view=HomePage/>
-                    <Route path="/*any" view=NotFound/>
+                    <Route path="" view=HomePage />
+                    <Route path="sign-up" view=SignUpScreen />
+                    <Route path="/*any" view=NotFound />
                 </Routes>
             </main>
         </Router>
@@ -35,8 +37,10 @@ fn HomePage() -> impl IntoView {
     let on_click = move |_| set_count.update(|count| *count += 1);
 
     view! {
-        <h1>"Welcome to Leptos!"</h1>
-        <button on:click=on_click>"Click Me: " {count}</button>
+        <shared::Navbar />
+        <p class="h1">"Welcome to Leptos!"</p>
+        <button on:click=on_click>"Click Me 3: " {count}</button>
+        <auth::SignUpForm />
     }
 }
 
@@ -57,7 +61,5 @@ fn NotFound() -> impl IntoView {
         resp.set_status(actix_web::http::StatusCode::NOT_FOUND);
     }
 
-    view! {
-        <h1>"Not Found"</h1>
-    }
+    view! { <h1>"Not Found"</h1> }
 }

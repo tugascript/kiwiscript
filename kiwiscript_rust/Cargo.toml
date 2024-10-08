@@ -9,6 +9,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 actix-files = { version = "0.6", optional = true }
 actix-web = { version = "4", optional = true, features = ["macros"] }
+reqwest = { version = "0.12", features = ["json"] }
 console_error_panic_hook = "0.1"
 http = { version = "1.0.0", optional = true }
 leptos = { version = "0.6", features = ["nightly"] }
@@ -21,12 +22,12 @@ wasm-bindgen = "=0.2.93"
 csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
 ssr = [
-  "dep:actix-files",
-  "dep:actix-web",
-  "dep:leptos_actix",
-  "leptos/ssr",
-  "leptos_meta/ssr",
-  "leptos_router/ssr",
+    "dep:actix-files",
+    "dep:actix-web",
+    "dep:leptos_actix",
+    "leptos/ssr",
+    "leptos_meta/ssr",
+    "leptos_router/ssr",
 ]
 
 # Defines a size-optimized profile for the WASM bundle in release mode
