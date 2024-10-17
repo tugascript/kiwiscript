@@ -2,7 +2,7 @@ use leptos::*;
 use leptos_meta::*;
 use leptos_router::*;
 
-use super::components::{auth, shared};
+use super::components::shared;
 use super::screens::auth::SignUpScreen;
 
 #[component]
@@ -39,8 +39,7 @@ fn HomePage() -> impl IntoView {
     view! {
         <shared::Navbar />
         <p class="h1">"Welcome to Leptos!"</p>
-        <button on:click=on_click>"Click Me 3: " {count}</button>
-        <auth::SignUpForm />
+        <button on:click=on_click>"Click Me: " {count}</button>
     }
 }
 
